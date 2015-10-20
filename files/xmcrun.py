@@ -61,7 +61,7 @@ def read_parnames(runpath):
 #          and merge into a single tab-separated text file, with an extra
 #          column to specify iteration
 #          
-#Usage: merge_output(filepath,filetype='deconvolution')
+#Usage: merge_output(filepath,filetype='deconvolution',save=True)
 #
 #Input:
 #
@@ -71,19 +71,25 @@ def read_parnames(runpath):
 #  filetype     -- string containing the type of xmc file to merge
 #                  deconvolution, statistic, sigma, mean, changed
 #
+#  save         -- boolean switch to prevent saving of the merged 
+#                  file. use save=False if all that is need is the merged 
+#                  dataframe (default=True).
+#
 #Output:
-#  writes a text file <filetype>_merged.txt into the filepath directory
-#  returns the new file name as a string
+#  - if save=True, writes a text file <filetype>_merged.txt into the filepath 
+#    directory
+#  - returns a pandas dataframe containing data from all the input files
 #
 #Usage Notes:
 #  - overwrites the file if it already exists
 #  - automatically includes all iterations present
-#  - iterations are not written in order
+#  - iterations are not written in order, but and extra column is added
+#    to specify which iteration each row is associated with
 #  - the created file can be read into a dataframe using
 #    datatable = pd.read_table(mergedfile,sep='\t')
 #
 
-def merge_output(filepath,filetype='deconvolution'):
+def merge_output(filepath,filetype='deconvolution',save=True):
 
     # - get list of files - 
     filelist = utilities.ls_to_list(filepath,ls_args = filetype+'*')
@@ -118,9 +124,10 @@ def merge_output(filepath,filetype='deconvolution'):
         datatable = pd.concat([datatable,newframe],ignore_index=True)
         
     # -- Write to file --
-    datatable.to_csv(filepath+'/'+filetype+'_merged.txt',sep='\t')
+    if save == True: datatable.to_csv(filepath+'/'+filetype+'_merged.txt',
+                                      sep='\t')
 
-    return filetype+'_merged.txt'
+    return datatable
 
 #----------------------------------------------------------
 # get_xmcoutput
