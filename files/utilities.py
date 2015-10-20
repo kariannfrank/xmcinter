@@ -114,8 +114,8 @@ def fetch_file(search_dir,pat='evt2',prompt='yes'):
     if prompt=='no':
       sys.exit('ERROR: no file found in '+search_dir+' matching '+pat)
     else:
-      file = raw_input('No file found matching '+pat+'\nEnter full path 
-                       to file: ')
+      inquiry = 'No file found matching '+pat+'\nEnter full path to file: '
+      file = raw_input(inquiry)
       if os.path.isfile(file)==False: #make sure given file exists
         sys.exit('ERROR: Specified file does not exist.')
       else:

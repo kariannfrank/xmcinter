@@ -103,7 +103,7 @@ def merge_output(filepath,filetype='deconvolution',save=True):
     parnames = []
     # read header information
     if filetype == 'statistic':
-        parnames =  ['stat1','dof','oversim','nblobs','alpha','chi2','iteration']
+        parnames =  ['stat1','dof','oversim','nblobs','alpha','chi2']
         datatable.columns = parnames
     if filetype == 'deconvolution':
         if os.path.isfile(filepath+'/parameters.txt'):
@@ -115,8 +115,7 @@ def merge_output(filepath,filetype='deconvolution',save=True):
     datatable['iteration'] = iternum
 
     # -- Loop through files and concatenate into single dataframe --
-    for f in filelist[1:]:
-        print f
+    for f in filelist[1:]:        
         newframe = pd.read_table(filepath+'/'+f,sep='\s+',header=None)
         iternum = int(f.split('.')[-1]) # returns integer
         if len(parnames) > 0: newframe.columns=parnames
