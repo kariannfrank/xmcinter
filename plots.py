@@ -54,4 +54,4 @@ def chi2(runpath,itmin=0,itmax=None):
     plt.show()
 
 #----Return----
-    return True
+    return blobframe
