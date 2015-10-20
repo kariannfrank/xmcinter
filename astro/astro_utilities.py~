@@ -1,0 +1,304 @@
+#----------------------------------------------------------
+#Module of handy general astronomy functions
+#
+#Contains the following functions:
+#
+# norm_to_em
+# transfer_header()
+# normalize_image()
+# stack_images()
+# angstroms2keV()
+# chandra_psf_wing()
+#
+#----------------------------------------------------------
+
+
+
+#----------------------------------------------------------
+#norm_to_em()
+
+#Author: Kari Frank
+#Date: March 28, 2014
+#Purpose: given model normalization (as defined for Xspec mekal model),
+#          distance in cm, and redshift, return the emission measure
+#         
+#Usage: norm_to_em(norm,dist,redshift=redshift)
+#Input: 
+#  norm -- model normalization, in units output by Xspec 
+#  dist -- distance to the object in cm
+#  redshift -- redshift of the object. default = 0.0
+#
+#Output:
+#  returns emission measure corresponding to the given norm (float).
+#Usage Notes:
+# 
+# - Assumes  
+#      norm = 10^14/4pi[dist(1+z)]^2 * EM
+# - Units of returned emission measure are cm^-3
+# - EM = n_e*n_H*V
+
+def norm_to_em(norm,dist,redshift=0.0):
+
+  import numpy #for pi
+
+  #-convert to emission measure-
+  em = norm*10.0**(14.0)*dist*4.0*numpy.pi*dist*(1.0+redshift)**2.0
+  
+  #-return emission measure-
+  return em
+
+
+#----------------------------------------------------------
+#transfer_header()
+
+#Author: Kari Frank
+#Date: April 4, 2014
+#Purpose: copy a header from one fits file into another fits file
+#         
+#         
+#Usage: transfer_header(sourcefile,targetfile,newfile)
+#Input: 
+#  sourcefile -- fits file from which to read the header
+#  targetfile -- fits file which will have its header replaced
+#  newfile    -- new fits file name to save the edited targetfile
+#
+#Output:
+#  makes a copy of targetfile with the header replaced by that
+#   from sourcefile.
+#  returns the name of the new file (newfile)
+#
+#Usage Notes:
+#  
+# 
+# 
+
+def transfer_header(sourcefile,targetfile,newfile):
+
+  #from astropy.io import fits
+  import pyfits as fits
+
+  #-get sourcefile header-
+  source_hdus = fits.open(sourcefile)
+  source_hdr = source_hdus[0].header
+  new_hdr = source_hdr.copy()
+  source_hdus.close()
+
+  #-open targetfile-
+  target_hdus = fits.open(targetfile)
+  target_img = target_hdus[0].data
+  new_img = target_img.copy()
+  target_hdus.close()
+  
+  #-write to file-
+  fits.writeto(newfile,new_img,new_hdr,clobber=True)
+
+  return newfile
+
+
+#----------------------------------------------------------
+#normalize_image()
+
+#Author: Kari Frank
+#Date: February 2, 2015
+#Purpose: Normalize a fits image such that is sums to 1
+#         
+#Usage: normalize_image(infile,outfile='default')
+#Input: 
+#  infile -- fits file to normalize
+#  outfile -- name of output normalized fits image. default is infile+'.norm'
+#
+#Output:
+#  makes a copy of infile that is normalized
+#  returns normalized image array
+#
+#Usage Notes:
+#  
+# 
+# 
+
+def normalize_image(infile,outfile='default'):
+
+  #from astropy.io import fits
+  import pyfits as fits
+  import numpy as np
+  import shutil
+
+  #-set output file name-
+  if outfile=='default':
+    outfile=infile+'.norm'
+
+  #-copy image file-
+  shutil.copy(infile,outfile)
+
+  #-open file-
+  hdus = fits.open(outfile,mode='update')
+  
+  #-normalize-
+  out_img = hdus[0].data
+  out_img = out_img.astype(float)
+  out_img=out_img/np.sum(out_img)
+  hdus[0].data = out_img
+
+  #-write normalized file-
+  #in_hdus.writeto(outfile,clobber=True)
+ 
+  hdus.close()
+
+  return out_img
+
+#----------------------------------------------------------
+#stack_images()
+
+#Author: Kari Frank
+#Date: February 3, 2015
+#Purpose: Read in stack of fits images and add them together.
+#         
+#Usage: stack_images(infiles,outfile='default')
+#Input: 
+#  infile -- list of fits image filenames to stack
+#  outfile -- name of output stacked fits image. default is 'stacked.fits'
+#
+#Output:
+#  fits image file containing sum of input images
+#  returns the stacked image numpy array
+#
+#Usage Notes:
+# - assumes images are already aligned (in image coordinates) 
+# - the output file, including header, is a copy of the first
+#   input image with modified image data
+
+def stack_images(infiles,outfile='default'):
+
+  #from astropy.io import fits
+  import pyfits as fits
+  import numpy as np
+  import shutil
+
+  #-set output file name-
+  if outfile=='default':
+    outfile='stacked.fits'
+
+  #-copy image file-
+  shutil.copy(infiles[0],outfile)
+
+  #-open output file-
+  hdus = fits.open(outfile,mode='update')
+  out_img = hdus[0].data
+
+
+  #-loop through remaining images-
+  for infile in infiles[1:]:
+    inhdus = fits.open(infile)
+    in_img = inhdus[0].data
+    out_img = out_img+in_img
+    inhdus.close()
+
+  #-flush updated image array to file and close-
+  hdus[0].data = out_img
+  hdus.close()
+
+  return out_img
+
+#----------------------------------------------------------
+#angstroms2keV()
+
+#Author: Kari Frank
+#Date: July 13, 2015
+#Purpose: quickly convert angstroms to keV
+#         
+#Usage: angstroms2keV(inwave)
+#Input: 
+#  inwave -- input wavelength, in angstroms
+#
+#Output:
+#  returns the wavelength in keV (if input was angstroms)
+#   or the wavelength in angstrom (if the input was keV)
+#
+#Usage Notes:
+# - uses E=h*c/lambda
+
+def angstroms2keV(inwave,reverse=False):
+
+  #-set conversion constant-
+  C = 12.398521
+  
+  #-convert (same equation regardless of reverse)-
+  outwave = C / inwave
+
+  return outwave
+
+#----------------------------------------------------------
+
+#hms2deg()
+
+#Author: Kari Frank
+#Date: February 4, 2014
+#Purpose: convert given celestial ra or dec in h:m:s/deg:m:s 
+#         format to decimal degrees
+#         
+#Usage: deg_coords = hms2deg('hh:mm:ss.s',incoord=incoord)
+#
+#Input: 
+#  'hh:mm:ss.s': string containing either the ra in 'hh:mm:ss.s'
+#                format, or the declination in '+-deg:mm:ss.s' format
+#
+#  incoord: string, 'ra' or 'dec' to specify if input coordinate 
+#           is ra or dec
+#           
+#Output:
+#  - Returns a string containing the coordinate in decimal degrees
+#    
+#
+#Usage Notes:
+#
+#
+#def hms2deg(instr,incoord=incoord):
+
+  #-import modules-
+
+  #-return list-
+#  return good_lines
+#----------------------------------------------------------
+#----------------------------------------------------------
+#chandra_psf_wing()
+
+#Author: Kari Frank
+#Date: July 24, 2015
+#Purpose: estimate the surface brightness due to the chandra psf wings
+#          at a given distance from a bright point source
+#         
+#Usage: sb=chandra_psf_wing(dist,counts,y,a,c)
+#Input: 
+#  dist -- distance in arcsec from the on-axis source
+#  counts -- total number of counts in the point source
+#  y,a,c -- parameters that describe the psf wing profile
+#           (from cxc.harvard.edu/cal/Hrma/HerX1-Wings.html)
+#
+#Output:
+#  returns the surface brightness in counts/arcsec^2 expected due to the 
+#    psf wings
+#
+#Usage Notes:
+# 
+# - Only works for dist>15"
+# - Profiles are of the form psi=a * (theta/theta0)^(-y) * exp(-c*theta)
+#     - theta0 is nominally 10"
+# - set counts=1 to return the normalized surface brightness
+
+def chandra_psf_wing(dist,y,a,c,counts=1):
+
+  from math import exp
+
+  #--set constants--
+  theta0=10.0
+
+  #--calculate normalized surface brightness--
+  sb = a * ((dist/theta0)**(-1.*y)) * exp(-1.*c*dist)
+
+  #--convert to counts/arcsec^2--
+  sb = counts*sb
+
+  #--return final value--
+  return sb
+
+#----------------------------------------------------------

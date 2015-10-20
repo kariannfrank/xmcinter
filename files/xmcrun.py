@@ -32,7 +32,8 @@ import utilities
 #  runpath -- Path to xmc run directory, containing the file parameters.txt.
 #             Only the first line of the file is read.  Parameter names
 #             should contain no spaces or punctuation and are assumed to be 
-#             separated by commas.
+#             separated by commas. They should correspond to the columns
+#             of the deconvolution files.
 #
 #Output:
 #  
