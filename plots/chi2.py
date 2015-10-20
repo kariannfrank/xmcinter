@@ -27,9 +27,9 @@
 #----Import Modules----
 
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import ..files.xmcrun.merge_output
+#import ..files.xmcrun.merge_output
+from ..files.xmcrun import merge_output
 
 #----BEGIN FUNCTION----
 
