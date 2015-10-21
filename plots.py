@@ -7,7 +7,7 @@
 #----------------------------------------------------------
 
 #-import common modules-
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import pandas as pd
 
 #----------------------------------------------------------
@@ -24,7 +24,6 @@ import pandas as pd
 # runpath:     string containing the relative path to xmc run folder, which
 #              contains the statistic.* files.
 #
-# itmin/itmax: optionally provide the minimum and maximum iterations to include
 #             
 #Output:
 # - plots chi2 vs iteration for the specified iteration to an interactive plot
@@ -36,22 +35,32 @@ import pandas as pd
 # 
 #
 
+def chi2(runpath):
+
 #----Import Modules----
-from .files.xmcrun import merge_output
-
-#----BEGIN FUNCTION----
-
-def chi2(runpath,itmin=0,itmax=None):
+    from .files.xmcrun import merge_output
+    import bokeh
+    from bokeh.plotting import figure, output_file, show
 
 #----Read statistic files----
-    blobframe = merge_output(runpath,filetype='statistic',save=False)
+    statframe = merge_output(runpath,filetype='statistic',save=False)
 
 #----Calculate reduced chi2----
-    blobframe['redchi2'] = blobframe['chi2']/blobframe['dof']
+    statframe['redchi2'] = statframe['chi2']/statframe['dof']
+
+#----Set up Plot----
+    output_file('chi2_vs_iteration.html')
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
+    fig = figure(tools=TOOLS)
+    fig.xaxis.axis_label='iteration'
+    fig.yaxis.axis_label='chi2/dof'
 
 #----Plot chi2 vs iteration----
-    blobframe.plot(x='iteration',y='redchi2',kind='scatter')#
-    plt.show()
+#    statframe.plot(x='iteration',y='redchi2',kind='scatter')#
+#    plt.show()
+
+    fig.circle(x=statframe['iteration'],y=statframe['redchi2'])
+    show(fig)
 
 #----Return----
-    return blobframe
+    return statframe
