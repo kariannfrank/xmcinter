@@ -60,7 +60,7 @@ def chi2(runpath):
 #    plt.show()
 
     fig.circle(x=statframe['iteration'],y=statframe['redchi2'])
-    show(fig)
+    show(fig,new='window')
 
 #----Return----
     return statframe
