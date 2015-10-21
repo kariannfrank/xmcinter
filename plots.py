@@ -41,6 +41,7 @@ def chi2(runpath):
     from .files.xmcrun import merge_output
     import bokeh
     from bokeh.plotting import figure, output_file, show
+    #from bokeh.mpl import to_bokeh
 
 #----Read statistic files----
     statframe = merge_output(runpath,filetype='statistic',save=False)
@@ -56,11 +57,11 @@ def chi2(runpath):
     fig.yaxis.axis_label='chi2/dof'
 
 #----Plot chi2 vs iteration----
-#    statframe.plot(x='iteration',y='redchi2',kind='scatter')#
+#    statframe.plot(x='iteration',y='redchi2',kind='scatter')
 #    plt.show()
 
     fig.circle(x=statframe['iteration'],y=statframe['redchi2'])
-    show(fig,new='window')
+    show(fig)#,new='window',browser='firefox --no-remote')
 
 #----Return----
     return statframe
