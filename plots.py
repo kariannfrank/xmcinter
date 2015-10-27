@@ -142,7 +142,7 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
             if col < row:
                 # create scatter plot
                 newfig = bplt.figure(width=wi,height=he,tools=TOOLS)
-                newfig.circle(df.columns[col],df.columns[row],
+                newfig.scatter(df.columns[col],df.columns[row],
                               color='navy',source=source,size=1)
                 # add axis labels if on edge, remove tick labels if not
                 if col == 0:
