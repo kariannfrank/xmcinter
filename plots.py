@@ -105,10 +105,7 @@ def chi2(runpath):
 def traceplots(dframe,agg='sampling',npoints=1000.0):
 
 #----Import Modules----
-#    from bokeh.io import gridplot
     from bokeh.models import ColumnDataSource
-#    from pandas.tools.plotting import scatter_matrix
-#    import mpld3
     
 #----Aggregate Data----
     if agg=='none':
@@ -121,7 +118,6 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
     bplt.output_file('traceplots.html')
     source = ColumnDataSource(df)
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
-#    fig = bplt.figure(tools=TOOLS)
     w = 300 # plot width 
     h = 300 # plot height
 
@@ -130,26 +126,23 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 #--initialize figure array--
     dim = len(df.columns)
     figlist=[[None]*dim for i in range(dim)]
-#    figlist=[None]
 
 #--loop through parameters and fill in scatter matrix (empty above diagonal)--
-
     for col in range(dim):
         for row in range(dim):
-#            print 'row,col=',row,col
-            if col <= row:
-                # increase size if on edge (provide space for axis labels)
-                if col == 0:
-                    wi=w+20
-                else:
-                    wi=w
-                if row == dim-1:
-                    he=h+20
-                else:
-                    he=h
+            # increase size if on edge (provide space for axis labels)
+            if col == 0:
+                wi=w+20
+            else:
+                wi=w
+            if row == dim-1:
+                he=h+20
+            else:
+                he=h
+            if col < row:
                 # create scatter plot
                 newfig = bplt.figure(width=wi,height=he,tools=TOOLS)
-                newfig.circle(df.columns[row],df.columns[col],
+                newfig.circle(df.columns[col],df.columns[row],
                               color='navy',source=source,size=1)
                 # add axis labels if on edge, remove tick labels if not
                 if col == 0:
@@ -162,10 +155,10 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
                     newfig.xaxis.major_label_text_color = None
                 # add to figure array
                 figlist[row][col]=newfig
-#                figlist=figlist+[newfig]
-##            if col == row:
+            if col == row:
                 # plot histogram
-##                newfig = bchart.Histogram(df,values=df.columns[col],bins=50)#,source=source)
+                newfig = bchart.Histogram(df,values=df.columns[col],bins=30,
+                                          width=wi,height=he,tools=TOOLS)
                 # add axis label if corner, remove tick labels if not
 ##                if col == 0:
 ##                    newfig.yaxis.axis_label=df.columns[row]
@@ -176,19 +169,14 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 ##                else:
 ##                    newfig.xaxis.major_label_text_font_color = None
                 # add to figure array
-##                figlist[row][col]=newfig
+                figlist[row][col]=newfig
             if col > row:
-                # leave plot empty (None)
-                figlist[row][col]=bplt.figure(width=w,height=h,tools=TOOLS)
+                # leave plot empty
+                figlist[row][col]=bplt.figure(width=wi,height=he,tools=TOOLS)
 
 #--plot grid--
     p = bplt.gridplot(figlist)
-#    print figlist
     bplt.show(p)
 
-#    fig = scatter_matrix(df,alpha=0.2,diagonal='kde')
-#    plugins.connect(fig,plugins.LinkedBrush(fig))
-#    mpld3.show()
-
 #----Return----
-    return p
+    return figlist
