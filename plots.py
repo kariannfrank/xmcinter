@@ -20,7 +20,7 @@ import bokeh.charts as bchart
 #         the statistic.* files output by xmc.  This is mainly intended
 #         as a quick way to check the convergence of an ongoing xmc run.
 #
-#Usage: chi2(runpath,itmin=itmin,itmax=itmax)
+#Usage: chi2(runpath)
 #
 #Input:
 # 
@@ -157,7 +157,7 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
                 figlist[row][col]=newfig
             if col == row:
                 # plot histogram
-                newfig = bchart.Histogram(df,values=df.columns[col],bins=30,
+                newfig = bchart.Histogram(df[df.columns[col]],bins=30,
                                           width=wi,height=he,tools=TOOLS)
                 # add axis label if corner, remove tick labels if not
 ##                if col == 0:
