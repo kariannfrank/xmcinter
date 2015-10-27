@@ -142,8 +142,8 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
             if col < row:
                 # create scatter plot
                 newfig = bplt.figure(width=wi,height=he,tools=TOOLS)
-                newfig.scatter(df.columns[col],df.columns[row],
-                              color='navy',source=source,size=1)
+                newfig.circle(df.columns[col],df.columns[row],
+                             color='navy',source=source,size=1)
                 # add axis labels if on edge, remove tick labels if not
                 if col == 0:
                     newfig.yaxis.axis_label=df.columns[row]
@@ -157,6 +157,7 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
                 figlist[row][col]=newfig
             if col == row:
                 # plot histogram
+                print 'df.columns[col]',df.columns[col]
                 newfig = bchart.Histogram(df,values=df.columns[col],bins=30,
                                           width=wi,height=he,tools=TOOLS)
                 # add axis label if corner, remove tick labels if not
