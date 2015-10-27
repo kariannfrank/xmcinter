@@ -5,7 +5,6 @@
 #
 # parse_file_line
 # read_parnames
-# get_xmcoutput
 
 # functions using pandas:
 #  merge_output -- replaces get_deconvolution, get_statistic, and get_xmcoutput
@@ -91,7 +90,7 @@ def read_parnames(runpath):
 #  - iterations are not written in order, but an extra column is added
 #    to specify which iteration each row is associated with
 #  - the created file can be read into a dataframe using
-#    datatable = pd.read_table(mergedfile,sep='\t')
+#    datatable = pd.read_table(mergedfile,sep='\t',index_col=0)
 #
 
 def merge_output(filepath,filetype='deconvolution',save=True,sep='\t'):
