@@ -11,6 +11,7 @@
 import pandas as pd
 import bokeh
 import bokeh.plotting as bplt
+import bokeh.charts as bchart
 
 #----------------------------------------------------------
 #Author: Kari A. Frank
@@ -84,10 +85,10 @@ def chi2(runpath):
 #         - 'none' (plot all rows)
 #         - 'sampling' (take random subsample of rows, default)
 #         - 'contour' (plot density contours instead of points - does not 
-#            use linked brushing)
+#            use linked brushing) -- not yet implemented
 #
 #  npoints: number of aggregated points to plot, ignored if agg='none' 
-#           (default = 1000.0)
+#           or agg='contour' (default = 1000.0)
 #           
 #             
 #Output:
@@ -104,37 +105,90 @@ def chi2(runpath):
 def traceplots(dframe,agg='sampling',npoints=1000.0):
 
 #----Import Modules----
-from bokeh.io import gridplot
-
+#    from bokeh.io import gridplot
+    from bokeh.models import ColumnDataSource
+#    from pandas.tools.plotting import scatter_matrix
+#    import mpld3
+    
 #----Aggregate Data----
-
+    if agg=='none':
+        df = dframe
+    if agg=='sampling':
+        df = dframe.sample(npoints)
+#    if agg=='contour':
 
 #----Set up plot----
-    output_file('traceplots.html')
+    bplt.output_file('traceplots.html')
+    source = ColumnDataSource(df)
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
-    fig = figure(tools=TOOLS)
-    w = 50 # plot width 
-    h = 50 # plot height
-#    fig.xaxis.axis_label='iteration'
-#    fig.yaxis.axis_label='chi2/dof'
+#    fig = bplt.figure(tools=TOOLS)
+    w = 300 # plot width 
+    h = 300 # plot height
 
 #----Plot data---
 
-#initialize plot array (half will be empty, across a diagonal)
+#--initialize figure array--
+    dim = len(df.columns)
+    figlist=[[None]*dim for i in range(dim)]
+#    figlist=[None]
 
-#--loop through parameters--
-#see loop in xmc_diagnostics
-    for column in df.columns:
+#--loop through parameters and fill in scatter matrix (empty above diagonal)--
 
-    #-create new plot-
-        newfig = bplt.figure(width=w,height=h)
-        newfig.circle(column1,column2,color='navy',size=1)
-    #also set axis labels
-    #add to array of figures
+    for col in range(dim):
+        for row in range(dim):
+#            print 'row,col=',row,col
+            if col <= row:
+                # increase size if on edge (provide space for axis labels)
+                if col == 0:
+                    wi=w+20
+                else:
+                    wi=w
+                if row == dim-1:
+                    he=h+20
+                else:
+                    he=h
+                # create scatter plot
+                newfig = bplt.figure(width=wi,height=he,tools=TOOLS)
+                newfig.circle(df.columns[row],df.columns[col],
+                              color='navy',source=source,size=1)
+                # add axis labels if on edge, remove tick labels if not
+                if col == 0:
+                    newfig.yaxis.axis_label=df.columns[row]
+                else:
+                    newfig.yaxis.major_label_text_color = None
+                if row == dim-1:
+                    newfig.xaxis.axis_label=df.columns[col]
+                else:
+                    newfig.xaxis.major_label_text_color = None
+                # add to figure array
+                figlist[row][col]=newfig
+#                figlist=figlist+[newfig]
+##            if col == row:
+                # plot histogram
+##                newfig = bchart.Histogram(df,values=df.columns[col],bins=50)#,source=source)
+                # add axis label if corner, remove tick labels if not
+##                if col == 0:
+##                    newfig.yaxis.axis_label=df.columns[row]
+##                else: 
+##                    newfig.yaxis.major_label_text_font_color = None
+##                if row == dim-1:
+##                    newfig.xaxis.axis_label=df.columns[col]
+##                else:
+##                    newfig.xaxis.major_label_text_font_color = None
+                # add to figure array
+##                figlist[row][col]=newfig
+            if col > row:
+                # leave plot empty (None)
+                figlist[row][col]=bplt.figure(width=w,height=h,tools=TOOLS)
 
 #--plot grid--
-    p = gridplot(plotarray)
+    p = bplt.gridplot(figlist)
+#    print figlist
     bplt.show(p)
 
+#    fig = scatter_matrix(df,alpha=0.2,diagonal='kde')
+#    plugins.connect(fig,plugins.LinkedBrush(fig))
+#    mpld3.show()
+
 #----Return----
-    return True
+    return p
