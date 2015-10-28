@@ -41,10 +41,10 @@ from astropy.io import fits
 # - Units of returned emission measure are cm^-3
 # - EM = n_e*n_H*V
 
-def norm_to_em(norm,dist,redshift=0.0):
+def norm_to_em(norm,dist_cm,redshift=0.0):
 
   #-convert to emission measure-
-  em = norm*10.0**(14.0)*dist*4.0*np.pi*dist*(1.0+redshift)**2.0
+  em = norm*10.0**(14.0)*dist_cm*4.0*np.pi*dist_cm*(1.0+redshift)**2.0
   
   #-return emission measure-
   return em
@@ -261,7 +261,7 @@ def K2keV(temperature,reverse=False):
 #
 #Input:
 #
-# val      -- value to be converted
+# val      -- numerical value to be converted
 #
 # fromunit -- string specifying units of the input val:
 #             'kpc', 'km','cm','ly','pc'
@@ -315,5 +315,15 @@ def convert_distance(val,fromunit,tounit):
             return val/km_to_cm
         if tounit == 'ly':
             return val/km_to_cm*km_to_ly
+
+    if fromunit == 'kpc':
+        if tounit == 'pc':
+            return val*1000.0
+        if tounit == 'cm':
+            return val*kpc_to_km*km_to_cm
+        if tounit == 'km':
+            return val*kpc_to_km
+        if tounit == 'ly':
+            return val*kpc_to_km*km_to_ly
 
 #----------------------------------------------------------

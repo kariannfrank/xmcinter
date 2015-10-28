@@ -168,7 +168,6 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
                     if ((max(df[df.columns[col]]) < 0.01) or 
                         (max(df[df.columns[col]]>999)) ): 
                         tformat="%4.0e"
-                        print max(df[df.columns[col]])
                     else:
                         tformat="%4.2f"
                     newfig.xaxis.formatter=PrintfTickFormatter(format=tformat)
