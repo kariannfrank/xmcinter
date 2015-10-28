@@ -221,6 +221,9 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 #             
 # bins:        optionally specify the number of bins (default=30)
 #
+# save:        optionally turn off opening and saving the plot as an 
+#              html file - returns the figure object only (default=True)
+#
 # **kwargs:    pass any number of extra keyword arguments that are 
 #              accepted by bokeh.plotting.quad().  some of the most
 #              useful may be fill_color and line_color
@@ -237,15 +240,18 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 #  
 #
 
-def histogram(dataseries,weights=None,bins=30,**kwargs):
+def histogram(dataseries,weights=None,bins=30,save=True,**kwargs):
 
 #----Import Modules----
 
 
 #----Set up Plot----
-    bplt.output_file('histogram.html')
+    if save: 
+        bplt.output_file('histogram.html')
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
-    fig = bplt.figure(tools=TOOLS,**kwargs)
+    w = 500
+    h = 400
+    fig = bplt.figure(tools=TOOLS,width=w,height=h,**kwargs)
     fig.xaxis.axis_label=dataseries.name
     if any(weights!=None):
         fig.yaxis.axis_label=weights.name
@@ -257,9 +263,73 @@ def histogram(dataseries,weights=None,bins=30,**kwargs):
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
                  **kwargs)
 
-    bplt.show(fig)#,new='window',browser='firefox --no-remote')
+    if save: 
+        bplt.show(fig)#,new='window',browser='firefox --no-remote')
 
 #----Return----
     return fig
 
 #----------------------------------------------------------
+#Author: Kari A. Frank
+#Date: October 28, 2015
+#Purpose: plot interactive matrix of weighted histograms from given dataframe
+#
+#Usage: histogram_grid(dframe,weights=None,bins=30,**kwargs):
+#
+#Input:
+# 
+# dframe:      input dataframe
+#
+# weights:     optionally provided a pandas series of weights which correspond
+#              to the values in datacolumn (e.g. emission measure)
+#             
+# bins:        optionally specify the number of bins (default=30)
+#
+# **kwargs:    pass any number of extra keyword arguments that are 
+#              accepted by bokeh.plotting.quad().  some of the most
+#              useful may be fill_color and line_color
+#             
+#Output:
+# - plots matrix of scatter plots of all provided dataframe columns to 
+#   interactive (browser-based) plot
+#
+#Usage Notes:
+# - must close and save (if desired) the plot manually
+#
+#Example:
+# 
+#
+def histogram_grid(dframe,weights=None,bins=30,**kwargs):
+
+#----Import Modules----
+    import math
+
+#----Set up plot----
+    bplt.output_file('histogram_grid.html')
+
+#----Initialize empty figure list----
+    figlist=[]
+
+#----Fill in list of figures----
+    for column in dframe:
+        newfig = histogram(dframe[column],weights=weights,save=False)
+        figlist=figlist+[newfig]
+
+#----Reshape list into a 4 column array---
+
+    #--define new shape--
+    nfigs = len(figlist)
+    ncols = 4
+    nrows = int(math.ceil(float(nfigs)/float(ncols)))
+
+    #--pad list with None to have nrows*ncols elements--
+    figlist = figlist+[None]*(nrows*ncols-nfigs)
+
+    #--reshape list--
+    figarr = [figlist[ncol*i:ncol*(i+1)] for i in range(nrows)]
+
+#----Plot histograms----
+    p = bplt.gridplot(figarr)
+    bplt.show(p)
+
+    return figarr
