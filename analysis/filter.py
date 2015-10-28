@@ -59,8 +59,8 @@ def filter(inframe,colname,minval=None,maxval=None,equalval=None):
     if equalval == None:
 
         #-set default minval/maxval if none provided-
-        if minval == None: minval = min(df[colname])
-        if maxval == None: maxval = max(df[colname])
+        if minval == None: minval = min(inframe[colname])
+        if maxval == None: maxval = max(inframe[colname])
 
         #-filter the dataframe-
         outframe = inframe[(inframe[colname]<=maxval) & 
