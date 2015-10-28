@@ -253,7 +253,7 @@ def histogram(dataseries,weights=None,bins=30,save=True,**kwargs):
     h = 400
     fig = bplt.figure(tools=TOOLS,width=w,height=h,**kwargs)
     fig.xaxis.axis_label=dataseries.name
-    if any(weights!=None):
+    if weights is not None:
         fig.yaxis.axis_label=weights.name
 
 #---Create the weighted histogram----
