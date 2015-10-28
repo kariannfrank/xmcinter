@@ -105,7 +105,7 @@ def chi2(runpath):
 def traceplots(dframe,agg='sampling',npoints=1000.0):
 
 #----Import Modules----
-    from bokeh.models import ColumnDataSource
+    from bokeh.models import ColumnDataSource,PrintfTickFormatter
     
 #----Aggregate Data----
     if agg=='none':
@@ -139,27 +139,46 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
                 he=h+20
             else:
                 he=h
+
             if col < row:
                 # create scatter plot
                 newfig = bplt.figure(width=wi,height=he,tools=TOOLS)
-                newfig.circle(df.columns[col],df.columns[row],
+                newfig.circle(df.columns[col],df.columns[row],webgl=True,
                              color='navy',source=source,size=1)
+
                 # add axis labels if on edge, remove tick labels if not
                 if col == 0:
                     newfig.yaxis.axis_label=df.columns[row]
+                    if ((max(df[df.columns[row]]) < 0.01) or 
+                        (max(df[df.columns[row]]>999)) ): 
+                        tformat="%4.0e"
+                    else:
+                        tformat="%4.2f"
+                    newfig.yaxis.formatter=PrintfTickFormatter(format=tformat)
                 else:
                     newfig.yaxis.major_label_text_color = None
+                    newfig.yaxis.major_label_text_font_size = '0'
+
                 if row == dim-1:
                     newfig.xaxis.axis_label=df.columns[col]
+                    if ((max(df[df.columns[col]]) < 0.01) or 
+                        (max(df[df.columns[col]]>999)) ): 
+                        tformat="%4.0e"
+                        print max(df[df.columns[col]])
+                    else:
+                        tformat="%4.2f"
+                    newfig.xaxis.formatter=PrintfTickFormatter(format=tformat)
                 else:
                     newfig.xaxis.major_label_text_color = None
+                    newfig.xaxis.major_label_text_font_size = '0'
+
                 # add to figure array
                 figlist[row][col]=newfig
             if col == row:
                 # plot histogram
-                print 'df.columns[col]',df.columns[col]
-                newfig = bchart.Histogram(df,values=df.columns[col],bins=30,
-                                          width=wi,height=he,tools=TOOLS)
+                newfig = bchart.Histogram(df[[col]],bins=30,
+                                          width=wi,height=he,tools=TOOLS,
+                                          xlabel=df.columns[col])
                 # add axis label if corner, remove tick labels if not
 ##                if col == 0:
 ##                    newfig.yaxis.axis_label=df.columns[row]
