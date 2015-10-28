@@ -4,11 +4,15 @@
 #Contains the following functions:
 #
 # chi2
+# traceplots
+# histogram 
+#
 #----------------------------------------------------------
 
 #-import common modules-
 #import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 import bokeh
 import bokeh.plotting as bplt
 import bokeh.charts as bchart
@@ -200,3 +204,63 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 
 #----Return----
     return figlist
+
+#----------------------------------------------------------
+#----------------------------------------------------------
+#Author: Kari A. Frank
+#Date: October 28, 2015
+#Purpose: plot a (weighted) histogram from provided series.
+#
+#Usage: theplot = histogram(dataseries,weights=None,bins=30)
+#
+#Input:
+# 
+# datacolumn:  a pandas series of data (e.g. column of a pandas dataframe)
+#  
+# weights:     optionally provided a pandas series of weights which correspond
+#              to the values in datacolumn (e.g. emission measure)
+#             
+# bins:        optionally specify the number of bins (default=30)
+#
+# **kwargs:    pass any number of extra keyword arguments that are 
+#              accepted by bokeh.plotting.quad().  some of the most
+#              useful may be fill_color and line_color
+#
+#Output:
+# - uses bokeh to open a plot of the (weighted) histogram in a browser
+# - returns the figure object (allows replotting it, e.g. in a grid with
+#   other figures)
+#Usage Notes:
+# - must close and save (if desired) the plot manually
+# - axis labels will use the pandas series names (e.g. dataseries.name)
+#
+#Example:
+#  
+#
+
+def histogram(dataseries,weights=None,bins=30,**kwargs):
+
+#----Import Modules----
+
+
+#----Set up Plot----
+    bplt.output_file('histogram.html')
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
+    fig = bplt.figure(tools=TOOLS,**kwargs)
+    fig.xaxis.axis_label=dataseries.name
+    if any(weights!=None):
+        fig.yaxis.axis_label=weights.name
+
+#---Create the weighted histogram----
+    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins)
+
+#---Plot the histogram----
+    h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
+                 **kwargs)
+
+    bplt.show(fig)#,new='window',browser='firefox --no-remote')
+
+#----Return----
+    return fig
+
+#----------------------------------------------------------
