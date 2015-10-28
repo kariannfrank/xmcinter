@@ -23,7 +23,7 @@
 #                     to keep. returned value range is inclusive.
 #  
 #  equalval     -- if provided, filter will return only rows for which the value
-#               col_name is equal to this. if provided, then min and max 
+#               colname is equal to this. if provided, then min and max 
 #               arguments are ignored.
 #
 #Output:
@@ -51,8 +51,8 @@ import pandas as pd
 #----define function----
 def filter(inframe,colname,minval=None,maxval=None,equalval=None):
 
-    #-check if col_name is valid column name-
-    if col_name not in inframe.index:
+    #-check if colname is valid column name-
+    if colname not in inframe.columns:
         raise ValueError(colname+" is not a valid column name")
 
     #-filter based on value-
