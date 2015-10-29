@@ -6,6 +6,8 @@
 # chi2
 # traceplots
 # histogram 
+# histogram_grid
+# format_ticks
 #
 #----------------------------------------------------------
 
@@ -153,24 +155,14 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
                 # add axis labels if on edge, remove tick labels if not
                 if col == 0:
                     newfig.yaxis.axis_label=df.columns[row]
-                    if ((max(df[df.columns[row]]) < 0.01) or 
-                        (max(df[df.columns[row]]>999)) ): 
-                        tformat="%4.0e"
-                    else:
-                        tformat="%4.2f"
-                    newfig.yaxis.formatter=PrintfTickFormatter(format=tformat)
+                    newfig.yaxis.formatter=format_ticks(df[df.columns[row]])
                 else:
                     newfig.yaxis.major_label_text_color = None
                     newfig.yaxis.major_label_text_font_size = '0'
 
                 if row == dim-1:
                     newfig.xaxis.axis_label=df.columns[col]
-                    if ((max(df[df.columns[col]]) < 0.01) or 
-                        (max(df[df.columns[col]]>999)) ): 
-                        tformat="%4.0e"
-                    else:
-                        tformat="%4.2f"
-                    newfig.xaxis.formatter=PrintfTickFormatter(format=tformat)
+                    newfig.xaxis.formatter=format_ticks(df[df.columns[col]])
                 else:
                     newfig.xaxis.major_label_text_color = None
                     newfig.xaxis.major_label_text_font_size = '0'
@@ -179,9 +171,11 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
                 figlist[row][col]=newfig
             if col == row:
                 # plot histogram
-                newfig = bchart.Histogram(df[[col]],bins=30,
-                                          width=wi,height=he,tools=TOOLS,
-                                          xlabel=df.columns[col])
+                newfig = histogram(df[df.columns[col]],bins=30,width=wi,
+                                   height=he,tools=TOOLS,save=False)
+#                newfig = bchart.Histogram(df[[col]],bins=30,
+#                                          width=wi,height=he,tools=TOOLS,
+#                                          xlabel=df.columns[col])
                 # add axis label if corner, remove tick labels if not
 ##                if col == 0:
 ##                    newfig.yaxis.axis_label=df.columns[row]
@@ -210,7 +204,7 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 #Date: October 28, 2015
 #Purpose: plot a (weighted) histogram from provided series.
 #
-#Usage: theplot = histogram(dataseries,weights=None,bins=30)
+#Usage: theplot = histogram(dataseries,weights=None,bins=30,width=400,height=300,tools=tools,save=True)
 #
 #Input:
 # 
@@ -220,6 +214,8 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 #              to the values in datacolumn (e.g. emission measure)
 #             
 # bins:        optionally specify the number of bins (default=30)
+#
+# height,width: height and width of each histogram
 #
 # save:        optionally turn off opening and saving the plot as an 
 #              html file - returns the figure object only (default=True)
@@ -240,24 +236,29 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 #  
 #
 
-def histogram(dataseries,weights=None,bins=30,save=True,**kwargs):
+def histogram(dataseries,weights=None,bins=30,save=True,height=300,
+              width=400,tools="pan,wheel_zoom,box_zoom,reset,save",**kwargs):
 
 #----Import Modules----
-
+#    from bokeh.models import PrintfTickFormatter
 
 #----Set up Plot----
     if save: 
         bplt.output_file('histogram.html')
-    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
-    w = 500
-    h = 400
-    fig = bplt.figure(tools=TOOLS,width=w,height=h,**kwargs)
+#    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
+    fig = bplt.figure(tools=tools,width=width,height=height,**kwargs)
     fig.xaxis.axis_label=dataseries.name
     if weights is not None:
         fig.yaxis.axis_label=weights.name
 
-#---Create the weighted histogram----
+#----Create the weighted histogram----
     histy,binedges = np.histogram(dataseries,weights=weights,bins=bins)
+
+#----Format Ticks----
+#    fig.yaxis.formatter=PrintfTickFormatter(format="%4.1e")
+#    fig.xaxis.formatter=PrintfTickFormatter(format="%4.1e")
+    fig.yaxis.formatter=format_ticks(histy)
+    fig.xaxis.formatter=format_ticks(binedges)
 
 #---Plot the histogram----
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
@@ -285,6 +286,8 @@ def histogram(dataseries,weights=None,bins=30,save=True,**kwargs):
 #             
 # bins:        optionally specify the number of bins (default=30)
 #
+# height,width: height and width of each histogram, passed to histogram()
+#
 # **kwargs:    pass any number of extra keyword arguments that are 
 #              accepted by bokeh.plotting.quad().  some of the most
 #              useful may be fill_color and line_color
@@ -299,7 +302,7 @@ def histogram(dataseries,weights=None,bins=30,save=True,**kwargs):
 #Example:
 # 
 #
-def histogram_grid(dframe,weights=None,bins=30,**kwargs):
+def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,**kwargs):
 
 #----Import Modules----
     import math
@@ -312,7 +315,8 @@ def histogram_grid(dframe,weights=None,bins=30,**kwargs):
 
 #----Fill in list of figures----
     for column in dframe:
-        newfig = histogram(dframe[column],weights=weights,save=False)
+        newfig = histogram(dframe[column],weights=weights,save=False,
+                           height=height,width=width,**kwargs)
         figlist=figlist+[newfig]
 
 #----Reshape list into a 4 column array---
@@ -326,10 +330,56 @@ def histogram_grid(dframe,weights=None,bins=30,**kwargs):
     figlist = figlist+[None]*(nrows*ncols-nfigs)
 
     #--reshape list--
-    figarr = [figlist[ncol*i:ncol*(i+1)] for i in range(nrows)]
+    figarr = [figlist[ncols*i:ncols*(i+1)] for i in range(nrows)]
 
 #----Plot histograms----
     p = bplt.gridplot(figarr)
     bplt.show(p)
 
     return figarr
+
+#----------------------------------------------------------
+#Author: Kari A. Frank
+#Date: October 28, 2015
+#Purpose: Adjust tick label format to look better.
+#
+#Usage: <fig>.xaxis.formatter=format_ticks(xvals)
+#
+#Input:
+# 
+# vals: values used for the x or y variable
+#
+#Output:
+# 
+# Returns a PrintfTickFormatter object, which the user should then 
+#    use to set <fig>.xaxis.formatter (or yaxis)
+#
+#Usage Notes:
+# 
+#
+#Example:
+# 
+#
+
+def format_ticks(vals):
+
+#----Import Modules----
+    from bokeh.models import PrintfTickFormatter
+
+#----Determine Most Reasonable Format and Return----
+    check1 = abs(max(vals))
+    check2 = abs(np.log10(check1))
+    
+    if check2 > 3.0:
+#    if ( (max(vals) > 0.01) or (max(vals) > 999.0) ):
+        return PrintfTickFormatter(format = "%1.1e")
+    if check1 < 1.0:
+        return PrintfTickFormatter(format = "%1.2f")
+    if check1 < 10.0:
+        return PrintfTickFormatter(format = "%2.1f")
+    if check1 < 100.0:
+        return PrintfTickFormatter(format = "%2.0f")
+    else:
+        return PrintfTickFormatter(format = "%3.0f")
+
+#----------------------------------------------------------

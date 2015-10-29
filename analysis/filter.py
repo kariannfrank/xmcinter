@@ -8,23 +8,20 @@
 #         
 #         
 #         
-#Usage: filtered_df = filter(inframe,colname,minval=min,maxval=max,equalval=equalval)
+#Usage: filtered_df = filter(inframe,colnames,minvals,maxvals)
 #
 #Input:
 #
 #  inframe -- pandas dataframe
 #               
-#  colname  -- (string) name of the column containing the values to
-#               be filtered by (e.g. 'blobkT' to filter based on 
+#  colnames  -- scalar or list of (string) names of the columns containing
+#               the parameters be filtered by (e.g. 'blobkT' to filter based on 
 #               minimum or maximum temperature)            
 #  
 #
-#  minval,maxval   -- minimum and maximum values of the specified parameter 
-#                     to keep. returned value range is inclusive.
-#  
-#  equalval     -- if provided, filter will return only rows for which the value
-#               colname is equal to this. if provided, then min and max 
-#               arguments are ignored.
+#  minvals,maxvals  -- scalars or lists of minimum and maximum values of
+#                      parameters to keep. returned value range is inclusive.
+#                      order must match the order of columns
 #
 #Output:
 #  
@@ -32,13 +29,23 @@
 #    which do not match the criteria.
 #
 #Usage Notes:
+# - to return rows for which the column equals a specific value (rather
+#   than is within a range), set minval=maxval
 #
-#  
+# - to include only upper or lower limits for any parameter, set the 
+#   associated minval or maxval to None  
 #
 #Example:
 #    filtered_df = filter(blobframe,'blobkT',min=0.5,max=1.5)
 #    - this will return a version of blobframe which includes only 
 #      rows (blobs) with temperatures between 0.5 and 1.5.
+#
+#    filtered_df = filter(blobframe,['blobkT','blob_Si'],minvals=[0.5,1.0],
+#                         maxvals=[1.5,3.0])
+#    - this will return a version of blobframe which includes only 
+#      rows (blobs) with temperatures between 0.5 and 1.5 and Si between
+#      1.0 and 3.0.
+#
 #
 
 
@@ -48,8 +55,9 @@
 #----import modules---
 import pandas as pd
 
-#----define function----
-def filter(inframe,colname,minval=None,maxval=None,equalval=None):
+#----define simple function to filter by 1 parameter----
+#--gets called by the primary filter function below--
+def simplefilter(inframe,colname,minval=None,maxval=None):
 
     #-check if colname is valid column name-
     if colname not in inframe.columns:
@@ -77,4 +85,22 @@ def filter(inframe,colname,minval=None,maxval=None,equalval=None):
         print "Warning: Nothing was filtered (all rows match criteria)."
 
     #-return filtered dataframe-
+    return outframe
+
+def filter(inframe,colnames,minvals=None,maxvals=None):
+
+    #--initialize outframe--
+    outframe = inframe
+
+    #--check if multiple parameters--
+    if type(colnames) is str:
+        colnames = [colnames]
+        minvals = [minvals]
+        maxvals = [maxvals]
+
+    #--filter on each parameter--
+    for col in range(len(colnames)):
+        outframe = simplefilter(outframe,colname=colnames[col],
+                                minval=minvals[col],maxval=maxvals[col])
+
     return outframe
