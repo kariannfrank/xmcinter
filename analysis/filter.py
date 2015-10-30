@@ -64,17 +64,14 @@ def simplefilter(inframe,colname,minval=None,maxval=None):
         raise ValueError(colname+" is not a valid column name")
 
     #-filter based on value-
-    if equalval == None:
 
-        #-set default minval/maxval if none provided-
-        if minval == None: minval = min(inframe[colname])
-        if maxval == None: maxval = max(inframe[colname])
+    #-set default minval/maxval if none provided-
+    if minval == None: minval = min(inframe[colname])
+    if maxval == None: maxval = max(inframe[colname])
 
-        #-filter the dataframe-
-        outframe = inframe[(inframe[colname]<=maxval) & 
-                           (inframe[colname]>=minval)]
-    else:
-        outframe = inframe[inframe[colname]==equalval]
+    #-filter the dataframe-
+    outframe = inframe[(inframe[colname]<=maxval) & 
+                       (inframe[colname]>=minval)]
 
     #-warn if zero rows match-
     if len(outframe.index) == 0:
