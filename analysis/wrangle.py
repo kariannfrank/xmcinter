@@ -23,7 +23,7 @@ Statistics:
 # Import Common Modules
 import pandas as pd
 import numpy as np
-from __future__ import print_function
+#from __future__ import print_function
 
 #----------------------------------------------------------------
 """
@@ -120,7 +120,7 @@ def filterblobs(inframe,colnames,minvals=None,maxvals=None):
 
     #--filter on each parameter--
     for col in range(len(colnames)):
-        outframe = simplefilter(outframe,colname=colnames[col],
+        outframe = simplefilterblobs(outframe,colname=colnames[col],
                                 minval=minvals[col],maxval=maxvals[col])
 
     return outframe

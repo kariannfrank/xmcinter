@@ -26,7 +26,7 @@ import bokeh.charts as bchart
 #         the statistic.* files output by xmc.  This is mainly intended
 #         as a quick way to check the convergence of an ongoing xmc run.
 #
-#Usage: chi2(runpath)
+#Usage: chi2(runpath='./')
 #
 #Input:
 # 
@@ -44,7 +44,7 @@ import bokeh.charts as bchart
 # 
 #
 
-def chi2(runpath):
+def chi2(runpath='./'):
 
 #----Import Modules----
     from .files.xmcrun import merge_output
