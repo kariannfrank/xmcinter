@@ -6,8 +6,8 @@
 ;; Purpose:
 ;;
 ;;     Read in blob parameters from file (as saved by 
-;;     python function xmcfiles.write_blobs() ) and
-;;     return as 2D array.
+;;     python function xmcinter.files.xmcrun.merge_output() ) and
+;;     return as 2D array with column names.
 ;;
 ;; Calling Sequence:
 ;;
