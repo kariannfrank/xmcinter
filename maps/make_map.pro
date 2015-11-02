@@ -10,7 +10,7 @@
 ;;
 ;; Calling Sequence:
 ;;
-;;      make_map,infile,outfile=outfile,param=param,weights=weights,binsize=binsize,itmod=itmod,paramshape=paramshape,type=type,points=points,x0=x0,y0=y0,imagesize=imagesize,sigthresh=sigthresh
+;;      make_map,infile=infile,outfile=outfile,param=paramname,weights=weights,binsize=binsize,itmod=itmod,paramshape=paramshape,type=type,points=points,x0=x0,y0=y0,imagesize=imagesize,sigthresh=sigthresh
 ;;       
 ;;
 ;; Input:
@@ -22,8 +22,8 @@
 ;;    
 ;;      outfile:  optional string name of the output fits file
 ;;
-;;      param:    string name of the column (parameter name) to be
-;;                mapped (default='blob_kT')
+;;      paramname: string name of the column (parameter name) to be
+;;                 mapped (default='blob_kT')
 ;;
 ;;      paramx,paramy: string name of the column of the x and y
 ;;                blob positions (default='blob_phi','blob_psi')
@@ -87,14 +87,14 @@
 ;;
 ;;
 
-PRO make_map,infile=infile,outfile=outfile,param=param,weights=weights,binsize=binsize,itmod=itmod,paramshape=paramshape,type=type,points=points,x0=x0,y0=y0,imagesize=imagesize,sigthresh=sigthresh,paramx=paramx,paramy=paramy,paramsize=paramsize,iteration_type=iteration_type
+PRO make_map,infile=infile,outfile=outfile,paramname=paramname,weights=weights,binsize=binsize,itmod=itmod,paramshape=paramshape,type=type,points=points,x0=x0,y0=y0,imagesize=imagesize,sigthresh=sigthresh,paramx=paramx,paramy=paramy,paramsize=paramsize,iteration_type=iteration_type
 
 ;-------------------------------------------
 ;     Parse Arguments and Set Defaults
 ;-------------------------------------------
 
 IF N_ELEMENTS(infile) EQ 0 THEN BEGIN
-   MESSAGE, 'ERROR: minimum usage: make_map,infile'
+   MESSAGE, 'ERROR: minimum usage: make_map,infile=infile'
 ENDIF
 IF N_ELEMENTS(points) EQ 0 THEN points = 0
 IF N_ELEMENTS(paramshape) EQ 0 THEN paramshape = 'gauss'
@@ -104,7 +104,7 @@ IF N_ELEMENTS(paramsize) EQ 0 THEN BEGIN
       'sphere': paramsize = 'blob_radius'
    ENDCASE
 ENDIF
-IF N_ELEMENTS(param) EQ 0 THEN param = 'blob_kT'
+IF N_ELEMENTS(paramname) EQ 0 THEN paramname = 'blob_kT'
 IF N_ELEMENTS(paramx) EQ 0 THEN paramx = 'blob_phi'
 IF N_ELEMENTS(paramy) EQ 0 THEN paramy = 'blob_psi'
 IF N_ELEMENTS(type) EQ 0 THEN type = 'median'
@@ -116,7 +116,7 @@ IF N_ELEMENTS(binsize) EQ 0 THEN binsize = 60
 
 basename = file_trunk(infile,/PATH)
 IF N_ELEMENTS(outfile) EQ 0 THEN BEGIN
-   outfile = basename+'_'+param+'_'+type+'.fits'
+   outfile = basename+'_'+paramname+'_'+type+'.fits'
 ENDIF
 
 ;-------------------------------------------
@@ -131,7 +131,7 @@ dframe = read_blobs(infile,colnames=parnames)
 ;              Get Columns
 ;-------------------------------------------
 
-pi = WHERE(parnames EQ param)
+pi = WHERE(parnames EQ paramname)
 xi = WHERE(parnames EQ paramx)
 yi = WHERE(parnames EQ paramy)
 IF N_ELEMENTS(weights) NE 0 THEN BEGIN
@@ -161,7 +161,6 @@ IF sigthresh GT 0.0 THEN BEGIN
 
    ;-suppress low significance pixels-
    map[WHERE(map/errmap) LT sigthresh] = 0.0
-
 ENDIF
 
 ;-------------------------------------------
@@ -169,7 +168,7 @@ ENDIF
 ;-------------------------------------------
 
 ;-construct history-
-history = 'make_map,'+infile+',outfile='+outfile+',param='+param+',binsize='+STRING(binsize,FORMAT='(I0)')+',itmod='+STRING(itmod,FORMAT='(I0)')+',paramshape='+paramshape+',type='+type+',points='+STRING(points,FORMAT='(I0)')+',sigthresh='+STRING(sigthresh,FORMAT='(F0)')
+history = 'make_map,'+infile+',outfile='+outfile+',paramname='+paramname+',binsize='+STRING(binsize,FORMAT='(I0)')+',itmod='+STRING(itmod,FORMAT='(I0)')+',paramshape='+paramshape+',type='+type+',points='+STRING(points,FORMAT='(I0)')+',sigthresh='+STRING(sigthresh,FORMAT='(F0)')
 IF N_ELEMENTS(weights) NE 0 THEN history = history + ',weights='+weights
 IF N_ELEMENTS(x0) NE 0 THEN history = history + ',x0='+STRING(x0,FORMAT='(F0)')
 IF N_ELEMENTS(y0) NE 0 THEN history = history + ',y0='+STRING(y0,'(F0.0)')
