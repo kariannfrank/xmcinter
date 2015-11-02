@@ -50,6 +50,167 @@
 ;
 ;Example:
 
+
+;-----------------------------------------------
+;             HELPER FUNCTIONS
+;-----------------------------------------------
+
+;Name: weighted_average
+;
+;Date: November 16, 2010
+;Author: Kari Frank
+;
+;Purpose: Calculates the emission-measure weighted average of a parameter
+;Calling Sequence: 
+;      weighted_average(parameter,weight)
+;
+;Input:
+;      parameter: array of whichever parameter is to be average,
+;                  one element for each blob.  Must correspond
+;                  to the same elements in the weight array
+;      weight: array of weights (e.g. 10.0^-14*emission measure) for each blob
+;Output:
+;     Returns the weighted averaged value of parameter.
+
+
+FUNCTION weighted_average, parameter, weight
+
+IF N_ELEMENTS(parameter) NE N_ELEMENTS(weight) THEN MESSAGE,'ERROR: parameter and weight arguments are not the same size.'
+
+averaged=TOTAL(parameter*weight)/TOTAL(weight)
+
+RETURN, averaged
+
+END
+
+;-----------------------------------------------
+;Name: weighed_median
+;
+;Date: April 5, 2011
+;Author: Kari Frank
+;
+;Purpose: Calculates the weighted median of a parameter, without the
+;          need for binning, by calculating the 'probability' of each data point
+;          (e.g. each blob).
+;Calling Sequence: 
+;      weighted_median(parameter,weight[,PROBABILITIES=probabilities][,TWO_SIGMA=two_sigma][,ONE_SIGMA=one_sigma][,NOZERO=nozero])
+;
+;Input:
+;      weight:    array containing the blob weights (may be unnormalized)
+;      parameter: array that the median will be found for,
+;                  one element for each blob.  Must correspond
+;                  to the same elements in the weight array.
+;      nozero:    optional switch to ignore zeros (default=0)
+;Output:
+;     Returns the weighted median of parameter.
+;     probabilities: optional array that stores the probabilities
+;       corresponding each parameter value.
+;     two_sigma: optional provided variable to store the location
+;       beyond which (to the right) lie 95.44% of the blobs.   
+;     one_sigma: optional provided variable to store the location
+;       beyond which (to the right) lie 68.3% of the blobs.
+
+
+FUNCTION weighted_median, parameter, weight,PROBABILITIES=probabilities,TWO_SIGMA=two_sigma, ONE_SIGMA=one_sigma,NOZERO=nozero
+
+;check arguments, set defaults
+IF N_PARAMS() LT 2 THEN MESSAGE,'ERROR: minimum usage is weighted_median(parameter,weight)'
+IF N_ELEMENTS(parameter) NE N_ELEMENTS(weight) THEN MESSAGE,'ERROR: parameter and weight arguments are not the same size.'
+IF N_ELEMENTS(nozero) EQ 0 THEN nozero = 0
+
+;IF N_ELEMENTS(probabilities) EQ 0 THEN probabilities = FLTARR(N_ELEMENTS(parameter))
+
+IF nozero EQ 1 THEN BEGIN
+   nonzero_subs = WHERE(parameter NE 0.0)
+   IF nonzero_subs[0] NE -1 THEN BEGIN
+      trimmed_parameter = parameter[nonzero_subs]
+      trimmed_weight = weight[nonzero_subs]
+   ENDIF ELSE BEGIN ;if array zeros, keep zeros
+      PRINT, 'Warning: Array all zeros.'
+      trimmed_parameter = parameter
+      trimmed_weight = weight
+   ENDELSE 
+ENDIF ELSE BEGIN
+   trimmed_parameter = parameter
+   trimmed_weight = weight
+ENDELSE
+
+;find probabilities the fast way (by sorting)
+IF N_ELEMENTS(probabilities) EQ 0 THEN BEGIN
+   sorted_indices = SORT(trimmed_parameter)
+   probability = TOTAL(trimmed_weight[sorted_indices],/CUMULATIVE)/TOTAL(trimmed_weight)
+   sorted_parameter=trimmed_parameter[sorted_indices]
+ENDIF ELSE BEGIN
+
+;find probabilities the slow way 
+;    (preserves kT - probability vector correspondence)
+   probability = FLTARR(N_ELEMENTS(trimmed_parameter))
+   FOR b=0L, N_ELEMENTS(trimmed_parameter)-1 DO BEGIN
+
+      ;;subscript of all blobs with lower value (e.g. lower temperatures)
+      lower_subs = WHERE(trimmed_parameter LE trimmed_parameter[b])
+
+      ;;probability = cumulative normalized weights
+      probability[b] = TOTAL(trimmed_weight[lower_subs])/TOTAL(trimmed_weight)
+   ENDFOR
+ENDELSE
+
+;PRINT, 'probability = ',probability
+;find subscript of parameter with probability closest to 0.5
+half_sub = WHERE( ABS(0.5-probability) EQ MIN(ABS(0.5-probability)) ) 
+
+;find subscript of 2sigma location (95.44% lie above this location)
+twosigma_sub = WHERE( ABS((1.0-0.9544)-probability) EQ MIN(ABS((1.0-0.9544)-probability)) ) 
+
+;find subscript of 1sigma location (68.3% lie above this location)
+onesigma_sub = WHERE( ABS((1.0-0.683)-probability) EQ MIN(ABS((1.0-0.683)-probability)) ) 
+
+;median = parameter value of above parameter
+IF half_sub[0] NE -1 THEN BEGIN
+   IF N_ELEMENTS(probabilities) NE 0 THEN BEGIN
+      median = trimmed_parameter[half_sub[0]] 
+   ENDIF ELSE BEGIN
+      median = sorted_parameter[half_sub[0]] 
+   ENDELSE
+ENDIF ELSE BEGIN 
+   median = 0.0
+ENDELSE
+
+;95.44% location
+IF twosigma_sub[0] NE -1 THEN BEGIN
+   IF N_ELEMENTS(probabilities) NE 0 THEN BEGIN
+      two_sigma = trimmed_parameter[twosigma_sub[0]] 
+   ENDIF ELSE BEGIN
+      two_sigma = sorted_parameter[twosigma_sub[0]] 
+   ENDELSE
+ENDIF ELSE BEGIN 
+   two_sigma = 0.0
+ENDELSE
+
+;95.3% location
+IF onesigma_sub[0] NE -1 THEN BEGIN
+   IF N_ELEMENTS(probabilities) NE 0 THEN BEGIN
+      one_sigma = trimmed_parameter[onesigma_sub[0]] 
+   ENDIF ELSE BEGIN
+      one_sigma = sorted_parameter[onesigma_sub[0]] 
+   ENDELSE
+ENDIF ELSE BEGIN 
+   one_sigma = 0.0
+ENDELSE
+
+
+;save probabilities in output vector if provided
+IF N_ELEMENTS(probabilities) NE 0 THEN probabilities[nonzero_subs] = probability
+
+RETURN, median
+
+END
+;-----------------------------------------------
+
+;-----------------------------------------------
+;               MAIN FUNCTION
+;-----------------------------------------------
+
 FUNCTION calculate_map,param,param_x,param_y,param_sigma,PARAM_ITERATIONS=param_iterations,BINSIZE=binsize,ITERATION_TYPE=iteration_type,TYPE=type,FRACTIONS=fractions,SIZE=size,WEIGHTS=weights,IT_MOD=it_mod,VERBOSE=verbose,OUTPUT_SIZE=output_size,N_INT_STEPS=n_int_steps,X0=x0,Y0=y0
 
 ;check for required arguments and set defaults
@@ -186,3 +347,6 @@ IF verbose EQ 1 THEN PRINT, '---image stack collapsed---'
 RETURN, image
 
 END
+
+
+
