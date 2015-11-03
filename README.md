@@ -6,6 +6,7 @@ The python package requires the following third-party packages:
 - pandas
 - numpy
 - astropy
+- bokeh
 
 At the beginning of analysis python session, typical imports are:
 import pandas as pd
@@ -23,7 +24,7 @@ A typical workflow for early diagnostics is:
 xplt.chi2('./')
 
 # filter by iteration and add emission measure (change itmin and distance)
-df = xd.diagnostics(runpath='./',itmin=1000,distance=3.3)
+df = xd.clean(runpath='./',itmin=1000,distance=3.3)
 
 # check traceplots
 tracefigs = xplt.traceplots(df)
