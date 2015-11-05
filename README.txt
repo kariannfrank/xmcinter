@@ -27,7 +27,7 @@ A typical workflow for early diagnostics
 (requires access to the original deconvolution.* and statistic.* files)
 
 # check convergence
-xplt.chi2('./')
+sf = xplt.chi2('./')
 
 # filter by iteration and add emission measure (change itmin and distance)
 df = xd.clean(runpath='./',itmin=1000,distance=3.3)
