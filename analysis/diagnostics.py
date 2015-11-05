@@ -60,7 +60,7 @@ import xmcinter.astro_utilities as astro
 # 
 # Returns the dataframe of deconvolution parameters, filtered by iteration
 #  add with the emission measure and iteration columns included, plus a 
-#  column with the blob sizes in log10(arcsec)(if blob shape = gaussian)
+#  column with the blob sizes in arcsec (if blob shape = gaussian)
 #   
 #
 #Usage Notes:
@@ -76,7 +76,7 @@ def clean(runpath='./',itmin=0,distance=8.0):
 
     # -- add log10(arcsec) blob size column --
     if 'blob_lnsigma' in df.columns:
-        df['blob_log10sigma'] = np.log10(np.exp(df['blob_lnsigma']))
+        df['blob_sigma'] = np.exp(df['blob_lnsigma'])
 
     # -- add emission measure column
     df['blob_em'] = astro.norm_to_em(df['blob_norm'],astro.convert_distance(distance,'kpc','cm'))
