@@ -117,7 +117,10 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
     if agg=='none':
         df = dframe
     if agg=='sampling':
-        df = dframe.sample(npoints)
+        if len(dframe.index) > npoints:
+            df = dframe.sample(npoints)
+        else:
+            df = dframe
 #    if agg=='contour':
 
 #----Set up plot----
