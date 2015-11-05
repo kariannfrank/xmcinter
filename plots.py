@@ -288,6 +288,8 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
 #
 # height,width: height and width of each histogram, passed to histogram()
 #
+# ncols:       number of columns in the grid of histograms (default=4)
+#
 # **kwargs:    pass any number of extra keyword arguments that are 
 #              accepted by bokeh.plotting.quad().  some of the most
 #              useful may be fill_color and line_color
@@ -302,7 +304,8 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
 #Example:
 # 
 #
-def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,**kwargs):
+def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,
+                   ncols=4,**kwargs):
 
 #----Import Modules----
     import math
@@ -323,7 +326,6 @@ def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,**kwargs):
 
     #--define new shape--
     nfigs = len(figlist)
-    ncols = 4
     nrows = int(math.ceil(float(nfigs)/float(ncols)))
 
     #--pad list with None to have nrows*ncols elements--
