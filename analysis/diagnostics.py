@@ -40,7 +40,7 @@ Purpose: Create a dataframe and associated saved file that includes
 
 Usage: 
   import xmcinter.diagnostics as xd
-  xd.clean(runpath='./',itmin=0,distance=8.0)
+  xd.clean(runpath='./',itmin=0,itmax=None,distance=8.0)
 
 Input:
  
@@ -64,7 +64,7 @@ Usage Notes:
 Example:
 
 """
-def clean(runpath='./',itmin=0,distance=8.0):
+def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
     # -- read deconvolution files --
     df = merge_output(runpath,save=False)
@@ -79,10 +79,12 @@ def clean(runpath='./',itmin=0,distance=8.0):
                                                             'cm'))/(10.0**55.0)
 
     # -- remove iterations before convergence --
-    df = filterblobs(df,'iteration',minvals=itmin)
+    if itmax == None:
+        itmax = np.max(df['iteration'])
+    df = filterblobs(df,'iteration',minvals=itmin,maxvals=itmax)
 
     # -- save as file --
-    outfile = 'deconvolution_merged_itmin'+str(int(itmin))+'.txt'
+    outfile = 'deconvolution_merged_itmin'+str(int(itmin))+'-'+str(int(itmax))+'.txt'
     df.to_csv(outfile,sep='\t')
 
     # -- make traceplots --
