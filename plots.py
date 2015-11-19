@@ -1,15 +1,15 @@
-#----------------------------------------------------------
-#Module of functions for plotting xmc results.
-#
-#Contains the following functions:
-#
-# chi2
-# traceplots
-# histogram 
-# histogram_grid
-# format_ticks
-#
-#----------------------------------------------------------
+"""
+Module of functions for plotting xmc results.
+
+Contains the following functions:
+
+ chi2
+ traceplots
+ histogram 
+ histogram_grid
+ format_ticks
+ spectra
+"""
 
 #-import common modules-
 #import matplotlib.pyplot as plt
@@ -223,6 +223,12 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 # save:        optionally turn off opening and saving the plot as an 
 #              html file - returns the figure object only (default=True)
 #
+# infig:       optionally pass an initialized figure object to plot on 
+#              (allows plotting multiple dataseries on the same figure) 
+#              (default=None)
+#
+# density:     passed to histogram. if True, then histogram is normalized.
+#
 # **kwargs:    pass any number of extra keyword arguments that are 
 #              accepted by bokeh.plotting.quad().  some of the most
 #              useful may be fill_color and line_color
@@ -240,32 +246,40 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
 #
 
 def histogram(dataseries,weights=None,bins=30,save=True,height=300,
-              width=400,tools="pan,wheel_zoom,box_zoom,reset,save",**kwargs):
+              width=400,tools="pan,wheel_zoom,box_zoom,reset,save",
+              infig=None,color='steelblue',plotfile='histogram.html',
+              density=False,**kwargs):
 
 #----Import Modules----
 #    from bokeh.models import PrintfTickFormatter
 
 #----Set up Plot----
     if save: 
-        bplt.output_file('histogram.html')
+        bplt.output_file(plotfile)
 #    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
-    fig = bplt.figure(tools=tools,width=width,height=height,**kwargs)
-    fig.xaxis.axis_label=dataseries.name
+
+    if infig == None:
+        fig = bplt.figure(tools=tools,width=width,height=height)
+        fig.xaxis.axis_label=dataseries.name
+    else:
+        fig = infig
     if weights is not None:
         fig.yaxis.axis_label=weights.name
 
 #----Create the weighted histogram----
-    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins)
+    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
+                                  density=density)
 
 #----Format Ticks----
 #    fig.yaxis.formatter=PrintfTickFormatter(format="%4.1e")
 #    fig.xaxis.formatter=PrintfTickFormatter(format="%4.1e")
-    fig.yaxis.formatter=format_ticks(histy)
-    fig.xaxis.formatter=format_ticks(binedges)
+    if infig == None:
+        fig.yaxis.formatter=format_ticks(histy)
+        fig.xaxis.formatter=format_ticks(binedges)
 
 #---Plot the histogram----
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
-                 **kwargs)
+                 color=color,**kwargs)
 
     if save: 
         bplt.show(fig)#,new='window',browser='firefox --no-remote')
@@ -387,4 +401,104 @@ def format_ticks(vals):
     else:
         return PrintfTickFormatter(format = "%3.0f")
 
+#----------------------------------------------------------
+def spectra(runpath='./',smin=0,smax=None,datacolor='black',
+            modelcolor='cornflowerblue',lastmodelcolor='crimson',nbins=350.0):
+    """
+    Author: Kari A. Frank
+    Date: November 18, 2015
+    Purpose: Make a plot of the data and (average) model spectra compared
+
+    Usage: spectra(runpath='./',smin=0,smax=None,nbins=350.0,
+                   datacolor='black',modelcolor='steelblue',
+                   lastmodelcolor='darkred')
+
+    Input:
+     runpath (string) : the relative path to xmc run folder, which
+                        contains the spectrum.* files
+
+     smin/smax (int) : minimum and/or maximum spectrum file include in the
+                       averaging of the model spectra. corresponds to the 
+                       spectrum* file names, e.g. smax=3 will average the files
+                       spectrum_1.fits, spectrum_2.fits, and spectrum_3.fits.
+                       default is all available spectra.
+
+    Output:
+     - plots the spectra for to an interactive plot
+
+    Usage Notes:
+     - must close and save (if desired) the plot manually
+
+    Example:
+    """
+
+    #----Import Modules----
+    import astropy.io.fits as fits
+    from .files.utilities import ls_to_list
+    import os
+
+    #----Set defaults----
+    if smax==None:
+        smax = len(ls_to_list(runpath,'spectrum*')) - 1
+
+    # check for MPI file names (if xmc was run with mpi)
+    if os.path.isfile(runpath+'/spectrum0_0.fits'):
+        specname = 'spectrum0_'
+    else:
+        specname = 'spectrum_'
+
+    #----Read in data spectrum----
+    dataspecfile = runpath+'/'+specname+'0.fits'
+    data_table = fits.getdata(dataspecfile,0)
+    #field names are 'wave','xdsp',and 'ph'
+    data_wave = data_table.field('wave')
+
+    #----Read in model spectra----
+
+    #--read in first model spectrum--
+    modelspecfile = runpath+'/'+specname+str(smin)+'.fits'
+    model_table = fits.getdata(modelspecfile,0)
+    model_wave = model_table.field('wave')
+    model_wave_avg = model_wave
+
+    #--loop over remaining model spectra--
+    for s in range(smin+1,smax):
+        modelspecfile = runpath+'/'+specname+str(s)+'.fits'
+        model_table = fits.getdata(modelspecfile,0)
+        model_wave = model_table.field('wave')
+        model_wave_avg = np.hstack((model_wave_avg,model_wave))
+    
+    #----Convert to pandas Series----
+    data_wave = pd.Series(data_wave,name='Energy (keV)')    
+    model_wave_avg = pd.Series(model_wave_avg,name='Energy (keV)')
+    model_wave = pd.Series(model_wave,name='Energy (keV)')
+
+    nbins = np.ceil((np.max(data_wave.values)-np.min(data_wave.values))/0.015)
+
+    #----Create Histograms----
+    datay,datax = np.histogram(data_wave,bins=nbins,density=True)
+    avgmodely,avgmodelx = np.histogram(model_wave_avg,bins=nbins,density=True)
+    lastmodely,lastmodelx = np.histogram(model_wave,bins=nbins,density=True)
+
+    #----Set up Plot----
+    bplt.output_file('spectrum.html')
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
+    fig = bplt.figure(tools=TOOLS)
+    fig.xaxis.axis_label='Energy (keV)'
+    fig.yaxis.axis_label=''
+
+    #--format ticks--
+    fig.yaxis.formatter=format_ticks(datay)
+    fig.xaxis.formatter=format_ticks(datax)
+
+    #----Plot Spectra----
+    fig.line(datax,datay,color=datacolor,line_width=2)
+    fig.line(avgmodelx,avgmodely,color=modelcolor)
+    fig.line(lastmodelx,lastmodely,color=lastmodelcolor)
+
+    #----Show the Plot----
+    bplt.show(fig)
+
+#----Return----
+    return data_wave
 #----------------------------------------------------------
