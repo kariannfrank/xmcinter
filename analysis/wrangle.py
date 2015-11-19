@@ -37,7 +37,7 @@ Purpose: Filter a pandas dataframe (i.e. remove rows) based on
          
          
          
-Usage: filtered_df = filter(inframe,colnames,minvals,maxvals)
+Usage: filtered_df = filterblobs(inframe,colnames,minvals=minvals,maxvals=maxvals)
 
 Input:
 
@@ -78,7 +78,7 @@ Example:
 
 #----import modules---
 
-#----define simple function to filter by 1 parameter----
+#----define function to filter by 1 parameter----
 #--gets called by the primary filter function below--
 def simplefilterblobs(inframe,colname,minval=None,maxval=None):
 
