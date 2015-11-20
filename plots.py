@@ -152,7 +152,7 @@ def traceplots(dframe,agg='sampling',npoints=1000.0):
             if col < row:
                 # create scatter plot
                 newfig = bplt.figure(width=wi,height=he,tools=TOOLS)
-                newfig.circle(df.columns[col],df.columns[row],webgl=True,
+                newfig.circle(df.columns[col],df.columns[row],
                              color='navy',source=source,size=1)
 
                 # add axis labels if on edge, remove tick labels if not
@@ -258,7 +258,7 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
         bplt.output_file(plotfile)
 #    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
 
-    if infig == None:
+    if infig is None:
         fig = bplt.figure(tools=tools,width=width,height=height)
         fig.xaxis.axis_label=dataseries.name
     else:
@@ -273,7 +273,7 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
 #----Format Ticks----
 #    fig.yaxis.formatter=PrintfTickFormatter(format="%4.1e")
 #    fig.xaxis.formatter=PrintfTickFormatter(format="%4.1e")
-    if infig == None:
+    if infig is None:
         fig.yaxis.formatter=format_ticks(histy)
         fig.xaxis.formatter=format_ticks(binedges)
 

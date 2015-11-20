@@ -93,6 +93,8 @@ PRO make_map,infile=infile,outfile=outfile,paramname=paramname,weights=weights,b
 ;     Parse Arguments and Set Defaults
 ;-------------------------------------------
 
+args = COMMAND_LINE_ARGS(COUNT=argc)
+print, 'args = ',args
 IF N_ELEMENTS(infile) EQ 0 THEN BEGIN
    MESSAGE, 'ERROR: minimum usage: make_map,infile=infile'
 ENDIF
