@@ -8,6 +8,11 @@ The xmcinter python package requires the following third-party packages:
 - astropy
 - bokeh
 
+You may need to add xmcinter's parent directory to your PYTHONPATH, e.g.,
+if you placed xmcinter inside ~/python_programs/,
+
+setenv PYTHONPATH ~/python_programs/:$PYTHONPATH
+
 ###################################################################
 At the beginning of analysis python session, typical imports are:
 (can copy the following import statements and paste into ipython

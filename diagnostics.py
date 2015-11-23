@@ -28,10 +28,6 @@ histfigs = xplt.histogram_grid(df,weights=df['blob_em'])
 #import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import ..plots as xplt
-from ..files.xmcrun import merge_output
-import wrangle as xw
-import ..astro_utilities as astro
 
 #----------------------------------------------------------
 def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
@@ -68,6 +64,12 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
     Example:
     """
+
+    # -- import modules --
+    import ..xmcinter.plots as xplt
+    from ..files.xmcrun import merge_output
+    import wrangle as xw
+    import ..astro_utilities as astro
 
     # -- read deconvolution files --
     df = merge_output(runpath,save=False)
@@ -130,6 +132,8 @@ def check(runpath='./',itmin=0,itmax=None):
     import os
     from ..files.utilities import ls_to_list
     import ..map as xm
+    import ..xmcinter.plots as xplt
+    import wrangle as xw
 
     # -- read deconvolution files --
     df = merge_output(runpath,save=False)
