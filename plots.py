@@ -12,9 +12,8 @@ Contains the following functions:
 """
 
 #-import common modules-
-#import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
+#import pandas as pd
+#import numpy as np
 import bokeh
 import bokeh.plotting as bplt
 import bokeh.charts as bchart
@@ -47,7 +46,7 @@ import bokeh.charts as bchart
 def chi2(runpath='./'):
 
 #----Import Modules----
-    from .files.xmcrun import merge_output
+    from xmcfiles import merge_output
 #    import bokeh
 #    from bokeh.plotting import figure, output_file, show
     #from bokeh.mpl import to_bokeh
@@ -434,9 +433,9 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     """
 
     #----Import Modules----
+#    import os
     import astropy.io.fits as fits
-    from .files.utilities import ls_to_list
-    import os
+    from file_utilities import ls_to_list
 
     #----Set defaults----
     if smax==None:

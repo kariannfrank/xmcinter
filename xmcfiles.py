@@ -11,10 +11,10 @@
 #
 #----------------------------------------------------------
 #Import common modules
-import os
-import numpy as np
-import pandas as pd
-import utilities
+#import os
+#import numpy as np
+#import pandas as pd
+import file_utilities as fu
 
 #----------------------------------------------------------
 # read_parnames()
@@ -48,7 +48,7 @@ def read_parnames(runpath):
     #--Set file paths--
     parfile = runpath+'/parameters.txt'
 
-    outpars = utilities.parse_file_line(parfile)
+    outpars = fu.parse_file_line(parfile)
 
     #--return string list--
     return outpars
@@ -96,7 +96,7 @@ def read_parnames(runpath):
 def merge_output(filepath,filetype='deconvolution',save=True,sep='\t'):
 
     # - get list of files - 
-    filelist = utilities.ls_to_list(filepath,ls_args = filetype+'.*')
+    filelist = fu.ls_to_list(filepath,ls_args = filetype+'.*')
     
     # --Initialize dataframe with first file --
 
@@ -111,7 +111,7 @@ def merge_output(filepath,filetype='deconvolution',save=True,sep='\t'):
         datatable.columns = parnames
     if filetype == 'deconvolution':
         if os.path.isfile(filepath+'/parameters.txt'):
-            parnames = utilities.parse_file_line(filepath+'/parameters.txt') 
+            parnames = fu.parse_file_line(filepath+'/parameters.txt') 
             datatable.columns = parnames
 
     # - get iteration number and add as column - 
