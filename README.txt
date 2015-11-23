@@ -21,6 +21,7 @@ import xmcinter.analysis.wrangle as xw
 from xmcinter.analysis.wrangle import filterblobs
 import xmcinter.astro_utilities as astro
 import xmcinter.analysis.diagnostics as xd
+import xmcinter.maps.map as xm
 
 ###################################################################
 A typical workflow for early diagnostics
@@ -62,7 +63,7 @@ df_filt = filterblobs(df,['blob_kT','blob_Si'],minvals=[0.5,1.0],
 df.to_csv('deconvolution_merged_filtered.txt',sep='\t')
 
 # plot weighted histograms of parameters
-temphistfigs = xplt.histogram_grid(df[df.columns[:-1]],weights=df['blob_em'])
+histfigs = xplt.histogram_grid(df[df.columns[:-1]],weights=df['blob_em'])
 
 # make a map of one of the parameters
 IDL> make_map,infile='deconvolution_merged.txt',paramname='blob_kT',weights='blob_em',binsize=4.0
