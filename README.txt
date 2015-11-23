@@ -21,7 +21,7 @@ import xmcinter.analysis.wrangle as xw
 from xmcinter.analysis.wrangle import filterblobs
 import xmcinter.astro_utilities as astro
 import xmcinter.analysis.diagnostics as xd
-import xmcinter.maps.map as xm
+import xmcinter.map as xm
 
 ###################################################################
 A typical workflow for early diagnostics

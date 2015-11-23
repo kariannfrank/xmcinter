@@ -403,7 +403,7 @@ def format_ticks(vals):
 
 #----------------------------------------------------------
 def spectra(runpath='./',smin=0,smax=None,datacolor='black',
-            modelcolor='cornflowerblue',lastmodelcolor='crimson',nbins=350.0):
+            modelcolor='cornflowerblue',lastmodelcolor='crimson'):
     """
     Author: Kari A. Frank
     Date: November 18, 2015
@@ -419,12 +419,13 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
 
      smin/smax (int) : minimum and/or maximum spectrum file include in the
                        averaging of the model spectra. corresponds to the 
-                       spectrum* file names, e.g. smax=3 will average the files
-                       spectrum_1.fits, spectrum_2.fits, and spectrum_3.fits.
-                       default is all available spectra.
+                       spectrum* file names, e.g. smax=3 will average the 
+                       files spectrum_1.fits, spectrum_2.fits, and 
+                       spectrum_3.fits. default is all available spectra.
 
     Output:
      - plots the spectra for to an interactive plot
+     - Returns the data spectrum numpy array
 
     Usage Notes:
      - must close and save (if desired) the plot manually
