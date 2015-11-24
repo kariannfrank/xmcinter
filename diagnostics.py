@@ -141,7 +141,7 @@ def check(runpath='./',itmin=0,itmax=None):
     data_wave = xplt.spectra(runpath,smin=itmin/100)
 
     # -- make norm maps --
-    normmap =  'itmin'+str(itmin)+'_median_norm.fits'
+#    normmap =  'itmin'+str(itmin)+'_median_norm.fits'
 #    median_norm_img = xm.make_map(df,outfile=normmap,paramname='blob_norm'
 #                                  ,binsize=10.0,itmod=(itmax-itmin)/500
 #                                  ,iteration_type='total')
