@@ -17,9 +17,9 @@ of the work is calculate_map.
 #----------------------------------------------------------------------------
 
 #----Import Global Modules----
-#import os
-#import pandas as pd
-#import numpy as np
+import os
+import pandas as pd
+import numpy as np
 import astropy.io.fits as fits
 
 #----------------------------------------------------------------------------
@@ -136,7 +136,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                         imagesize=imagesize,itmod=itmod,
                         x0=x0,y0=y0,shape=paramshape)
 
-    print "max, min img = ",np.max(img), np.min(img)
+#    print "max, min img = ",np.max(img), np.min(img)
 
     #----Save map to fits file----
 
@@ -412,13 +412,12 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
     layer = 0
     for i, group in layers: 
         print 'layer = ',layer
-        print 'min, max group ',np.min(group),np.max(group)
+#        print 'min, max group ',np.min(group),np.max(group)
         #i=iteration number (string or int?), group = subset of dataframe
         image_stack[:,:,layer] = iteration_image(group,nbins_x,nbins_y,
                                                  binsize,xmin,ymin,
                                                  n_int_steps,
                                                  iteration_type,shape)
-        print 'min, max layer = ',np.min(image_stack[:,:,layer]),np.max(image_stack[:,:,layer])
         layer = layer + 1
 
     #--Collapse Image Stack (combine iterations)----
