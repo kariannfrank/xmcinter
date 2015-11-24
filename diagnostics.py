@@ -4,31 +4,15 @@ Scripts that call xmcinter functions to do common diagnostics tasks.
 Contents:
  clean
  check
-
-A typical workflow might be as follows:
-
-# start python
-ipython
-# import scripts and common modules
-import xmcinter.analysis.diagnostics as xd 
-# check convergence (determine minimum iteration to use)
-statframe = xplt.chi2('./')
-# filter by iteration and add emission measure column
-# (change itmin and distance as appropriate)
-df = xd.clean(itmin=1000,distance=3.3)
-# check traceplots
-tracefigs = xplt.traceplots(df)
-# check weighted histograms
-histfigs = xplt.histogram_grid(df,weights=df['blob_em'])
-
 """
 #----------------------------------------------------------
 
 #-import common modules-
-#import pandas as pd
-#import numpy as np
+import pandas as pd
+import numpy as np
 import plots as xplt
 import wrangle as xw
+from xmcfiles import merge_output
 
 #----------------------------------------------------------
 def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
@@ -61,13 +45,13 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
 
     Usage Notes:
-     - typically this is run after xplt.chi2, to determine the minimum iteration 
+     - typically this is run after xplt.chi2, to determine the minimum 
+       iteration 
 
     Example:
     """
 
     # -- import modules --
-    from xmcfiles import merge_output
     import astro_utilities as astro
 
     # -- read deconvolution files --
@@ -79,8 +63,8 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
     # -- add emission measure column
     df['blob_em'] = astro.norm_to_em(df['blob_norm'],
-                                     astro.convert_distance(distance,'kpc',
-                                                            'cm'))/(10.0**55.0)
+                                     astro.convert_distance(distance,'kpc',\
+                                     'cm'))/(10.0**55.0)
 
     # -- remove iterations before convergence --
     if itmax == None:
@@ -88,7 +72,8 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     df = xw.filterblobs(df,'iteration',minvals=itmin,maxvals=itmax)
 
     # -- save as file --
-    outfile = 'deconvolution_merged_itmin'+str(int(itmin))+'-'+str(int(itmax))+'.txt'
+    outfile = ('deconvolution_merged_itmin'
+               +str(int(itmin))+'-'+str(int(itmax))+'.txt')
     df.to_csv(outfile,sep='\t')
 
     # -- make traceplots --
@@ -128,7 +113,7 @@ def check(runpath='./',itmin=0,itmax=None):
     """
 
     # -- import modules --
-#    import os
+    import os
     from file_utilities import ls_to_list
     import xmcmap as xm
 
@@ -157,9 +142,9 @@ def check(runpath='./',itmin=0,itmax=None):
 
     # -- make norm maps --
     normmap =  'itmin'+str(itmin)+'_median_norm.fits'
-    median_norm_img = xm.make_map(df,outfile=normmap,paramname=
-                                  'blob_norm',binsize=10.0,itmod=
-                                  (itmax-itmin)/100),iteration_type='total')
+#    median_norm_img = xm.make_map(df,outfile=normmap,paramname='blob_norm'
+#                                  ,binsize=10.0,itmod=(itmax-itmin)/500
+#                                  ,iteration_type='total')
 
     normmaplatest = 'iter'+str(itmax)+'_norm.fits'
     df_latest = xw.filterblobs(df,'iteration',minvals=itmax,maxvals=itmax)
@@ -178,7 +163,8 @@ def check(runpath='./',itmin=0,itmax=None):
     cmd = 'ds9'
     for evf in evfiles:
         cmd = cmd + ' '+ evf + ' -bin factor 32'
-    cmd = cmd + ' ' + normmap + ' ' + normmaplatest
+#    cmd = cmd + ' ' + normmap + ' ' + normmaplatest
+    cmd = cmd + ' ' + normmaplatest
     os.system(cmd)
 
 

@@ -12,8 +12,8 @@ Contains the following functions:
 """
 
 #-import common modules-
-#import pandas as pd
-#import numpy as np
+import pandas as pd
+import numpy as np
 import bokeh
 import bokeh.plotting as bplt
 import bokeh.charts as bchart
@@ -433,7 +433,7 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     """
 
     #----Import Modules----
-#    import os
+    import os
     import astropy.io.fits as fits
     from file_utilities import ls_to_list
 
