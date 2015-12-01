@@ -62,11 +62,11 @@ def read_parnames(runpath):
 #          and merge into a single dataframe, with an extra
 #          column to specify iteration. optionally can also save as a text file.
 #          
-#Usage: merge_output(filepath,filetype='deconvolution',save=True)
+#Usage: merge_output(runpath='./',filetype='deconvolution',save=True)
 #
 #Input:
 #
-#  filepath     -- Path to xmc run directory, containing the
+#  runpath     -- Path to xmc run directory, containing the
 #                  deconvolution, statistic, etc. files
 # 
 #  filetype     -- string containing the type of xmc file to merge
@@ -80,7 +80,7 @@ def read_parnames(runpath):
 #                  (default='\t', tab-separated)
 #
 #Output:
-#  - if save=True, writes a text file <filetype>_merged.txt into the filepath 
+#  - if save=True, writes a text file <filetype>_merged.txt into the runpath 
 #    directory
 #  - returns a pandas dataframe containing data from all the input files
 #
@@ -93,15 +93,15 @@ def read_parnames(runpath):
 #    datatable = pd.read_table(mergedfile,sep='\t',index_col=0)
 #
 
-def merge_output(filepath,filetype='deconvolution',save=True,sep='\t'):
+def merge_output(runpath='./',filetype='deconvolution',save=True,sep='\t'):
 
     # - get list of files - 
-    filelist = fu.ls_to_list(filepath,ls_args = filetype+'.*')
+    filelist = fu.ls_to_list(runpath,ls_args = filetype+'.*')
     
     # --Initialize dataframe with first file --
 
     # - read file - 
-    datatable = pd.read_table(filepath+'/'+filelist[0],sep='\s+',header=None)
+    datatable = pd.read_table(runpath+'/'+filelist[0],sep='\s+',header=None)
 
     # - add headers -
     parnames = []
@@ -110,8 +110,8 @@ def merge_output(filepath,filetype='deconvolution',save=True,sep='\t'):
         parnames =  ['stat1','dof','oversim','nblobs','alpha','chi2']
         datatable.columns = parnames
     if filetype == 'deconvolution':
-        if os.path.isfile(filepath+'/parameters.txt'):
-            parnames = fu.parse_file_line(filepath+'/parameters.txt') 
+        if os.path.isfile(runpath+'/parameters.txt'):
+            parnames = fu.parse_file_line(runpath+'/parameters.txt') 
             datatable.columns = parnames
 
     # - get iteration number and add as column - 
@@ -120,14 +120,14 @@ def merge_output(filepath,filetype='deconvolution',save=True,sep='\t'):
 
     # -- Loop through files and concatenate into single dataframe --
     for f in filelist[1:]:        
-        newframe = pd.read_table(filepath+'/'+f,sep='\s+',header=None)
+        newframe = pd.read_table(runpath+'/'+f,sep='\s+',header=None)
         iternum = int(f.split('.')[-1]) # returns integer
         if len(parnames) > 0: newframe.columns=parnames
         newframe['iteration'] = iternum
         datatable = pd.concat([datatable,newframe],ignore_index=True)
         
     # -- Write to file --
-    if save == True: datatable.to_csv(filepath+'/'+filetype+'_merged.txt',
+    if save == True: datatable.to_csv(runpath+'/'+filetype+'_merged.txt',
                                       sep=sep)
 
     return datatable

@@ -32,7 +32,7 @@ A typical workflow for early diagnostics
 (requires access to the original deconvolution.* and statistic.* files)
 
 # check progress
-df = xd.check(itmin=500)
+df,sf = xd.check(itmin=500)
 
 # check median chi2 after convergence
 # (change 1000 to first converged iteration)

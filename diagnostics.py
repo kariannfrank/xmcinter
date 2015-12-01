@@ -171,4 +171,4 @@ def check(runpath='./',itmin=0,itmax=None):
     # -- make traceplots --
 #    tracefigs = xplt.traceplots(df)
 
-    return df
+    return (df,sf)
