@@ -402,7 +402,7 @@ def format_ticks(vals):
 
 #----------------------------------------------------------
 def spectra(runpath='./',smin=0,smax=None,datacolor='black',
-            modelcolor='cornflowerblue',lastmodelcolor='crimson'):
+            modelcolor='cornflowerblue',lastmodelcolor='crimson',nbins=None):
     """
     Author: Kari A. Frank
     Date: November 18, 2015
@@ -421,6 +421,9 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
                        spectrum* file names, e.g. smax=3 will average the 
                        files spectrum_1.fits, spectrum_2.fits, and 
                        spectrum_3.fits. default is all available spectra.
+
+    nbins (int) : number of bins in the histogram. 
+                  defaults to a binsize of 0.015 keV.
 
     Output:
      - plots the spectra for to an interactive plot
@@ -473,9 +476,11 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     model_wave_avg = pd.Series(model_wave_avg,name='Energy (keV)')
     model_wave = pd.Series(model_wave,name='Energy (keV)')
 
-    nbins = np.ceil((np.max(data_wave.values)-np.min(data_wave.values))/0.015)
-
     #----Create Histograms----
+    if nbins is None:
+        nbins = np.ceil((np.max(data_wave.values)-np.min(data_wave.values))
+                        /0.015)
+
     datay,datax = np.histogram(data_wave,bins=nbins,density=True)
     avgmodely,avgmodelx = np.histogram(model_wave_avg,bins=nbins,density=True)
     lastmodely,lastmodelx = np.histogram(model_wave,bins=nbins,density=True)
