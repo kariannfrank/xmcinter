@@ -497,9 +497,11 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     fig.xaxis.formatter=format_ticks(datax)
 
     #----Plot Spectra----
-    fig.line(datax,datay,color=datacolor,line_width=2)
-    fig.line(avgmodelx,avgmodely,color=modelcolor)
-    fig.line(lastmodelx,lastmodely,color=lastmodelcolor)
+    fig.line(datax,datay,color=datacolor,line_width=2,legend="Data")
+    fig.line(avgmodelx,avgmodely,color=modelcolor,legend=
+             "Model (Average over Iterations)")
+    fig.line(lastmodelx,lastmodely,color=lastmodelcolor,legend=
+             "Model (Last Iteration)")
 
     #----Show the Plot----
     bplt.show(fig)
