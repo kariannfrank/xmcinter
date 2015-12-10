@@ -23,30 +23,28 @@ from astropy.io import fits
 
 
 #----------------------------------------------------------
-#norm_to_em()
-
-#Author: Kari Frank
-#Date: March 28, 2014
-#Purpose: given model normalization (as defined for Xspec mekal model),
-#          distance in cm, and redshift, return the emission measure
-#         
-#Usage: norm_to_em(norm,dist,redshift=redshift)
-#Input: 
-#  norm -- model normalization, in units output by Xspec 
-#  dist -- distance to the object in cm
-#  redshift -- redshift of the object. default = 0.0
-#
-#Output:
-#  returns emission measure corresponding to the given norm (float).
-#Usage Notes:
-# 
-# - Assumes  
-#      norm = 10^14/4pi[dist(1+z)]^2 * EM
-# - Units of returned emission measure are cm^-3
-# - EM = n_e*n_H*V
-
 def norm_to_em(norm,dist_cm,redshift=0.0):
+  """
+  Author: Kari Frank
+  Date: March 28, 2014
+  Purpose: given model normalization (as defined for Xspec mekal model),
+            distance in cm, and redshift, return the emission measure
+          
+  Input: 
+    norm -- model normalization, in units output by Xspec 
+    dist -- distance to the object in cm
+    redshift -- redshift of the object. default = 0.0
+  
+  Output:
+    returns emission measure corresponding to the given norm (float).
+  Usage Notes:
+   
+   - Assumes  
+        norm = 10^14/4pi[dist(1+z)]^2 * EM
+   - Units of returned emission measure are cm^-3
+   - EM = n_e*n_H*V
 
+  """
   #-convert to emission measure-
   em = norm*10.0**(14.0)*dist_cm*4.0*np.pi*dist_cm*(1.0+redshift)**2.0
   
@@ -193,24 +191,23 @@ def stack_images(infiles,outfile='default'):
   return out_img
 
 #----------------------------------------------------------
-#angstroms2keV()
-
-#Author: Kari Frank
-#Date: July 13, 2015
-#Purpose: quickly convert angstroms to keV
-#         
-#Usage: angstroms2keV(inwave)
-#Input: 
-#  inwave -- input wavelength, in angstroms
-#
-#Output:
-#  returns the wavelength in keV (if input was angstroms)
-#   or the wavelength in angstrom (if the input was keV)
-#
-#Usage Notes:
-# - uses E=h*c/lambda
-
 def angstroms2keV(inwave):
+  """
+  Author: Kari Frank
+  Date: July 13, 2015
+  Purpose: quickly convert angstroms to keV
+
+  Usage: angstroms2keV(inwave)
+  Input: 
+    inwave -- input wavelength, in angstroms
+
+  Output:
+    returns the wavelength in keV (if input was angstroms)
+     or the wavelength in angstrom (if the input was keV)
+
+  Usage Notes:
+   - uses E=h*c/lambda
+  """
 
   #-set conversion constant-
   C = 12.398521
