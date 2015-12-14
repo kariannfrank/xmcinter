@@ -16,11 +16,12 @@ Contains the following functions:
  xmc_wcs_convert()
 
 """
+
+#----------------------------------------------------------
 #Import common modules
 import shutil
 import numpy as np
 from astropy.io import fits
-
 
 #----------------------------------------------------------
 def norm_to_em(norm,dist_cm,redshift=0.0):
@@ -31,12 +32,13 @@ def norm_to_em(norm,dist_cm,redshift=0.0):
             distance in cm, and redshift, return the emission measure
           
   Input: 
-    norm -- model normalization, in units output by Xspec 
-    dist -- distance to the object in cm
-    redshift -- redshift of the object. default = 0.0
+    norm (numerical): model normalization, in units output by Xspec 
+    dist (numerical): distance to the object in cm
+    redshift (numerical): redshift of the object. default = 0.0
   
   Output:
     returns emission measure corresponding to the given norm (float).
+
   Usage Notes:
    
    - Assumes  
@@ -53,30 +55,25 @@ def norm_to_em(norm,dist_cm,redshift=0.0):
 
 
 #----------------------------------------------------------
-#transfer_header()
-
-#Author: Kari Frank
-#Date: April 4, 2014
-#Purpose: copy a header from one fits file into another fits file
-#         
-#         
-#Usage: transfer_header(sourcefile,targetfile,newfile)
-#Input: 
-#  sourcefile -- fits file from which to read the header
-#  targetfile -- fits file which will have its header replaced
-#  newfile    -- new fits file name to save the edited targetfile
-#
-#Output:
-#  makes a copy of targetfile with the header replaced by that
-#   from sourcefile.
-#  returns the name of the new file (newfile)
-#
-#Usage Notes:
-#  
-# 
-# 
-
 def transfer_header(sourcefile,targetfile,newfile):
+  """
+  Author: Kari Frank
+  Date: April 4, 2014
+
+  Purpose: copy a header from one fits file into another fits file
+
+  Input: 
+    sourcefile (str): name of fits file from which to read the header
+    targetfile (str): name of fits file which will have its header replaced
+    newfile (str): name of new fits file to save the edited targetfile
+
+  Output:
+    makes a copy of targetfile with the header replaced by that
+     from sourcefile.
+    returns the name of the new file (newfile)
+
+  Usage Notes:
+  """   
 
   #-get sourcefile header-
   source_hdus = fits.open(sourcefile)
@@ -95,30 +92,26 @@ def transfer_header(sourcefile,targetfile,newfile):
 
   return newfile
 
-
 #----------------------------------------------------------
-#normalize_image()
-
-#Author: Kari Frank
-#Date: February 2, 2015
-#Purpose: Normalize a fits image such that is sums to 1
-#         
-#Usage: normalize_image(infile,outfile='default')
-#Input: 
-#  infile -- fits file to normalize
-#  outfile -- name of output normalized fits image. default is infile+'.norm'
-#
-#Output:
-#  makes a copy of infile that is normalized
-#  returns normalized image array
-#
-#Usage Notes:
-#  
-# 
-# 
-
 def normalize_image(infile,outfile='default'):
+  """
+  Author: Kari Frank
+  Date: February 2, 2015
 
+  Purpose: Normalize a fits image such that is sums to 1
+
+  Input: 
+    infile (str): name of fits file to normalize
+    outfile (str): name of output normalized fits image file. 
+         default is infile+'.norm'
+
+  Output:
+    makes a copy of infile that is normalized
+    returns normalized image array
+
+  Usage Notes:
+  """  
+ 
   #-set output file name-
   if outfile=='default':
     outfile=infile+'.norm'
@@ -143,27 +136,27 @@ def normalize_image(infile,outfile='default'):
   return out_img
 
 #----------------------------------------------------------
-#stack_images()
-
-#Author: Kari Frank
-#Date: February 3, 2015
-#Purpose: Read in stack of fits images and add them together.
-#         
-#Usage: stack_images(infiles,outfile='default')
-#Input: 
-#  infile -- list of fits image filenames to stack
-#  outfile -- name of output stacked fits image. default is 'stacked.fits'
-#
-#Output:
-#  fits image file containing sum of input images
-#  returns the stacked image numpy array
-#
-#Usage Notes:
-# - assumes images are already aligned (in image coordinates) 
-# - the output file, including header, is a copy of the first
-#   input image with modified image data
-
 def stack_images(infiles,outfile='default'):
+  """
+  Author: Kari Frank
+  Date: February 3, 2015
+
+  Purpose: Read in stack of fits images and add them together.
+
+  Input: 
+    infile (list of str): list of fits image filenames to stack
+    outfile (str): name of output stacked fits image. default is 
+         'stacked.fits'
+
+  Output:
+    fits image file containing sum of input images
+    returns the stacked image numpy array
+
+  Usage Notes:
+   - assumes images are already aligned (in image coordinates) 
+   - the output file, including header, is a copy of the first
+     input image with modified image data
+  """
 
   #-set output file name-
   if outfile=='default':
@@ -199,11 +192,11 @@ def angstroms2keV(inwave):
 
   Usage: angstroms2keV(inwave)
   Input: 
-    inwave -- input wavelength, in angstroms
+    inwave (numerical): input wavelength, in angstroms
 
   Output:
-    returns the wavelength in keV (if input was angstroms)
-     or the wavelength in angstrom (if the input was keV)
+    returns the wavelength in keV (if input was angstroms),
+         or the wavelength in angstrom (if the input was keV)
 
   Usage Notes:
    - uses E=h*c/lambda
@@ -218,26 +211,26 @@ def angstroms2keV(inwave):
   return outwave
 
 #----------------------------------------------------------
-#Author: Kari A. Frank
-#Date: October 9, 2013
-#Purpose: 
-#Usage: energy_keV = K2keV(temperature,reverse=False)
-#
-#Input:
-#
-# temperature: float temperature in Kelvins or keV. 
-#
-# reverse: switch to convert input from keV to Kelvins
-#          (default=False).  if True, then input 
-#          should be the temperature in keV.
-#
-#Output:
-# - returns the converted temperature
-#
-#Usage Notes:
-# 
-
 def K2keV(temperature,reverse=False):
+  """
+  Author: Kari A. Frank
+  Date: October 9, 2013
+  Purpose: Convert temperature units between Kelvin and keV.
+
+  Input:
+
+   temperature (numerical): temperature in Kelvins (or keV if reverse=True)
+
+   reverse (optional bool): switch to convert input from keV to Kelvins
+            (default=False).  if True, then input 
+            should be the temperature in keV.
+
+  Output:
+   numerical: returns the converted temperature
+
+  Usage Notes:
+
+  """
 
   #-define constant conversion factor-
   k = 8.62*10**(-8) #constant in keV/K
@@ -254,78 +247,77 @@ def K2keV(temperature,reverse=False):
     return kelvins
 
 #----------------------------------------------------------
-# convert_units()
-#Author: Kari A. Frank
-#Date: October 28, 2015
-#Purpose: Convert between distance units
-#Usage: convert_distance(val,fromunit,tounit)
-#
-#Input:
-#
-# val      -- numerical value to be converted
-#
-# fromunit -- string specifying units of the input val:
-#             'kpc', 'km','cm','ly','pc'
-#
-# tounit   -- string specifying the units to convert val into:
-#             same values as fromunit.
-#
-#Output:
-# - returns the converted val
-#
-#Usage Notes:
-# - 
-#   
-
 def convert_distance(val,fromunit,tounit):
+  """
+  Author: Kari A. Frank
+  Date: October 28, 2015
 
-    #--set constants--
-    kpc_to_km = 1000.0*3.0857*10.0**13.0
-    pc_to_km = kpc_to_km/1000.0
-    km_to_cm = 100000.0
-    km_to_ly = 1.057e-13
+  Purpose: Convert between distance units
 
-    #--convert values--
+  Input:
 
-    if fromunit == 'pc':
-      if tounit == 'km':
-        return val*pc_to_km
-      if tounit == 'cm':
-        return val*pc_to_km*km_to_cm
-      if tounit == 'kpc':
-        return val*pc_to_km/kpc_to_km
-      if tounit == 'ly':
-        return val*pc_to_km*km_to_ly
+       val (numerical): value to be converted
 
-    if fromunit == 'km':
+       fromunit (str): units of the input val, choose from
+            'kpc', 'km','cm','ly','pc'
+
+       tounit (str): units to convert val into, same options
+            as fromunit.
+
+  Output:
+       numerical: returns the converted val
+
+  Usage Notes:
+
+  """   
+
+  #--set constants--
+  kpc_to_km = 1000.0*3.0857*10.0**13.0
+  pc_to_km = kpc_to_km/1000.0
+  km_to_cm = 100000.0
+  km_to_ly = 1.057e-13
+
+  #--convert values--
+
+  if fromunit == 'pc':
+    if tounit == 'km':
+      return val*pc_to_km
+    if tounit == 'cm':
+      return val*pc_to_km*km_to_cm
+    if tounit == 'kpc':
+      return val*pc_to_km/kpc_to_km
+    if tounit == 'ly':
+      return val*pc_to_km*km_to_ly
+
+  if fromunit == 'km':
+    if tounit == 'pc':
+      return val/pc_to_km
+    if tounit == 'cm':
+      return val*km_to_cm
+    if tounit == 'kpc':
+      return val/kpc_to_km
+    if tounit == 'ly':
+      return val*km_to_ly
+
+  if fromunit == 'cm':
       if tounit == 'pc':
-        return val/pc_to_km
-      if tounit == 'cm':
-        return val*km_to_cm
+          return val/km_to_cm/pc_to_km
       if tounit == 'kpc':
-        return val/kpc_to_km
+          return val/km_to_cm/kpc_to_km
+      if tounit == 'km':
+          return val/km_to_cm
       if tounit == 'ly':
-        return val*km_to_ly
+          return val/km_to_cm*km_to_ly
 
-    if fromunit == 'cm':
-        if tounit == 'pc':
-            return val/km_to_cm/pc_to_km
-        if tounit == 'kpc':
-            return val/km_to_cm/kpc_to_km
-        if tounit == 'km':
-            return val/km_to_cm
-        if tounit == 'ly':
-            return val/km_to_cm*km_to_ly
-
-    if fromunit == 'kpc':
-        if tounit == 'pc':
-            return val*1000.0
-        if tounit == 'cm':
-            return val*kpc_to_km*km_to_cm
-        if tounit == 'km':
-            return val*kpc_to_km
-        if tounit == 'ly':
-            return val*kpc_to_km*km_to_ly
+  if fromunit == 'kpc':
+      if tounit == 'pc':
+          return val*1000.0
+      if tounit == 'cm':
+          return val*kpc_to_km*km_to_cm
+      if tounit == 'km':
+          return val*kpc_to_km
+      if tounit == 'ly':
+          return val*kpc_to_km*km_to_ly
 
 #----------------------------------------------------------
 def get_xmm_attitude(attfile='atthk.fits',hms=False):
@@ -337,19 +329,19 @@ def get_xmm_attitude(attfile='atthk.fits',hms=False):
   Purpose: Return an XMM observation boresight coordinates and rotation 
            angle from an attitude (e.g. atthk.fits) file.
 
-  Usage: obscoords = get_xmm_attitude(attfile='atthk.fits',hms=FALSE)
   Input:
-      attfile : [string] filename (including path) of the attitude file
+      attfile (str): file name (including path) of the attitude file
 
-      hms : [boolean] return the coordinates as [hour,minutes,seconds] 
-            instead of degrees
+      hms (bool): if True, return the coordinates as [hour,minutes,seconds] 
+            instead of degrees (default=False)
 
   Output:
-      Returns list of coordinates and angle, 
-      [right_ascension,declination,angle], where all are in decimal degrees
+      list of numerical: returns list of coordinates and angle, 
+           [right_ascension,declination,angle], 
+           where all are in decimal degrees
 
-      If hms=True, then right_ascension and declination are lists of the 
-      form [hh,mm,ss]
+           If hms=True, then right_ascension and declination are lists 
+           of the form [hh,mm,ss]
 
   Usage Notes:
      - the attitude file should be generated from the odf files using 
@@ -382,10 +374,8 @@ def deg2hms(x_deg):
   Date: November 17, 2015
   Purpose: Convert a value from decimal degrees into hours,minutes,seconds.
 
-  Usage: y = deg2hms(x_deg)
-
   Input:
-      x_deg : value in decimal degrees (e.g. right ascension)
+      x_deg (numerical): value in decimal degrees (e.g. right ascension)
 
   Output:
       Returns the converted value as a list in the form [hh,mm,ss]
@@ -414,13 +404,12 @@ def hms2deg(x_hms):
   Purpose: Convert a value from hours,minutes,seconds into decimal degrees.
            (This is the inverse of deg2hms)
 
-  Usage: y = hms2deg(x_hms)
-
   Input:
-      x_hms : list in format [hh,mm,ss] (e.g. right ascension)
+      x_hms (length 3 list of numerical): list in format [hh,mm,ss] 
+           (e.g. right ascension)
 
   Output:
-      Returns the input as a single value in decimal degrees
+      Returns the input as a single value converted to decimal degrees
 
   Usage Notes:
   """
@@ -436,19 +425,19 @@ def hms2deg(x_hms):
   x_deg = x_deg + x_hms[2]*360.0/(60.0*60.0*day_length)
 
   return x_deg
+
 #----------------------------------------------------------
 def xmc2wcs(phi,psi,attfile='atthk.fits'):
   """
   Author: Kari Frank
   Date: November 18, 2015
+
   Purpose: Convert from xmc coordinates to RA and DEC.
 
-  Usage: y = xmc2wcs(phi,psi,attfile='atthk.fits')
-
   Input:
-     phi (float): xmc phi (x) coordinate (arcsec)
-     psi (float): xmc psi (y) coordinate (arcsec)
-     attfile (string) : path to the observation's attitude file, 
+     phi (numerical): xmc phi (x) coordinate (arcsec)
+     psi (numerical): xmc psi (y) coordinate (arcsec)
+     attfile (str) : path to the observation's attitude file, 
                         as created by the XMM-SAS tool atthkgen
 
   Output:
@@ -495,14 +484,13 @@ def wcs2xmc(ra,dec,attfile='atthk.fits'):
   """
   Author: Kari Frank
   Date: November 18, 2015
+
   Purpose: Convert from RA and DEC into phi and psi coordinates used by xmc.
 
-  Usage: y = wcs2xmc(ra,dec,attfile='atthk.fits')
-
   Input:
-     ra (float): right ascension in decimal degrees
-     dec (float): declination in decimal degrees
-     attfile (string) : path to the observation's attitude file, 
+     ra (numerical): right ascension in decimal degrees
+     dec (numerical): declination in decimal degrees
+     attfile (str) : path to the observation's attitude file, 
                         as created by the XMM-SAS tool atthkgen
 
   Output:
