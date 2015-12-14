@@ -2,7 +2,6 @@
 Module of functions for wrangling the data output by xmc (typically in the
 form of a pandas dataframe)
 
-
 Contains the following functions:
 
 For wrangling the blob parameter dataframe:
@@ -26,63 +25,11 @@ import numpy as np
 #from __future__ import print_function
 
 #----------------------------------------------------------------
-"""
- filterblobs() and simplefilterblobs()
-
-Author: Kari A. Frank 
-Date: October 20, 2015
-Purpose: Filter a pandas dataframe (i.e. remove rows) based on 
-         minimum and maximum values for the specified column.
-         
-         
-         
-         
-Usage: filtered_df = filterblobs(inframe,colnames,minvals=minvals,maxvals=maxvals)
-
-Input:
-
-  inframe (pandas.DataFrame) : pandas dataframe to be filtered
-               
-  colnames (string or list of strings) : scalar or list of (string) 
-               names of the columns containing the parameters be 
-               filtered by (e.g. 'blobkT' to filter based on 
-               minimum or maximum temperature)            
-  
-
-  minvals,maxvals (numerical or list of numerical) : scalars or lists of 
-                       minimum and maximum values of
-                       parameters to keep. returned value range is inclusive.
-                       order must match the order of columns
-
-Output:
-  
-  Returns a dataframe identical to the input dataframe but missing rows
-    which do not match the criteria.
-
-Usage Notes:
- - to return rows for which the column equals a specific value (rather
-   than is within a range), set minval=maxval
-
- - to include only upper or lower limits for any parameter, set the 
-   associated minval or maxval to None  
-
-Example:
-    filtered_df = filterblobs(blobframe,'blobkT',min=0.5,max=1.5)
-    - this will return a version of blobframe which includes only 
-      rows (blobs) with temperatures between 0.5 and 1.5.
-
-    filtered_df = filterblobs(blobframe,['blobkT','blob_Si'],
-                              minvals=[0.5,1.0],maxvals=[1.5,3.0])
-    - this will return a version of blobframe which includes only 
-      rows (blobs) with temperatures between 0.5 and 1.5 and Si between
-      1.0 and 3.0.
-"""
-
-#----import modules---
 
 #----define function to filter by 1 parameter----
 #--gets called by the primary filter function below--
 def simplefilterblobs(inframe,colname,minval=None,maxval=None,quiet=False):
+    """See docstring for filterblobs()"""
 
     #-check if colname is valid column name-
     if colname not in inframe.columns:
@@ -115,6 +62,50 @@ def simplefilterblobs(inframe,colname,minval=None,maxval=None,quiet=False):
     return outframe
 
 def filterblobs(inframe,colnames,minvals=None,maxvals=None,logic='and'):
+    """
+    filterblobs() and simplefilterblobs()
+
+    Author: Kari A. Frank 
+    Date: October 20, 2015
+
+    Purpose: Filter a pandas dataframe (i.e. remove rows) based on 
+             minimum and maximum values for the specified column.
+
+    Input:
+
+      inframe (pandas.DataFrame): dataframe to be filtered
+
+      colnames (str or list of str): names of the columns containing 
+           the parameters be filtered by (e.g. 'blobkT' to filter based on 
+           minimum or maximum temperature)            
+
+      minvals,maxvals (numerical or list of numerical): minimum and maximum
+           values of parameters to keep. returned value range is inclusive.
+           order must match the order of columns
+
+    Output:
+
+      Returns a dataframe identical to the input dataframe but missing rows
+        which do not match the criteria.
+
+    Usage Notes:
+     - to return rows for which the column equals a specific value (rather
+       than is within a range), set minval=maxval
+
+     - to include only upper or lower limits for any parameter, set the 
+       associated minval or maxval to None  
+
+    Example:
+        filtered_df = filterblobs(blobframe,'blobkT',min=0.5,max=1.5)
+        - this will return a version of blobframe which includes only 
+          rows (blobs) with temperatures between 0.5 and 1.5.
+
+        filtered_df = filterblobs(blobframe,['blobkT','blob_Si'],
+                                  minvals=[0.5,1.0],maxvals=[1.5,3.0])
+        - this will return a version of blobframe which includes only 
+          rows (blobs) with temperatures between 0.5 and 1.5 and Si between
+          1.0 and 3.0.
+    """
 
     #--initialize outframe--
 #    outframe = inframe
@@ -252,6 +243,16 @@ def quantile(data, quantile, weights = None):
 def weighted_median(data, weights=None):
     """
     Weighted median of an array with respect to the last axis.
+
+    Alias for `quantile(data,0.5,weights=weights)`.
+    """
+    return quantile(data, 0.5,weights=weights)
+
+#----------------------------------------------------------------
+
+def weighted_stdev(data, weights=None):
+    """
+    Weighted standard deviation of an array with respect to the last axis.
 
     Alias for `quantile(data,0.5,weights=weights)`.
     """
