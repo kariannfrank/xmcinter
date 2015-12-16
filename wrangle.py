@@ -15,13 +15,18 @@ Statistics:
  quantile()
  quantile_1D() [mainly helper function for quantile()]
  weighted_median()
-
+ weighted_posterior()
+ weighted_modes()
+ credible_region()
 
 """
 #----------------------------------------------------------------
 # Import Common Modules
 import pandas as pd
 import numpy as np
+#import astropy.stats as astats #for the histogram function
+#(switch to the astropy histogram and use the optimal binning (bins='knuth')
+# once they implement weights)
 #from __future__ import print_function
 
 #----------------------------------------------------------------
@@ -239,7 +244,6 @@ def quantile(data, quantile, weights = None):
         return result.reshape(n[:-1])
 
 #----------------------------------------------------------------
-
 def weighted_median(data, weights=None):
     """
     Weighted median of an array with respect to the last axis.
@@ -249,13 +253,174 @@ def weighted_median(data, weights=None):
     return quantile(data, 0.5,weights=weights)
 
 #----------------------------------------------------------------
-
-def weighted_stdev(data, weights=None):
+#def weighted_posterior(data, weights=None, bins='knuth',normalize=False):
+def weighted_posterior(data, weights=None, bins=None,normalize=False):
     """
-    Weighted standard deviation of an array with respect to the last axis.
+    Construct a (weighted) posterior histogram from an array of data,
+    e.g. a 1D array of blob temperatures.
 
-    Alias for `quantile(data,0.5,weights=weights)`.
+    The output histogram is normalized to 1 if normalize=True.
+
+    Returns two 1D arrays, one containing the x and y values of the 
+    histogram.  The x values are the center of each bin.
     """
-    return quantile(data, 0.5,weights=weights)
+
+    #-determine number of bins if not provided-
+    if bins is None:
+        bins = np.ceil(np.sqrt(len(data)))
+
+    #--Create histogram--
+#    y,binedges = astats.histogram(data,weights=weights,bins=bins,
+#                                  density=normalize)
+
+    y,binedges = np.histogram(data,weights=weights,bins=bins)
+
+    #--shift x values to center of bin--
+    x = np.array([(binedges[i+1]+binedges[i])/2.0 for i in 
+                  range(len(binedges)-2)])
+    
+    return x,y
+
+#----------------------------------------------------------------
+def weighted_modes(data, weights=None):
+    """
+    Calculate the mode of a weighted array.
+
+    Returns the mode.
+
+    To Do:
+    Add capability to find all the local maxima.
+    """
+
+    #--Construct the binned posterior--
+    postx,posty = weighted_posterior(data,weights=weights,
+                                     normalize=True)
+
+    #--Find the mode(s)--
+#    modes = []
+    
+    #-find first mode-
+    mi = np.argmax(posty)
+#    modes[0] = postx[mi]
+    modes = postx[mi]
+    #-delete bin-
+ #   posty = np.delete(posty,mi)
+ #   postx = np.delete(postx,mi)
+
+    #-find additional modes-
+
+    return modes
+
+#----------------------------------------------------------------
+def credible_region(data, weights=None, frac=0.9, method='HPD'):
+    """
+    Calculate the Bayesian credible region from the provided posterior
+    distribution.
+
+    Parameters
+    ----------
+    data : ndarray
+        Input array.
+    weights : ndarray
+        Array with the weights. It must have the same size of the last 
+        axis of `data`.
+    frac : float
+        Credible region to calculate, e.g. frac=0.9 will return the 90% 
+        credible region. Must be between 0 and 1.
+    method : str
+        Optionally specify the method for calculating the credible interval.
+        Choose from 'HPD' (default) or 'ET':
+        HPD = Highest Probability Density, defined as the narrowest interval
+              that contains frac (e.g. 90%) of the total probability. For a 
+              unimodal distribution, this will include the mode.
+              This returns the relevant end point of the distribution 
+              if necessary as an upper or lower limit.
+        ET = Equal-tailed interval, defined as the interval where the 
+             probability of being below the interval is equal to the 
+             probability of being above.  This interval will include median.
+             Note that using HPD is preferable, as ET cannot properly deal
+             with upper or lower limits, or distributions which peak close
+             to one end.
+
+
+    Returns
+    -------
+    A tuple of floats containing the mode (HPD) or median (ET) and the 
+    endpoints of the credible region.
+    In the case of method='HPD' and multiple modes, it will return a list
+    of tuples, containing the modes and endpoints for each mode.
+    implemented]
+
+    Usage Notes
+    -------
+    Multipe modes not yet implemented.
+    ET method not yet implemented.
+    """
+
+    #----HPD calculation----
+    
+    #--find the mode(s)--
+    #in future, weighted_modes will return all local maxima, so can 
+    #calculate multiple credible intervals this way, one for each maxima
+    modes = weighted_modes(data,weights=weights)
+    
+    #--get normalized posterior (probability density function)--
+    postx,posty = weighted_posterior(data,weights=weights,normalize=True)
+
+    #--step through bins around mode, alternating directions--
+    lowprob = 0.0
+    highprob = 0.0
+    lowfound = False
+    highfound = False
+
+    #-set starting indices at the mode
+    highxi = int(np.where(postx == modes)[0])
+    lowxi = highxi
+
+    while (lowfound is False) or (highfound is False):
+        if lowfound is False:
+            # check if at edge of histogram
+            if lowxi <= 0:
+                #lowest bin - complete loop for this bin, 
+                # but don't repeat
+                lowfound = True 
+            # accumulate probability below mode
+            lowprob = lowprob+posty[lowxi]
+            lowxi = lowxi - 1
+        if highfound is False:
+            # check if at edge of histogram
+            if highxi >= len(postx)-1:
+                #highest bin - complete loop for this bin, 
+                # but don't repeat
+                highfound = True 
+            # accumulate probability behigh mode
+            highprob = highprob+posty[highxi]
+            highxi = highxi + 1
+
+        # sum upper and lower probabilities
+        netprob = lowprob + highprob
+        # check against frac-
+        if netprob >= frac:
+            lowfound = 1
+            highfound = 1
+    
+    #-save mode and final interval (whether or not desired frac was reached)
+    interval = (modes,postx[lowxi+1],posty[highxi-1])
+            
+    #-check if both upper and lower limits encountered-
+    if lowxi+1 == 0: print "Lower limit reached."
+    if highxi-1 == len(postx)-1: print "Upper limit reached."
+    if netprob < frac: print ("WARNING: Only reached "+str(netprob),
+                              " credible interval, parameter range is",
+                              " too narrow.")
+            
+
+    #----ET calculation----
+    
+    #--find the median--
+    median = weighted_median(data,weights=weights)
+
+
+    return interval
 
 #----------------------------------------------------------------
