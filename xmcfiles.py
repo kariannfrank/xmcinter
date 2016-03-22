@@ -120,12 +120,16 @@ def merge_output(runpath='./',filetype='deconvolution',save=True,sep='\t'):
 
     # -- Loop through files and concatenate into single dataframe --
     for f in filelist[1:]:        
-        newframe = pd.read_table(runpath+'/'+f,sep='\s+',header=None)
-        iternum = int(f.split('.')[-1]) # returns integer
-        if len(parnames) > 0: newframe.columns=parnames
-        newframe['iteration'] = iternum
-        datatable = pd.concat([datatable,newframe],ignore_index=True)
-        
+        if os.stat(f).st_size > 0:
+            newframe = pd.read_table(runpath+'/'+f,sep='\s+',
+                                     header=None)
+            iternum = int(f.split('.')[-1]) # returns integer
+            if len(parnames) > 0: newframe.columns=parnames
+            newframe['iteration'] = iternum
+            datatable = pd.concat([datatable,newframe],
+                                  ignore_index=True)
+        else:
+            print 'Warning: '+f+' is missing or empty. Skipping.'
     # -- Write to file --
     if save == True: datatable.to_csv(runpath+'/'+filetype+'_merged.txt',
                                       sep=sep)
