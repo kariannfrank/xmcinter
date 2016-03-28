@@ -467,10 +467,13 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     #--loop over remaining model spectra--
     for s in range(smin+1,smax):
         modelspecfile = runpath+'/'+specname+str(s)+'.fits'
-        model_table = fits.getdata(modelspecfile,0)
-        model_wave = model_table.field('wave')
-        model_wave_avg = np.hstack((model_wave_avg,model_wave))
-    
+        if os.path.isfile(modelspecfile):
+            model_table = fits.getdata(modelspecfile,0)
+            model_wave = model_table.field('wave')
+            model_wave_avg = np.hstack((model_wave_avg,model_wave))
+        else:
+            print "Warning: "+modelspecfile+" does not exist. Skipping."
+
     #----Convert to pandas Series----
     data_wave = pd.Series(data_wave,name='Energy (keV)')    
     model_wave_avg = pd.Series(model_wave_avg,name='Energy (keV)')
