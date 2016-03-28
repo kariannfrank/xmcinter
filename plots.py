@@ -459,13 +459,25 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     #----Read in model spectra----
 
     #--read in first model spectrum--
-    modelspecfile = runpath+'/'+specname+str(smin)+'.fits'
-    model_table = fits.getdata(modelspecfile,0)
-    model_wave = model_table.field('wave')
-    model_wave_avg = model_wave
+    foundmodel = False
+    sm = smin
+    print smin,smax
+    while (sm<=smax and foundmodel is False):
+        modelspecfile = runpath+'/'+specname+str(sm)+'.fits'
+        if os.path.isfile(modelspecfile):
+            model_table = fits.getdata(modelspecfile,0)
+            model_wave = model_table.field('wave')
+            model_wave_avg = model_wave
+            foundmodel = True
+        else:
+            print "Warning: "+modelspecfile+" not found.  Skipping to next spectrum."
+        sm = sm+1
+            
+    if foundmodel is False:
+        print "ERROR: no spectrum files found in range."
 
     #--loop over remaining model spectra--
-    for s in range(smin+1,smax):
+    for s in range(sm,smax):
         modelspecfile = runpath+'/'+specname+str(s)+'.fits'
         if os.path.isfile(modelspecfile):
             model_table = fits.getdata(modelspecfile,0)
