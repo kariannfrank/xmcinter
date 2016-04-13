@@ -5,6 +5,7 @@ Contains the following functions:
 
  chi2
  traceplots
+ scatter
  histogram 
  histogram_grid
  format_ticks
@@ -75,11 +76,75 @@ def chi2(runpath='./'):
     return statframe
 
 #----------------------------------------------------------
+def scatter(inframe,x,y,npoints=1000.,agg='sampling'):
+    """
+    xscatter()
+ 
+   Author: Kari A. Frank
+    Date: March 30, 2016
+    Purpose: plot simple scatter plot of the two columns
+
+   Usage: scatter(inframe,x,y)
+
+   Input:
+ 
+    inframe (DataFrame):  pandas DataFrame containing the data columns to be plotted   
+
+    x,y (strings): name of the columns in inframe to plot
+             
+    agg:    type of aggregration to perform before plotting, since plotting with
+         all possible rows/blobs is generally prohibitively slow options are
+         - 'none' (plot all rows)
+         - 'sampling' (take random subsample of rows, default)
+         - 'contour' (plot density contours instead of points - does not 
+            use linked brushing) -- not yet implemented
+
+  npoints: number of aggregated points to plot, ignored if agg='none' 
+           or agg='contour' (default = 1000.0)
+
+   Output:
+   - plots x vs y to an interactive plot
+   - returns the figure object
+
+  Usage Notes:
+  - must close and save (if desired) the plot manually
+  - may not work properly if trying to plot too many points
+
+  Example:
+ 
+  """
+    print len(inframe[x]),len(inframe[y])
+    
+#----Aggregate Data----
+    if agg=='none':
+        df = inframe
+    if agg=='sampling':
+        if len(inframe.index) > npoints:
+            df = inframe.sample(npoints)
+        else:
+            df = inframe
+
+#----Set up Plot----
+    bplt.output_file(x+'_vs_'+y+'.html')
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
+    fig = bplt.figure(tools=TOOLS)
+    fig.xaxis.axis_label=x
+    fig.yaxis.axis_label=y
+
+#----Plot x vs y----
+
+    fig.circle(x=df[x],y=df[y])
+    bplt.show(fig)#,new='window',browser='firefox --no-remote')
+
+#----Return----
+    return fig
+
+#----------------------------------------------------------
 #Author: Kari A. Frank
 #Date: October 26, 2015
 #Purpose: plot interactive matrix of scatter plots from given dataframe
 #
-#Usage: traceplots(dframe,agg='sampling',npoinst=1000.0)
+#Usage: traceplots(dframe,agg='sampling',npoinst=1000.0,columns=None)
 #
 #Input:
 # 
@@ -94,6 +159,9 @@ def chi2(runpath='./'):
 #
 #  npoints: number of aggregated points to plot, ignored if agg='none' 
 #           or agg='contour' (default = 1000.0)
+#
+#  columns: list of dataframe column names to include in the plots. default is
+#           to use all columns
 #           
 #             
 #Output:
@@ -107,11 +175,15 @@ def chi2(runpath='./'):
 # 
 #
 
-def traceplots(dframe,agg='sampling',npoints=1000.0):
+def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None):
 
 #----Import Modules----
     from bokeh.models import ColumnDataSource,PrintfTickFormatter
     
+#----Trim dataframe----
+    if columns is not None:
+        dframe = dframe[columns]
+
 #----Aggregate Data----
     if agg=='none':
         df = dframe
