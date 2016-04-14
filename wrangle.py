@@ -7,6 +7,8 @@ Contains the following functions:
 For wrangling the blob parameter dataframe:
  filterblobs()
  simplefilterblobs() [mainly a helper function for filterblobs()]
+ filtercircle()
+ gaussian_volume()
 
 Statistics:
  (from the wquantiles package: 
@@ -158,6 +160,78 @@ def filterblobs(inframe,colnames,minvals=None,maxvals=None,logic='and'):
 
     #-return filtered dataframe-
     return outframe
+
+def filtercircle(inframe,x='blob_phi',y='blob_psi',radius=20.0,x0=-60.0,y0=80.0,
+                 logic='exclude'):
+    """
+    filtercircle()
+
+    Author: Kari A. Frank 
+    Date: March 30, 2016
+
+    Purpose: Filter a pandas dataframe (i.e. remove rows) based on 
+             the given circular region.
+
+    Input:
+
+      inframe (pandas.DataFrame): dataframe to be filtered
+
+      x,y (str or list of str): names of the columns containing 
+           the parameters to use as x and y circle coordinates.  
+           default is to use 'blob_phi' and 'blob_psi'.
+
+      radius (numerical): radius of the circle, in same units as x and y
+
+      logic (string): string to specify if the circular region should be
+           removed (logic='exclude', default), or if everything outside the
+           circle should be removed (logic='include')
+
+    Output:
+
+      Returns a dataframe identical to the input dataframe but missing rows
+        which are inside (or outside if logic='include') the defined circle.
+
+    Usage Notes:
+     - be very careful if x and y do not have the same units
+
+    Example:
+        filtered_df = filtercircle(blobframe,radius=20.0,x0=-40.0,y0=80.0)
+        - this will return a version of blobframe which excludes all blobs
+          within a circle (in phi, psi coordinates) of radius 20" centered
+          on phi=-40.0,psi=80.0
+
+        filtered_df = filtercircle(blobframe,x='blob_Si',y='blob_Fe',radius=0.2,
+                                   x0=1.0,y0=1.0,logic='include')
+        - this will return a version of blobframe which includes only
+          rows (blobs) contained in a circle of radius 0.2 centered on 1,1 in the
+          Si-Fe plane.
+
+    """
+    #--check for valid logic--
+    if logic != 'exclude':
+        if logic != 'include':
+            print ("filtercircle: Warning: Invalid logic type."
+                   "  Using logic='exclude'")
+            logic = 'exclude'
+
+    #--filter--
+    if logic == 'exclude':
+        outframe = inframe[ ( (inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 >= radius ]
+    else:
+        outframe = inframe[ ( (inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 <= radius ]
+
+    #-warn if zero rows match-
+    if len(outframe.index) == 0:
+        print "filtercircle: Warning: Filtered dataframe has zero rows."
+
+    #-warn if all rows match-
+    if len(outframe.index) == len(inframe.index):
+        print ("filtercircle: Warning: Nothing was filtered"
+               " (all rows match criteria).")
+
+    #-return filtered dataframe-
+    return outframe
+
 #----------------------------------------------------------------
 
 def quantile_1D(data, weights, quantile):
@@ -314,8 +388,7 @@ def weighted_modes(data, weights=None):
 #----------------------------------------------------------------
 def credible_region(data, weights=None, frac=0.9, method='HPD'):
     """
-    Calculate the Bayesian credible region from the provided posterior
-    distribution.
+    Calculate the Bayesian credible region from the provided posterior distribution.
 
     Parameters
     ----------
@@ -424,3 +497,24 @@ def credible_region(data, weights=None, frac=0.9, method='HPD'):
     return interval
 
 #----------------------------------------------------------------
+def gaussian_volume(sigma):
+    """
+    Calculate the volume of a spherical gaussian.
+
+    Parameters
+    ----------
+    sigma : numeric or 1D array of numeric
+        Gaussian width(s)
+
+    Returns
+    -------
+    Volume (float) or volumes (1D array of floats).
+
+    Usage Notes
+    -------
+
+    """
+
+    volume = (2.0*np.pi*np.square(sigma))**1.5
+    
+    return volume

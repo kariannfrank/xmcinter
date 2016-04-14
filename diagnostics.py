@@ -63,8 +63,13 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
     # -- add emission measure column --
     df['blob_em'] = astro.norm_to_em(df['blob_norm'],
-                                     astro.convert_distance(distance,'kpc',\
-                                     'cm'))
+                                     astro.convert_distance(distance,'kpc',
+                                                            'cm'))
+    
+    # -- add number densities of blobs in cm^-3 --
+    df['blob_volume'] = xw.gaussian_volume(astro.convert_arcsec(df['blob_sigma'],distance,'kpc','cm'))
+    df['blob_numberdensity'] = astro.em_to_density(df['blob_em'],df['blob_volume'],density_type='number')
+
 
     # -- remove iterations before convergence --
     if itmax == None:

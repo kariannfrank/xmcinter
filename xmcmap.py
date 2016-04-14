@@ -6,8 +6,10 @@ Includes:
  make_map
  calculate_map
  gaussian_integral
+ point_integral
  iteration_image
  collapse stack
+ mask_circle
 
 The main function that should be called is make_map.  The others are 
 essentially just helper functions for make_map. The function that does most
@@ -26,8 +28,8 @@ import astropy.io.fits as fits
 def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
              binsize=10.0,itmod=100,paramshape='gauss',ctype='median',
              x0=None,y0=None,imagesize=None,sigthresh=0.0,paramx='blob_phi',
-             paramy='blob_psi',paramsize='blob_sigma',
-             iteration_type='median',clobber=False):
+             paramy='blob_psi',paramsize='blob_sigma',exclude_region=None,
+             iteration_type='median',clobber=False,nlayers=None):
     """
     Author: Kari A. Frank
     Date: November 19, 2015
@@ -39,7 +41,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       indata (string or DataFrame):   name of file containing the blob 
                         parameters (string), formatted as output from 
                         the python function
-                        xmcinter.files.xmcrun.merge_output() OR
+                        xmcinter.xmcfiles.merge_output() OR
                         a pandas dataframe of blob parameters in same format.
 
       outfile (string):  name of the output fits file
@@ -66,6 +68,9 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       itmod :   set to an integer > 1 to use only every
                it_mod'th iteration (defaul=100)
 
+      nlayers: optionally set number of layers (number of iterations to use
+               rather than itmod.  if set, will override itmod. default=None
+
       binsize : size of a pixel, in same units as paramx and paramy,
                default=60 (fast)
 
@@ -86,6 +91,12 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       x0,y0 (floats):  center coordinates of the desired output image, in
                        same units as paramx,paramy
 
+      exclude_region (3D float tuple): tuple of form (x0,y0,radius)
+                specifying a circular region to mask (set image
+                values to zero). x0,y0 are the center coordinates
+                of the circle. all units are in the same
+                units as paramx and paramy.
+
       sigthresh (float): optionally specify a significance threshold (in
                 number of sigma) for the final map.  all pixels
                 that do not meet this significance threshold are set
@@ -93,8 +104,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 requires calculating an error map in addition to the desired
                 output map
                
-       clobber (bool) : specify whether any existing fits file of the same
-                        name as outfile should be overwritten. 
+      clobber (bool) : specify whether any existing fits file of the same
+                       name as outfile should be overwritten. 
 
     Output:
 
@@ -134,9 +145,15 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                         blobweights=weights,binsize=binsize,
                         iteration_type=iteration_type,ctype=ctype,
                         imagesize=imagesize,itmod=itmod,
-                        x0=x0,y0=y0,shape=paramshape)
+                        x0=x0,y0=y0,shape=paramshape,nlayers=nlayers)
 
 #    print "max, min img = ",np.max(img), np.min(img)
+
+    #----Mask Region----
+    if exclude_region is not None:
+        msk = circle_mask(df,paramx,paramy,exclude_region,binsize,
+                          imagesize,x0,y0)
+        img = img*msk
 
     #----Save map to fits file----
 
@@ -175,13 +192,65 @@ def nstr(x):
 
 #--------------------------------------------------------------------------
 def gaussian_integral(lowerx,upperx,nsteps,x,sigma):
-    """Function to calculate gaussoam integral."""
+    """Function to calculate gaussian integral."""
     integ = 0.0
     (steps, dx) = np.linspace(lowerx,upperx,nsteps,retstep=True)
     for xp in steps:
         integ = integ + np.exp(-1.0/2.0*(xp-x)**2.0/sigma**2.0)*dx
 
     return integ
+
+#--------------------------------------------------------------------------
+def point_integral(lowerx,upperx,lowery,uppery,x,y):
+    """Function to determine if blob center lies in pixel."""
+    
+    print "ERROR: point_integral is not yet functional."
+    f = x.to_frame('x')
+    f['y'] = y
+    f.ycheck = np.where((lowery < f['y'] & f['y'] < uppery),1.0,0.0)
+    f.xcheck = np.where(lowerx < f['x'],1.0,0.0)
+    f['integ'] = f.ycheck*f.xcheck
+
+#    for i in xrange(len(x)):
+#        if (lowerx < x[i] < upperx) and (lowery < y[i] < uppery):
+#            integ[i] = 1.0
+#        else: 
+#            integ[i] = 0.0
+
+#    print 'len integ = ',len(integ)
+#    print 'len x = ',len(x)
+    return f['integ'].values
+
+#--------------------------------------------------------------------------
+def circle_mask(df,paramx,paramy,exclude_region,binsize,imagesize,x0,y0):
+    """Function to create mask (set to zero) of a circular region 
+    in an image array. To apply mask, multiply the image array by mask."""
+
+    # dummy parameter (all ones)
+    dummy = pd.Series(np.ones_like(df[paramx])
+                      ,index=df[paramx].index)
+    dummy=dummy.to_frame('mask')
+    print 'len dummy = ',len(dummy.index)
+    print 'len df = ',len(df.index)
+
+    dummy[paramx] = df[paramx].values
+    dummy[paramy] = df[paramy].values
+
+    # set mask within circle to zero
+    dummy['mask'][( (dummy[paramx]-exclude_region[0])**2.0+(dummy['blob_psi']-exclude_region[1])**2.0 < exclude_region[2]**2.0 )] = 0.0
+
+    # -since shape='points', paramsize (2nd instance of df[paramx]) is
+    #  ignored, so just need a dummy column
+    mask = calculate_map(dummy['mask'],dummy[paramx],dummy[paramy],
+                         dummy[paramx],
+                         blobiterations=df['iteration'],
+                         binsize=binsize,iteration_type='max',
+                         imagesize=imagesize,nlayers=1,x0=x0,y0=y0,
+                         shape='points') 
+                
+    return mask
+    
+
 
 #--------------------------------------------------------------------------
 def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
@@ -198,7 +267,7 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
             lowerx = int(xmin + x*binsize)
             upperx = int(xmin + x*binsize + binsize)
 #            dx = (upperx - lowerx)/float(n_int_steps)
-            if shape == 'gauss':
+            if shape == 'gauss' or shape == 'points':
                 x_blob_integrals = gaussian_integral(lowerx,upperx,
                                                      n_int_steps,
                                                      data['x'],data['size'])
@@ -211,7 +280,7 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
                 lowery = int(ymin + y*binsize)
                 uppery = int(ymin + y*binsize + binsize)
 #                dy = int((uppery - lowery)/float(n_int_steps))
-                if shape == 'gauss':
+                if shape == 'gauss' or shape == 'points':
                     y_blob_integrals = gaussian_integral(lowery,uppery, \
                                                      n_int_steps,\
                                                      data['y'],data['size'])
@@ -229,9 +298,15 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
                 #times dz integral to get total volume in pixel, 
                 #then divided by total volume
                 else:
-                    print "points is not yet implemented"
+                    # for now, points is implemented by setting the volumes 
+                    #   to be much smaller than a pixel size
+                    fractions = (x_blob_integrals*y_blob_integrals*
+                                 (2.0*np.pi*data['size']**2.0)**.5 / 
+                                 data['volume'])
+#                    print "points is not yet implemented"
                     # if assuming points, then fraction=1 or 0
-                    # !! in progress !!
+#                    fractions = point_integral(lowerx,upperx,lowery,uppery,
+#                                               data['x'],data['y'])
 
                 #-combine blobs in this pixel-
                 if iteration_type == 'median':
@@ -243,6 +318,9 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
                                          weights=data['weight']*fractions)
                 elif iteration_type == 'total':
                     iterimage[x,y]=np.sum(data['param']*data['weight']
+                                          *fractions)
+                elif iteration_type == 'max':
+                    iterimage[x,y]=np.max(data['param']*data['weight']
                                           *fractions)
                 else:
                     print "ERROR: unrecognized iteration_type"
@@ -270,7 +348,7 @@ def collapse_stack(img_stack,nbins_x,nbins_y,ctype):
 def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                   blobweights=None,binsize=10,iteration_type='median',
                   ctype='median',imagesize=None,itmod=100,n_int_steps=50,
-                  x0=None,y0=None,shape='gauss'):
+                  x0=None,y0=None,shape='gauss',nlayers=None):
     """
     The main mapping function.
 
@@ -297,7 +375,7 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
             bloby : vector of blob y positions
             blobsize : vector of blob sizes (in arcsec)
             binsize : width of pixels, in same units as blobx,bloby, 
-                      and blobsize (assumes square pixel, default is 60.)
+                      and blobsize (assumes square pixel, default is 10.)
             blobiterations : array of the iteration associated with each
                              blob in blob array. if not provided, assumes 
                              all blobs are from the same iteration.
@@ -315,10 +393,13 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                         ( default=max(blobx)-min(blobx) ).
             itmod : set to >1 to use only every itmod'th
                     iteration (default = 10)
+            nlayers : optionally can set number of layers instead of itmod.
+                    if set, will override itmod. default=None
             x0,y0 : cluster position, in same coordinate system as blobx 
                     and blob (typically xmc coordinates, default is
                     x0=median(blobx),y0=median(bloby)).
-            shape : shape of the blobs, 'gauss' (default) or 'sphere'
+            shape : shape of the blobs, 'gauss' (default),'sphere', 
+                    or 'points'
             n_int_steps : number of steps in each integration loop 
                           (default = 50)
 
@@ -336,7 +417,7 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
     from wrangle import filterblobs
 
     #----Set Defaults----
-    types = ['median','average','total','error']
+    types = ['median','average','total','error','max']
     if ctype not in types:
         print "Warning: Unrecognized ctype. Using ctype='median'"
         ctype = 'median'
@@ -346,7 +427,7 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         iteration_type = 'median'
     if blobiterations is None:
         blobiterations = np.zeros_like(blobparam)
-    if (shape != 'gauss') and (shape != 'sphere' ):
+    if (shape != 'gauss') and (shape != 'sphere' ) and (shape != 'points'):
         print "Warning: Unrecognized blob shape. Using shape='gauss'"
         shape = 'gauss'
     if imagesize is None:
@@ -369,9 +450,15 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
     imagesize = imageradius*2.0
 
     #-number of map layers (one per iteration) and number of pixels-
-    nlayers = np.unique(blobiterations).size/itmod
-    if nlayers == 0: 
-        nlayers = 1
+    niter = np.unique(blobiterations).size
+    if nlayers is None:
+        nlayers = niter/itmod
+        if nlayers == 0: 
+            nlayers = 1
+    else:
+        if nlayers > niter: #max nlayers = number iterations
+            nlayers = niter
+        itmod = niter/nlayers
     nbins_x = int(np.floor((xmax - xmin)/binsize))
     nbins_y = int(np.floor((ymax - ymin)/binsize))
     print 'nbins_x, nbins_y = ',nbins_x,nbins_y
@@ -404,6 +491,8 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         df['volume'] = (2.0*np.pi*np.square(df['size']))**1.5
     if shape == 'sphere':
         df['volume'] = (4.0/3.0)*np.pi*df['size']**3.0
+    if shape == 'points':
+        df['volume'] = (0.1*binsize)**3.0 # set to much smaller than pixel
 
     #----Group by Iteration----
     layers = df.groupby('iteration')

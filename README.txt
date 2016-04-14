@@ -41,8 +41,9 @@ sf = xw.filterblobs(sf,'iteration',minvals=1000)
 medchi2 = xw.weighted_median(sf['redchi2'])
 print medchi2
 
-# filter by iteration and add emission measure (change itmin and distance)
-df = xd.clean(runpath='./',itmin=1000,distance=3.3)
+# filter by iteration and add emission measure, blob_sigma 
+# (change itmin and distance)
+df = xd.clean(itmin=1000,distance=3.3)
 
 # check traceplots
 tracefigs = xplt.traceplots(df)
@@ -71,6 +72,9 @@ df.to_csv('deconvolution_merged_filtered.txt',sep='\t')
 
 # plot weighted histograms of parameters
 histfigs = xplt.histogram_grid(df[df.columns[:-1]],weights=df['blob_em'])
+
+# make scatter plots of specified parameters
+scatterfigs = xplt.traceplots(df,columns=['blob_kT','blob_tau','blob_norm','blob_lnsigma'])
 
 # make a map of one of the parameters (saved as fits file)
 image = xm.make_map(infile='deconvolution_merged.txt',paramname='blob_kT',weights='blob_em',binsize=10.0)

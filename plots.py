@@ -407,7 +407,7 @@ def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,
 #----Fill in list of figures----
     for column in dframe:
         newfig = histogram(dframe[column],weights=weights,save=False,
-                           height=height,width=width,**kwargs)
+                           height=height,width=width,bins=bins,**kwargs)
         figlist=figlist+[newfig]
 
 #----Reshape list into a 4 column array---

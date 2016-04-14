@@ -3,13 +3,15 @@ Module of handy general astronomy functions
 
 Contains the following functions:
 
- norm_to_em
+ norm_to_em()
+ em_to_density()
  transfer_header()
  normalize_image()
  stack_images()
  angstroms2keV()
  K2keV()
  convert_distance()
+ convert_arcsec()
  get_xmm_attitude()
  hms2deg()
  deg2hms()
@@ -42,7 +44,7 @@ def norm_to_em(norm,dist_cm,redshift=0.0):
   Usage Notes:
    
    - Assumes  
-        norm = 10^14/4pi[dist(1+z)]^2 * EM
+        norm = 10^-14/4pi[dist(1+z)]^2 * EM
    - Units of returned emission measure are cm^-3
    - EM = n_e*n_H*V
 
@@ -53,6 +55,39 @@ def norm_to_em(norm,dist_cm,redshift=0.0):
   #-return emission measure-
   return em
 
+#----------------------------------------------------------
+def em_to_density(em,volume,density_type='mass'):
+  """
+  Author: Kari Frank
+  Date: April 14, 2016
+  Purpose: Given emission measure and volume, calculate the density
+          
+  Input: 
+    em (numerical): emission measure (e.g. as output from norm_to_em)
+    volume (numerical): volume of region in cm^3
+    density_type (string): type of density to return (default='mass')
+            - 'mass' = g/cm^3
+            - 'number' = 1/cm^3
+
+  Output:
+    returns emission measure corresponding to the given norm (float).
+
+  Usage Notes:
+   
+   - Assumes  
+        norm = 10^14/4pi[dist(1+z)]^2 * EM
+   - Units of returned emission measure are cm^-3
+   - EM = n_e*n_H*V
+
+  """
+  #-constants-
+  proton_mass = 1.67*10.0**(-24.0) #grams
+
+  #-convert to density
+  if density_type == 'number':
+    return 1.27*(em/volume)**0.5  
+  else:
+    return proton_mass*1.27*(em/volume)**0.5  
 
 #----------------------------------------------------------
 def transfer_header(sourcefile,targetfile,newfile):
@@ -318,6 +353,50 @@ def convert_distance(val,fromunit,tounit):
           return val*kpc_to_km
       if tounit == 'ly':
           return val*kpc_to_km*km_to_ly
+
+#----------------------------------------------------------
+def convert_arcsec(theta,distance,distanceunit,tounit):
+  """
+  Author: Kari A. Frank
+  Date: April 14, 2016
+
+  Purpose: Convert angular length in arcsec to a physical length
+
+  Input:
+
+       theta (numerical): value to be converted, in arcsec
+
+       distance (numerical): distance to the object
+
+       distanceunit (str): units of distance, choose from
+            'kpc', 'km','cm','ly','pc'
+
+       tounit (str): units to convert theta into, same options
+            as distanceunit
+
+  Output:
+       numerical: returns theta converted to the specified units
+
+  Usage Notes:
+
+  """   
+
+  #--set constants--
+  kpc_to_km = 1000.0*3.0857*10.0**13.0
+  pc_to_km = kpc_to_km/1000.0
+  km_to_cm = 100000.0
+  km_to_ly = 1.057e-13
+  arcsec_to_rad = np.pi/60.0/60.0/180.0
+
+  #--convert distance into desired unit--
+  if distanceunit != tounit:
+    distance = convert_distance(distance,distanceunit,tounit)
+
+  #--convert arcsec to radians--
+  theta = theta*arcsec_to_rad 
+  
+  #--return angular distance--
+  return distance*theta
 
 #----------------------------------------------------------
 def get_xmm_attitude(attfile='atthk.fits',hms=False):
