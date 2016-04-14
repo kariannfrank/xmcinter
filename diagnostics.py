@@ -61,10 +61,10 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     if 'blob_lnsigma' in df.columns:
         df['blob_sigma'] = np.exp(df['blob_lnsigma'])
 
-    # -- add emission measure column
+    # -- add emission measure column --
     df['blob_em'] = astro.norm_to_em(df['blob_norm'],
                                      astro.convert_distance(distance,'kpc',\
-                                     'cm'))/(10.0**55.0)
+                                     'cm'))
 
     # -- remove iterations before convergence --
     if itmax == None:
@@ -138,7 +138,7 @@ def check(runpath='./',itmin=0,itmax=None):
            +str(medchi2))
 
     # -- plot model and data spectra --
-    data_wave = xplt.spectra(runpath,smin=itmin/100)
+    data_wave = xplt.spectra(runpath,smin=itmin/100,smax=itmax/100)
 
     # -- make norm maps --
 #    normmap =  'itmin'+str(itmin)+'_median_norm.fits'
