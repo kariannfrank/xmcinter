@@ -10,6 +10,7 @@ Contains the following functions:
  histogram_grid
  format_ticks
  spectra
+ evolution
 """
 
 #-import common modules-
@@ -20,31 +21,31 @@ import bokeh.plotting as bplt
 import bokeh.charts as bchart
 
 #----------------------------------------------------------
-#Author: Kari A. Frank
-#Date: October 20, 2015
-#Purpose: plot simple scatter plot of chi2 vs iteration, directly from 
-#         the statistic.* files output by xmc.  This is mainly intended
-#         as a quick way to check the convergence of an ongoing xmc run.
-#
-#Usage: chi2(runpath='./')
-#
-#Input:
-# 
-# runpath:     string containing the relative path to xmc run folder, which
-#              contains the statistic.* files.
-#
-#             
-#Output:
-# - plots chi2 vs iteration for the specified iteration to an interactive plot
-#
-#Usage Notes:
-# - must close and save (if desired) the plot manually
-#
-#Example:
-# 
-#
-
 def chi2(runpath='./'):
+    """
+    Author: Kari A. Frank
+    Date: October 20, 2015
+    Purpose: plot simple scatter plot of chi2 vs iteration, directly from 
+             the statistic.* files output by xmc.  This is mainly intended
+             as a quick way to check the convergence of an ongoing xmc run.
+
+    Usage: chi2(runpath='./')
+
+    Input:
+
+     runpath:     string containing the relative path to xmc run folder, which
+                  contains the statistic.* files.
+
+
+    Output:
+     - plots chi2 vs iteration for the specified iteration to an interactive plot
+
+    Usage Notes:
+     - must close and save (if desired) the plot manually
+
+    Example:
+
+    """
 
 #----Import Modules----
     from xmcfiles import merge_output
@@ -76,9 +77,9 @@ def chi2(runpath='./'):
     return statframe
 
 #----------------------------------------------------------
-def scatter(inframe,x,y,npoints=1000.,agg='sampling'):
+def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
     """
-    xscatter()
+    scatter()
  
    Author: Kari A. Frank
     Date: March 30, 2016
@@ -99,8 +100,11 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling'):
          - 'contour' (plot density contours instead of points - does not 
             use linked brushing) -- not yet implemented
 
-  npoints: number of aggregated points to plot, ignored if agg='none' 
-           or agg='contour' (default = 1000.0)
+    npoints: number of aggregated points to plot, ignored if agg='none' 
+             or agg='contour' (default = 1000.0)
+
+    save:   optionally turn off opening and saving the plot as an 
+            html file - returns the figure object only (default=True)
 
    Output:
    - plots x vs y to an interactive plot
@@ -134,48 +138,48 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling'):
 #----Plot x vs y----
 
     fig.circle(x=df[x],y=df[y])
-    bplt.show(fig)#,new='window',browser='firefox --no-remote')
+    if save is True: bplt.show(fig)#,new='window',browser='firefox --no-remote')
 
 #----Return----
     return fig
 
 #----------------------------------------------------------
-#Author: Kari A. Frank
-#Date: October 26, 2015
-#Purpose: plot interactive matrix of scatter plots from given dataframe
-#
-#Usage: traceplots(dframe,agg='sampling',npoinst=1000.0,columns=None)
-#
-#Input:
-# 
-# dframe: input dataframe
-#
-# agg:    type of aggregration to perform before plotting, since plotting with
-#         all possible rows/blobs is generally prohibitively slow options are
-#         - 'none' (plot all rows)
-#         - 'sampling' (take random subsample of rows, default)
-#         - 'contour' (plot density contours instead of points - does not 
-#            use linked brushing) -- not yet implemented
-#
-#  npoints: number of aggregated points to plot, ignored if agg='none' 
-#           or agg='contour' (default = 1000.0)
-#
-#  columns: list of dataframe column names to include in the plots. default is
-#           to use all columns
-#           
-#             
-#Output:
-# - plots matrix of scatter plots of all provided dataframe columns to 
-#   interactive (browser-based) plot
-#
-#Usage Notes:
-# - must close and save (if desired) the plot manually
-#
-#Example:
-# 
-#
-
 def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None):
+    """
+    Author: Kari A. Frank
+    Date: October 26, 2015
+    Purpose: plot interactive matrix of scatter plots from given dataframe
+
+    Usage: traceplots(dframe,agg='sampling',npoinst=1000.0,columns=None)
+
+    Input:
+
+     dframe: input dataframe
+
+     agg:    type of aggregration to perform before plotting, since plotting with
+             all possible rows/blobs is generally prohibitively slow options are
+             - 'none' (plot all rows)
+             - 'sampling' (take random subsample of rows, default)
+             - 'contour' (plot density contours instead of points - does not 
+                use linked brushing) -- not yet implemented
+
+      npoints: number of aggregated points to plot, ignored if agg='none' 
+               or agg='contour' (default = 1000.0)
+
+      columns: list of dataframe column names to include in the plots. default is
+               to use all columns
+
+
+    Output:
+     - plots matrix of scatter plots of all provided dataframe columns to 
+       interactive (browser-based) plot
+
+    Usage Notes:
+     - must close and save (if desired) the plot manually
+
+    Example:
+
+    """
 
 #----Import Modules----
     from bokeh.models import ColumnDataSource,PrintfTickFormatter
@@ -273,53 +277,53 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None):
     return figlist
 
 #----------------------------------------------------------
-#----------------------------------------------------------
-#Author: Kari A. Frank
-#Date: October 28, 2015
-#Purpose: plot a (weighted) histogram from provided series.
-#
-#Usage: theplot = histogram(dataseries,weights=None,bins=30,width=400,height=300,tools=tools,save=True)
-#
-#Input:
-# 
-# datacolumn:  a pandas series of data (e.g. column of a pandas dataframe)
-#  
-# weights:     optionally provided a pandas series of weights which correspond
-#              to the values in datacolumn (e.g. emission measure)
-#             
-# bins:        optionally specify the number of bins (default=30)
-#
-# height,width: height and width of each histogram
-#
-# save:        optionally turn off opening and saving the plot as an 
-#              html file - returns the figure object only (default=True)
-#
-# infig:       optionally pass an initialized figure object to plot on 
-#              (allows plotting multiple dataseries on the same figure) 
-#              (default=None)
-#
-# density:     passed to histogram. if True, then histogram is normalized.
-#
-# **kwargs:    pass any number of extra keyword arguments that are 
-#              accepted by bokeh.plotting.quad().  some of the most
-#              useful may be fill_color and line_color
-#
-#Output:
-# - uses bokeh to open a plot of the (weighted) histogram in a browser
-# - returns the figure object (allows replotting it, e.g. in a grid with
-#   other figures)
-#Usage Notes:
-# - must close and save (if desired) the plot manually
-# - axis labels will use the pandas series names (e.g. dataseries.name)
-#
-#Example:
-#  
-#
-
 def histogram(dataseries,weights=None,bins=30,save=True,height=300,
               width=400,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',plotfile='histogram.html',
               density=False,**kwargs):
+    """
+    Author: Kari A. Frank
+    Date: October 28, 2015
+    Purpose: plot a (weighted) histogram from provided series.
+
+    Usage: theplot = histogram(dataseries,weights=None,bins=30,width=400,height=300,
+                               tools=tools,save=True)
+
+    Input:
+
+     datacolumn:  a pandas series of data (e.g. column of a pandas dataframe)
+
+     weights:     optionally provided a pandas series of weights which correspond
+                  to the values in datacolumn (e.g. emission measure)
+
+     bins:        optionally specify the number of bins (default=30)
+
+     height,width: height and width of each histogram
+
+     save:        optionally turn off opening and saving the plot as an 
+                  html file - returns the figure object only (default=True)
+
+     infig:       optionally pass an initialized figure object to plot on 
+                  (allows plotting multiple dataseries on the same figure) 
+                  (default=None)
+
+     density:     passed to histogram. if True, then histogram is normalized.
+
+     **kwargs:    pass any number of extra keyword arguments that are 
+                  accepted by bokeh.plotting.quad().  some of the most
+                  useful may be fill_color and line_color
+
+    Output:
+     - uses bokeh to open a plot of the (weighted) histogram in a browser
+     - returns the figure object (allows replotting it, e.g. in a grid with
+       other figures)
+    Usage Notes:
+     - must close and save (if desired) the plot manually
+     - axis labels will use the pandas series names (e.g. dataseries.name)
+
+    Example:
+
+    """
 
 #----Import Modules----
 #    from bokeh.models import PrintfTickFormatter
@@ -359,41 +363,42 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
     return fig
 
 #----------------------------------------------------------
-#Author: Kari A. Frank
-#Date: October 28, 2015
-#Purpose: plot interactive matrix of weighted histograms from given dataframe
-#
-#Usage: histogram_grid(dframe,weights=None,bins=30,**kwargs):
-#
-#Input:
-# 
-# dframe:      input dataframe
-#
-# weights:     optionally provided a pandas series of weights which correspond
-#              to the values in datacolumn (e.g. emission measure)
-#             
-# bins:        optionally specify the number of bins (default=30)
-#
-# height,width: height and width of each histogram, passed to histogram()
-#
-# ncols:       number of columns in the grid of histograms (default=4)
-#
-# **kwargs:    pass any number of extra keyword arguments that are 
-#              accepted by bokeh.plotting.quad().  some of the most
-#              useful may be fill_color and line_color
-#             
-#Output:
-# - plots matrix of scatter plots of all provided dataframe columns to 
-#   interactive (browser-based) plot
-#
-#Usage Notes:
-# - must close and save (if desired) the plot manually
-#
-#Example:
-# 
-#
 def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,
                    ncols=4,**kwargs):
+    """
+    Author: Kari A. Frank
+    Date: October 28, 2015
+    Purpose: plot interactive matrix of weighted histograms from given dataframe
+
+    Usage: histogram_grid(dframe,weights=None,bins=30,**kwargs):
+
+    Input:
+
+     dframe:      input dataframe
+
+     weights:     optionally provided a pandas series of weights which correspond
+                  to the values in datacolumn (e.g. emission measure)
+
+     bins:        optionally specify the number of bins (default=30)
+
+     height,width: height and width of each histogram, passed to histogram()
+
+     ncols:       number of columns in the grid of histograms (default=4)
+
+     **kwargs:    pass any number of extra keyword arguments that are 
+                  accepted by bokeh.plotting.quad().  some of the most
+                  useful may be fill_color and line_color
+
+    Output:
+     - plots matrix of scatter plots of all provided dataframe columns to 
+       interactive (browser-based) plot
+
+    Usage Notes:
+     - must close and save (if desired) the plot manually
+
+    Example:
+
+    """
 
 #----Import Modules----
     import math
@@ -429,30 +434,28 @@ def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,
     return figarr
 
 #----------------------------------------------------------
-#Author: Kari A. Frank
-#Date: October 28, 2015
-#Purpose: Adjust tick label format to look better.
-#
-#Usage: <fig>.xaxis.formatter=format_ticks(xvals)
-#
-#Input:
-# 
-# vals: values used for the x or y variable
-#
-#Output:
-# 
-# Returns a PrintfTickFormatter object, which the user should then 
-#    use to set <fig>.xaxis.formatter (or yaxis)
-#
-#Usage Notes:
-# 
-#
-#Example:
-# 
-#
-
 def format_ticks(vals):
+    """
+    Author: Kari A. Frank
+    Date: October 28, 2015
+    Purpose: Adjust tick label format to look better.
 
+    Usage: <fig>.xaxis.formatter=format_ticks(xvals)
+
+    Input:
+
+     vals: values used for the x or y variable
+
+    Output:
+
+     Returns a PrintfTickFormatter object, which the user should then 
+        use to set <fig>.xaxis.formatter (or yaxis)
+
+    Usage Notes:
+
+    Example:
+
+    """
 #----Import Modules----
     from bokeh.models import PrintfTickFormatter
 
@@ -596,3 +599,92 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
 #----Return----
     return data_wave
 #----------------------------------------------------------
+def evolution(inframe,columns=None,iteration_type = 'median',weights=None,save=True,
+              ncols=4):
+    """
+    evolution()
+ 
+   Author: Kari A. Frank
+    Date: April 15, 2016
+    Purpose: plot parameters vs iteration
+
+   Usage: scatter(inframe,columns=None,iteration_type='median')
+
+   Input:
+ 
+    inframe (DataFrame):  pandas DataFrame containing the data columns to be plotted   
+
+    columns (string or list of strings): names of columns to be plotted
+             
+    iteration_type (string): method used to combine parameter values within
+         each iteration
+         - 'none' -- plot all blobs separately (very slow!)
+         - 'median' -- takes median from the iteration
+         - 'average' -- takes average from the iteration
+         - 'stdev' -- plots the standard deviation from each iteration
+         - 'total' -- sums all blobs within each iteration
+
+    weights (pd.Series): weights to apply to each blob (e.g. emission measure)
+
+    save:        optionally turn off opening and saving the plot as an 
+                  html file - returns the figure object only (default=True)
+
+    ncols: optionally specify number of columns in plot grid if plotting more than
+           one parameter. ignored if len(columns)=1
+
+   Output:
+   - plots parameter vs iteration to an interactive plot
+   - returns the figure object
+
+  Usage Notes:
+  - must close and save (if desired) the plot manually
+  - may not work properly if trying to plot too many points
+
+  Example:
+ 
+  """
+    
+
+    #----Combine blobs in each iteration----
+
+    
+    #----Set up plot----
+    if (save is True):
+        if (len(columns)>1): 
+            bplt.output_file('evolution_grid.html')
+            itersave=False
+        else:
+            itersave=True
+
+    source = ColumnDataSource(iterframe)
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
+    w = 300 # plot width 
+    h = 300 # plot height
+
+    #----Initialize empty figure list----
+    figlist=[]
+
+    #----Fill in list of figures----
+    for col in columns:
+
+        #----Plot parameter vs iteration----
+        newfig = scatter(iterframe,'iteration',col,agg='none',save=itersave)
+        figlist=figlist+[newfig]    
+
+    #----Reshape list into a 4 column array---
+
+    #--define new shape--
+    nfigs = len(figlist)
+    nrows = int(math.ceil(float(nfigs)/float(ncols)))
+
+    #--pad list with None to have nrows*ncols elements--
+    figlist = figlist+[None]*(nrows*ncols-nfigs)
+
+    #--reshape list--
+    figarr = [figlist[ncols*i:ncols*(i+1)] for i in range(nrows)]
+
+    #----Plot histograms----
+    p = bplt.gridplot(figarr)
+    if save is True: bplt.show(p)
+
+    return fig
