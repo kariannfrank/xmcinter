@@ -89,12 +89,14 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
 
    Input:
  
-    inframe (DataFrame):  pandas DataFrame containing the data columns to be plotted   
+    inframe (DataFrame):  pandas DataFrame containing the data columns to 
+         be plotted   
 
     x,y (strings): name of the columns in inframe to plot
              
-    agg:    type of aggregration to perform before plotting, since plotting with
-         all possible rows/blobs is generally prohibitively slow options are
+    agg:    type of aggregration to perform before plotting, since 
+         plotting with  all possible rows/blobs is generally prohibitively 
+         slow options are
          - 'none' (plot all rows)
          - 'sampling' (take random subsample of rows, default)
          - 'contour' (plot density contours instead of points - does not 
@@ -117,7 +119,7 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
   Example:
  
   """
-    print len(inframe[x]),len(inframe[y])
+#    print len(inframe[x]),len(inframe[y])
     
 #----Aggregate Data----
     if agg=='none':
@@ -280,21 +282,24 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None):
 def histogram(dataseries,weights=None,bins=30,save=True,height=300,
               width=400,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',plotfile='histogram.html',
-              density=False,**kwargs):
+              density=False,xlog='auto',**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
     Purpose: plot a (weighted) histogram from provided series.
 
-    Usage: theplot = histogram(dataseries,weights=None,bins=30,width=400,height=300,
-                               tools=tools,save=True)
+    Usage: theplot,bintype = histogram(dataseries,weights=None,bins=30,
+                                      width=400,height=300,xlog='auto',
+                                      tools=tools,save=True)
 
     Input:
 
-     datacolumn:  a pandas series of data (e.g. column of a pandas dataframe)
+     datacolumn:  a pandas series of data (e.g. column of a pandas 
+                  dataframe)
 
-     weights:     optionally provided a pandas series of weights which correspond
-                  to the values in datacolumn (e.g. emission measure)
+     weights:     optionally provided a pandas series of weights which 
+                  correspond to the values in datacolumn (e.g. emission 
+                  measure)
 
      bins:        optionally specify the number of bins (default=30)
 
@@ -307,7 +312,14 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
                   (allows plotting multiple dataseries on the same figure) 
                   (default=None)
 
-     density:     passed to histogram. if True, then histogram is normalized.
+     density:     passed to histogram. if True, then histogram is 
+                  normalized.
+
+     xlog:        make x-axis bins uniform in log10 space. options are:
+                  - 'auto' (default) -- try to automatically determine
+                    which is best based on the data range
+                  - True -- force log bins
+                  - False -- force linear bins
 
      **kwargs:    pass any number of extra keyword arguments that are 
                   accepted by bokeh.plotting.quad().  some of the most
@@ -316,7 +328,8 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
     Output:
      - uses bokeh to open a plot of the (weighted) histogram in a browser
      - returns the figure object (allows replotting it, e.g. in a grid with
-       other figures)
+       other figures), along with string to specify if the xbins are spaced
+       linearly ('lin') or logarithmically ('log')
     Usage Notes:
      - must close and save (if desired) the plot manually
      - axis labels will use the pandas series names (e.g. dataseries.name)
@@ -326,7 +339,30 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
     """
 
 #----Import Modules----
-#    from bokeh.models import PrintfTickFormatter
+    from bokeh.models import PrintfTickFormatter
+
+#----Set up Log Bins----
+    rng = (dataseries.min(),dataseries.max())
+    if xlog == 'auto':
+        norders = np.log10(rng[1]) - np.log10(rng[0])
+        if norders > 2.0:
+            xlog = True
+        else:
+            xlog = False
+#    print 'xlog = ',xlog
+
+    if xlog == True: # set up log bins
+        logbins = np.logspace(np.log10(rng[0]),np.log10(rng[1]),bins)
+        bins = logbins
+        bintype = 'log'
+    else:
+        bintype = 'linear'
+
+#----Create the weighted histogram----
+    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
+                                  density=density,range=rng)
+#    print 'histy = ',histy
+#    print 'binedges = ',binedges
 
 #----Set up Plot----
     if save: 
@@ -334,23 +370,21 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
 #    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
 
     if infig is None:
-        fig = bplt.figure(tools=tools,width=width,height=height)
+        fig = bplt.figure(tools=tools,width=width,height=height,
+                          x_axis_type=bintype,x_range=(rng[0],rng[1]))
         fig.xaxis.axis_label=dataseries.name
     else:
         fig = infig
     if weights is not None:
         fig.yaxis.axis_label=weights.name
-
-#----Create the weighted histogram----
-    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
-                                  density=density)
+        if np.log10(max(histy))>3: fig.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
 
 #----Format Ticks----
 #    fig.yaxis.formatter=PrintfTickFormatter(format="%4.1e")
 #    fig.xaxis.formatter=PrintfTickFormatter(format="%4.1e")
-    if infig is None:
-        fig.yaxis.formatter=format_ticks(histy)
-        fig.xaxis.formatter=format_ticks(binedges)
+#    if infig is None:
+#        fig.yaxis.formatter=format_ticks(histy)
+#        fig.xaxis.formatter=format_ticks(binedges)
 
 #---Plot the histogram----
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
@@ -364,7 +398,7 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
 
 #----------------------------------------------------------
 def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,
-                   ncols=4,**kwargs):
+                   ncols=4,outfile='histogram_grid.html',**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -385,6 +419,8 @@ def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,
 
      ncols:       number of columns in the grid of histograms (default=4)
 
+     outfile:     string name of output html plot file.
+
      **kwargs:    pass any number of extra keyword arguments that are 
                   accepted by bokeh.plotting.quad().  some of the most
                   useful may be fill_color and line_color
@@ -404,16 +440,18 @@ def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,
     import math
 
 #----Set up plot----
-    bplt.output_file('histogram_grid.html')
+    bplt.output_file(outfile)
 
 #----Initialize empty figure list----
     figlist=[]
 
 #----Fill in list of figures----
     for column in dframe:
-        newfig = histogram(dframe[column],weights=weights,save=False,
-                           height=height,width=width,bins=bins,**kwargs)
+        newfig = histogram(dframe[column],weights=weights,
+                           save=False,height=height,width=width,
+                           bins=bins,**kwargs)
         figlist=figlist+[newfig]
+        #print column,bins
 
 #----Reshape list into a 4 column array---
 
@@ -460,20 +498,28 @@ def format_ticks(vals):
     from bokeh.models import PrintfTickFormatter
 
 #----Determine Most Reasonable Format and Return----
+    rng = (np.min(vals),np.max(vals))
+    norders = np.log10(rng[1]) - np.log10(rng[0])
+#    minorder = np.log10(rng[0])
+#    maxorder = np.log10(rng[1])
     check1 = abs(max(vals))
     check2 = abs(np.log10(check1))
-    
-    if check2 > 3.0:
+#    print 'check1,check2 = ',check1,check2
+    if norders > 2.0:
 #    if ( (max(vals) > 0.01) or (max(vals) > 999.0) ):
         return PrintfTickFormatter(format = "%1.1e")
     if check1 < 1.0:
+#    if maxorder <= 0.0: #max value < 1
         return PrintfTickFormatter(format = "%1.2f")
     if check1 < 10.0:
+#    if maxorder <= 1.0: #max value < 10
         return PrintfTickFormatter(format = "%2.1f")
     if check1 < 100.0:
+#    if maxorder <= 2.0: #max value < 100
         return PrintfTickFormatter(format = "%2.0f")
-    else:
-        return PrintfTickFormatter(format = "%3.0f")
+    else: #max value > 100#
+#        return PrintfTickFormatter(format = "%3.0f"
+        return PrintfTickFormatter(format = "%1.2e")
 
 #----------------------------------------------------------
 def spectra(runpath='./',smin=0,smax=None,datacolor='black',
@@ -536,7 +582,7 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     #--read in first model spectrum--
     foundmodel = False
     sm = smin
-    print smin,smax
+    #print smin,smax
     while (sm<=smax and foundmodel is False):
         modelspecfile = runpath+'/'+specname+str(sm)+'.fits'
         if os.path.isfile(modelspecfile):
