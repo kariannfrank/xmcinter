@@ -133,11 +133,26 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             outfile = paramname+'_'+ctype+'.fits'
         indatastr = 'DataFrame'
 
+    #----Check if output file already exists----
+    if os.path.isfile(outfile) and clobber is not True:
+        print "ERROR: "+outfile+" exists and clobber=False.  Returning."
+        return None
+
     #----Check for weights----
     if paramweights is None:
         weights = None
     else:
         weights = df[paramweights]
+
+    #----Set default image size and center----
+    if imagesize is None:
+        imagesize = 1.5*(max(blobx) - min(blobx))
+    if x0 is None:
+#        x0 = np.median(blobx)
+        x0 = (max(blobx)-min(blobx))/2.0
+   if y0 is None:
+#        y0 = np.median(bloby)
+        y0 = (max(bloby)-min(bloby))/2.0
 
     #----Calculate the map----
     img = calculate_map(df[paramname],df[paramx],df[paramy],df[paramsize],
@@ -431,7 +446,7 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         print "Warning: Unrecognized blob shape. Using shape='gauss'"
         shape = 'gauss'
     if imagesize is None:
-        imagesize = 1.2*(max(blobx) - min(blobx))
+        imagesize = 1.5*(max(blobx) - min(blobx))
     if x0 is None:
         x0 = np.median(blobx)
     if y0 is None:
@@ -513,7 +528,7 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
     themap = collapse_stack(image_stack,nbins_x,nbins_y,ctype)
         
     #----Return map----
-    return themap
+    return themap,imagesize
 
 
 
