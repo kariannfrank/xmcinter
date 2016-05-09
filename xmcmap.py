@@ -13,7 +13,7 @@ Includes:
 
 The main function that should be called is make_map.  The others are 
 essentially just helper functions for make_map. The function that does most
-of the work is calculate_map.
+of the work is iteration_image.
 
 """
 #----------------------------------------------------------------------------
@@ -23,6 +23,8 @@ import os
 import pandas as pd
 import numpy as np
 import astropy.io.fits as fits
+from scipy.integrate import quad
+#from numba import jit
 
 #----------------------------------------------------------------------------
 def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
@@ -146,13 +148,15 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
     #----Set default image size and center----
     if imagesize is None:
-        imagesize = 1.5*(max(blobx) - min(blobx))
+        imagesize = 1.5*(max(df[paramx] - min(df[paramx])))
     if x0 is None:
-#        x0 = np.median(blobx)
-        x0 = (max(blobx)-min(blobx))/2.0
-   if y0 is None:
-#        y0 = np.median(bloby)
-        y0 = (max(bloby)-min(bloby))/2.0
+#        x0 = np.median(df[paramx])
+        x0 = (max(df[paramx])-min(df[paramx]))/2.0+min(df[paramx])
+    if y0 is None:
+#        y0 = np.median(df[paramy])
+        y0 = (max(df[paramy])-min(df[paramy]))/2.0+min(df[paramy])
+
+    print imagesize,x0,y0
 
     #----Calculate the map----
     img = calculate_map(df[paramname],df[paramx],df[paramy],df[paramsize],
@@ -216,6 +220,19 @@ def gaussian_integral(lowerx,upperx,nsteps,x,sigma):
     return integ
 
 #--------------------------------------------------------------------------
+def gaussian_integral_quad(lowerx,upperx,blobx,blobsize):
+    """Function to calculate gaussian integral using scipy.integrate.quad()."""
+
+    result = quad(lambda x: gaussian1D(x,blobx,blobsize),lowerx,upperx )
+
+    return result[0]
+
+#--------------------------------------------------------------------------
+def gaussian1D(x,mux,sigma):
+    """1-D Gaussian function"""
+    return np.exp(-1.0/2.0*(x-mux)**2.0/sigma**2.0)
+
+#--------------------------------------------------------------------------
 def point_integral(lowerx,upperx,lowery,uppery,x,y):
     """Function to determine if blob center lies in pixel."""
     
@@ -242,7 +259,7 @@ def circle_mask(df,paramx,paramy,exclude_region,binsize,imagesize,x0,y0):
     in an image array. To apply mask, multiply the image array by mask."""
 
     # dummy parameter (all ones)
-    dummy = pd.Series(np.ones_like(df[paramx])
+    dummy = pd.Series(np.ones_like(df[paramx].values)
                       ,index=df[paramx].index)
     dummy=dummy.to_frame('mask')
     print 'len dummy = ',len(dummy.index)
@@ -265,11 +282,9 @@ def circle_mask(df,paramx,paramy,exclude_region,binsize,imagesize,x0,y0):
                 
     return mask
     
-
-
 #--------------------------------------------------------------------------
 def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
-                    iteration_type,shape):
+                    iteration_type,shape,fast=True):
     """Function to combine blobs from single iteration into 1 image."""
     from wrangle import weighted_median
 
@@ -281,12 +296,19 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
             #get x integral
             lowerx = int(xmin + x*binsize)
             upperx = int(xmin + x*binsize + binsize)
-#            dx = (upperx - lowerx)/float(n_int_steps)
             if shape == 'gauss' or shape == 'points':
-                x_blob_integrals = gaussian_integral(lowerx,upperx,
+                if fast is False: 
+                    # only use fast=False if scipy.integrate is
+                    #   not available
+                    x_blob_integrals = gaussian_integral(lowerx,upperx,
                                                      n_int_steps,
                                                      data['x'],data['size'])
+                else:
+                    x_blob_integrals = data.apply(lambda d: \
+                                gaussian_integral_quad(lowerx,\
+                                upperx,d['x'],d['size']), axis=1)
             elif shape == 'sphere':
+                print "ERROR: spherical_integral() not yet implemented"
                 x_blob_integrals = spherical_integral(lowerx,upperx,\
                                                       n_int_steps,\
                                                      data['x'],data['size'])
@@ -296,9 +318,15 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
                 uppery = int(ymin + y*binsize + binsize)
 #                dy = int((uppery - lowery)/float(n_int_steps))
                 if shape == 'gauss' or shape == 'points':
-                    y_blob_integrals = gaussian_integral(lowery,uppery, \
+                    if fast is False:
+                        y_blob_integrals = gaussian_integral(lowery,uppery,\
                                                      n_int_steps,\
                                                      data['y'],data['size'])
+                    else:
+                        y_blob_integrals = data.apply(lambda d: \
+                                gaussian_integral_quad(lowery,\
+                                uppery,d['y'],d['size']), axis=1)
+
                 elif shape == 'sphere':
                     y_blob_integrals = spherical_integral(lowery,uppery,\
                                                      n_int_steps,\
@@ -362,8 +390,8 @@ def collapse_stack(img_stack,nbins_x,nbins_y,ctype):
 #-------------------------------------------------------------------------
 def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                   blobweights=None,binsize=10,iteration_type='median',
-                  ctype='median',imagesize=None,itmod=100,n_int_steps=50,
-                  x0=None,y0=None,shape='gauss',nlayers=None):
+                  ctype='median',imagesize=None,itmod=100,n_int_steps=1000,
+                  x0=None,y0=None,shape='gauss',nlayers=None,parallel=True):
     """
     The main mapping function.
 
@@ -417,6 +445,9 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                     or 'points'
             n_int_steps : number of steps in each integration loop 
                           (default = 50)
+
+            parallel : (bool) switch to turn on/off parallel processing (do multiple
+                     layers simultaneously). Requires joblib package (default=True)
 
     Output:
 
@@ -516,19 +547,23 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
     layer = 0
     for i, group in layers: 
         print 'layer = ',layer
-#        print 'min, max group ',np.min(group),np.max(group)
         #i=iteration number (string or int?), group = subset of dataframe
         image_stack[:,:,layer] = iteration_image(group,nbins_x,nbins_y,
                                                  binsize,xmin,ymin,
                                                  n_int_steps,
-                                                 iteration_type,shape)
+                                                 iteration_type,shape,
+                                                 fast=True)        
         layer = layer + 1
+        
 
     #--Collapse Image Stack (combine iterations)----
+#    if parallel is True:
+#        themap = collapse_stack(image_stack_parallel,nbins_x,nbins_y,ctype)
+#    else:
     themap = collapse_stack(image_stack,nbins_x,nbins_y,ctype)
-        
-    #----Return map----
-    return themap,imagesize
 
+    #----Return map----
+    return themap
+#    return image_stack_parallel
 
 
