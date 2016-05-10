@@ -19,19 +19,21 @@ of the work is iteration_image.
 #----------------------------------------------------------------------------
 
 #----Import Global Modules----
-import os
+import os,inspect
 import pandas as pd
 import numpy as np
 import astropy.io.fits as fits
-from scipy.integrate import quad
-#from numba import jit
+from scipy.integrate import quad,nquad
+from multiprocessing import Pool
+import ctypes
 
 #----------------------------------------------------------------------------
 def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
              binsize=10.0,itmod=100,paramshape='gauss',ctype='median',
              x0=None,y0=None,imagesize=None,sigthresh=0.0,paramx='blob_phi',
              paramy='blob_psi',paramsize='blob_sigma',exclude_region=None,
-             iteration_type='median',clobber=False,nlayers=None):
+             iteration_type='median',clobber=False,nlayers=None,
+             parallel=True,nproc=3,cint=True):
     """
     Author: Kari A. Frank
     Date: November 19, 2015
@@ -109,6 +111,16 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       clobber (bool) : specify whether any existing fits file of the same
                        name as outfile should be overwritten. 
 
+      parallel: boolean switch to specify if the iteration images
+                    should be computed in serial or in parallel using
+                    multiprocessing (default=True)
+
+      nproc:  if parallel=True, then nproc sets the number of 
+              processors to use (default=3). ignored if parallel=False
+
+      cint:   bool to turn on/off the use of ctypes for integration (default=True)
+              set cint=False if gaussian.c is not compiled on your machine.
+
     Output:
 
          Saves a fits file in the same directory as infile, containing the
@@ -164,7 +176,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                         blobweights=weights,binsize=binsize,
                         iteration_type=iteration_type,ctype=ctype,
                         imagesize=imagesize,itmod=itmod,
-                        x0=x0,y0=y0,shape=paramshape,nlayers=nlayers)
+                        x0=x0,y0=y0,shape=paramshape,nlayers=nlayers,
+                        parallel=parallel,nproc=nproc,use_ctypes=cint)
 
 #    print "max, min img = ",np.max(img), np.min(img)
 
@@ -197,7 +210,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     hdu = fits.PrimaryHDU(img,header=hdr)
     
     hdu.writeto(outfile,clobber=clobber)
-    
+
     return img
 
 #--------------------------------------------------------------------------
@@ -220,13 +233,26 @@ def gaussian_integral(lowerx,upperx,nsteps,x,sigma):
     return integ
 
 #--------------------------------------------------------------------------
-def gaussian_integral_quad(lowerx,upperx,blobx,blobsize):
+def gaussian_integral_quad(lowerx,upperx,blobx,blobsize,use_ctypes=True):
     """Function to calculate gaussian integral using scipy.integrate.quad()."""
 
-    result = quad(lambda x: gaussian1D(x,blobx,blobsize),lowerx,upperx )
+    if use_ctypes is False:
+        result = quad(lambda x: gaussian1D(x,blobx,blobsize),lowerx,upperx )
+    else:
+        # - get gaussian function information -
+        gausspath = os.path.dirname(os.path.abspath(inspect.getfile(
+                    inspect.currentframe())))
+        lib = ctypes.CDLL(gausspath+'/gaussian.so')
+        cgauss = lib.gaussian # get function name from c library
+        cgauss.restype = ctypes.c_double
+        cgauss.argtypes = (ctypes.c_int,ctypes.c_double)
+    
+        # - integrate -
+        result = quad(cgauss,lowerx,upperx,(blobx,blobsize) )
+        #result = nquad(cgauss,[[lowerx,upperx]],args=[blobx,blobsize])
 
     return result[0]
-
+    
 #--------------------------------------------------------------------------
 def gaussian1D(x,mux,sigma):
     """1-D Gaussian function"""
@@ -283,8 +309,8 @@ def circle_mask(df,paramx,paramy,exclude_region,binsize,imagesize,x0,y0):
     return mask
     
 #--------------------------------------------------------------------------
-def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
-                    iteration_type,shape,fast=True):
+def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,
+                    iteration_type,shape,use_ctypes,fast=True,n_int_steps=None):
     """Function to combine blobs from single iteration into 1 image."""
     from wrangle import weighted_median
 
@@ -293,57 +319,58 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
 
     #--loop over image--
     for x in xrange(nbins_x):
-            #get x integral
-            lowerx = int(xmin + x*binsize)
-            upperx = int(xmin + x*binsize + binsize)
-            if shape == 'gauss' or shape == 'points':
-                if fast is False: 
-                    # only use fast=False if scipy.integrate is
-                    #   not available
-                    x_blob_integrals = gaussian_integral(lowerx,upperx,
+        #get x integral
+        lowerx = int(xmin + x*binsize)
+        upperx = int(xmin + x*binsize + binsize)
+        if shape == 'gauss' or shape == 'points':
+            if fast is False: 
+                # only use fast=False if scipy.integrate is
+                #   not available
+                x_blob_integrals = gaussian_integral(lowerx,upperx,
                                                      n_int_steps,
                                                      data['x'],data['size'])
-                else:
-                    x_blob_integrals = data.apply(lambda d: \
+            else:
+                x_blob_integrals = data.apply(lambda d: \
                                 gaussian_integral_quad(lowerx,\
-                                upperx,d['x'],d['size']), axis=1)
-            elif shape == 'sphere':
-                print "ERROR: spherical_integral() not yet implemented"
-                x_blob_integrals = spherical_integral(lowerx,upperx,\
+                                upperx,d['x'],d['size'],use_ctypes=use_ctypes),\
+                                axis=1)
+        elif shape == 'sphere':
+            print "ERROR: spherical_integral() not yet implemented"
+            x_blob_integrals = spherical_integral(lowerx,upperx,\
                                                       n_int_steps,\
                                                      data['x'],data['size'])
-            for y in xrange(nbins_y):
-                #get y integral
-                lowery = int(ymin + y*binsize)
-                uppery = int(ymin + y*binsize + binsize)
-#                dy = int((uppery - lowery)/float(n_int_steps))
-                if shape == 'gauss' or shape == 'points':
-                    if fast is False:
-                        y_blob_integrals = gaussian_integral(lowery,uppery,\
+        for y in xrange(nbins_y):
+            #get y integral
+            lowery = int(ymin + y*binsize)
+            uppery = int(ymin + y*binsize + binsize)
+            if shape == 'gauss' or shape == 'points':
+                if fast is False:
+                    y_blob_integrals = gaussian_integral(lowery,uppery,\
                                                      n_int_steps,\
                                                      data['y'],data['size'])
-                    else:
-                        y_blob_integrals = data.apply(lambda d: \
+                else:
+                    y_blob_integrals = data.apply(lambda d: \
                                 gaussian_integral_quad(lowery,\
-                                uppery,d['y'],d['size']), axis=1)
+                                uppery,d['y'],d['size'],use_ctypes=use_ctypes),\
+                                axis=1)
 
-                elif shape == 'sphere':
-                    y_blob_integrals = spherical_integral(lowery,uppery,\
+            elif shape == 'sphere':
+                y_blob_integrals = spherical_integral(lowery,uppery,\
                                                      n_int_steps,\
                                                      data['y'],data['size'])
                 #calculate fraction of blob volume in this pixel
 
-                if shape != 'points':
+            if shape != 'points':
                 # !! for now this assumes gaussian volume !!
-                    fractions = (x_blob_integrals*y_blob_integrals*
+                fractions = (x_blob_integrals*y_blob_integrals*
                                  (2.0*np.pi*data['size']**2.0)**.5 / 
                                  data['volume'])
                 #times dz integral to get total volume in pixel, 
                 #then divided by total volume
-                else:
-                    # for now, points is implemented by setting the volumes 
-                    #   to be much smaller than a pixel size
-                    fractions = (x_blob_integrals*y_blob_integrals*
+            else:
+                # for now, points is implemented by setting the volumes 
+                #   to be much smaller than a pixel size
+                fractions = (x_blob_integrals*y_blob_integrals*
                                  (2.0*np.pi*data['size']**2.0)**.5 / 
                                  data['volume'])
 #                    print "points is not yet implemented"
@@ -351,24 +378,30 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,n_int_steps,
 #                    fractions = point_integral(lowerx,upperx,lowery,uppery,
 #                                               data['x'],data['y'])
 
-                #-combine blobs in this pixel-
-                if iteration_type == 'median':
-                    iterimage[x,y]=weighted_median(data['param'],
+            #-combine blobs in this pixel-
+            if iteration_type == 'median':
+                iterimage[x,y]=weighted_median(data['param'],
                                               weights=data['weight']
                                               *fractions)
-                elif iteration_type == 'average':
-                    iterimage[x,y]=np.average(data['param'],
+            elif iteration_type == 'average':
+                iterimage[x,y]=np.average(data['param'],
                                          weights=data['weight']*fractions)
-                elif iteration_type == 'total':
-                    iterimage[x,y]=np.sum(data['param']*data['weight']
+            elif iteration_type == 'total':
+                iterimage[x,y]=np.sum(data['param']*data['weight']
                                           *fractions)
-                elif iteration_type == 'max':
-                    iterimage[x,y]=np.max(data['param']*data['weight']
+            elif iteration_type == 'max':
+                iterimage[x,y]=np.max(data['param']*data['weight']
                                           *fractions)
-                else:
-                    print "ERROR: unrecognized iteration_type"
+            else:
+                print "ERROR: unrecognized iteration_type"
 
     return iterimage
+
+#--------------------------------------------------------------------------
+def iteration_image_star(arglist):
+    """Function to unpack list of arguments and pass to iteration_image()"""
+    # for use with multiprocessing package
+    return iteration_image(*arglist)
 
 #--------------------------------------------------------------------------
 def collapse_stack(img_stack,nbins_x,nbins_y,ctype):
@@ -390,8 +423,9 @@ def collapse_stack(img_stack,nbins_x,nbins_y,ctype):
 #-------------------------------------------------------------------------
 def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                   blobweights=None,binsize=10,iteration_type='median',
-                  ctype='median',imagesize=None,itmod=100,n_int_steps=1000,
-                  x0=None,y0=None,shape='gauss',nlayers=None,parallel=True):
+                  ctype='median',imagesize=None,itmod=100,n_int_steps=200,
+                  x0=None,y0=None,shape='gauss',nlayers=None,parallel=True,
+                  nproc=3,use_ctypes=True):
     """
     The main mapping function.
 
@@ -444,10 +478,13 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
             shape : shape of the blobs, 'gauss' (default),'sphere', 
                     or 'points'
             n_int_steps : number of steps in each integration loop 
-                          (default = 50)
+                          (default = 200, ignored if fast=True)
 
-            parallel : (bool) switch to turn on/off parallel processing (do multiple
-                     layers simultaneously). Requires joblib package (default=True)
+            parallel: boolean switch to specify if the iteration images
+                    should be computed in serial or in parallel using
+                    multiprocessing (default=True)
+            nproc:  if parallel=True, then nproc sets the number of 
+                    processors to use (default=3). ignored if parallel=False
 
     Output:
 
@@ -507,10 +544,13 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         itmod = niter/nlayers
     nbins_x = int(np.floor((xmax - xmin)/binsize))
     nbins_y = int(np.floor((ymax - ymin)/binsize))
-    print 'nbins_x, nbins_y = ',nbins_x,nbins_y
+    print 'nbins_x, nbins_y, nlayers = ',nbins_x,nbins_y,nlayers
 
-    #-initialize image stack-
-    image_stack = np.zeros((nbins_x,nbins_y,nlayers))
+    #-initialize image stack or arguments list-
+    if parallel is False:
+        image_stack = np.zeros((nbins_x,nbins_y,nlayers))
+    else:
+        imgargs = [[]]*nlayers
 
     #----Concatenate into a single dataframe and filter out iterations----
     df = blobparam.to_frame(name='param')
@@ -546,24 +586,32 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
     #----Iterate over groups (i.e. iterations)----
     layer = 0
     for i, group in layers: 
-        print 'layer = ',layer
-        #i=iteration number (string or int?), group = subset of dataframe
-        image_stack[:,:,layer] = iteration_image(group,nbins_x,nbins_y,
+
+        if parallel is False: # create iteration images in serial
+            print 'layer = ',layer
+    #i=iteration number (string or int?), group = subset of dataframe
+            image_stack[:,:,layer] = iteration_image(group,nbins_x,nbins_y,
                                                  binsize,xmin,ymin,
-                                                 n_int_steps,
                                                  iteration_type,shape,
-                                                 fast=True)        
+                                                 use_ctypes,
+                                                 fast=True,
+                                                 n_int_steps=n_int_steps)        
+        else: # construct argument lists for multiprocessing
+            imgargs[layer] = [group,nbins_x,nbins_y,binsize,xmin,ymin,
+                              iteration_type,shape,use_ctypes]
         layer = layer + 1
         
+    # using multiprocessing package
+    if parallel is True:
+        pool=Pool(nproc)
+        image_stack = np.array(pool.map(iteration_image_star,
+                                                 imgargs))
+        image_stack = image_stack.swapaxes(0,2).swapaxes(0,1)
 
     #--Collapse Image Stack (combine iterations)----
-#    if parallel is True:
-#        themap = collapse_stack(image_stack_parallel,nbins_x,nbins_y,ctype)
-#    else:
-    themap = collapse_stack(image_stack,nbins_x,nbins_y,ctype)
+    themap = collapse_stack(image_stack,nbins_x,nbins_y,ctype=ctype)
 
     #----Return map----
     return themap
-#    return image_stack_parallel
 
 
