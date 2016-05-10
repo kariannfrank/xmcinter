@@ -93,7 +93,7 @@ def check(runpath='./',itmin=0,itmax=None):
     Author: Kari A. Frank
     Date: November 23, 2015
     Purpose: Make and display some diagnostic plots to check
-             ongoing xmc runs.  Check chi2, norm image, spectrum, and
+             ongoing xmc runs.  Plots chi2, norm image, spectrum, and
              histograms.
             
     Usage: 
@@ -155,7 +155,7 @@ def check(runpath='./',itmin=0,itmax=None):
     df_latest = xw.filterblobs(df,'iteration',minvals=itmax,maxvals=itmax)
     latest_norm_img = xm.make_map(df_latest,outfile=normmaplatest,
                                   paramname='blob_norm',binsize=10.0,
-                                  itmod=1,iteration_type='total')
+                                  itmod=1,iteration_type='total',nproc=1)
     
 
     # -- plot parameter histograms --
@@ -177,3 +177,4 @@ def check(runpath='./',itmin=0,itmax=None):
 #    tracefigs = xplt.traceplots(df)
 
     return (df,sf)
+

@@ -50,8 +50,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
       outfile (string):  name of the output fits file
 
-      paramname (string) : name of the column (parameter name) to be 
-                           mapped (default='blob_kT')
+      paramname (string or list of str) : name of the column (parameter 
+                          name) to be mapped (default='blob_kT')
 
       paramx,paramy (strings) : names of the column of the x and y
                                 blob positions (default='blob_phi',
@@ -67,7 +67,13 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                  or 'blob_radius' for shape='sphere')
 
       paramweights : string name of the column containing the weights
-                     (default='', no weighting)
+                (default='', no weighting). if paramname is a list, 
+                then can also give paramweights as a list of the same
+                length, specifying a different weights column for each
+                map -- this is important if, e.g. one of the paramnames 
+                is 'blob_em', which should is typically also used as the 
+                weights for the other parameters.  passing a value of None
+                will result in an unweighted map.
 
       itmod :   set to an integer > 1 to use only every
                it_mod'th iteration (defaul=100)
@@ -79,21 +85,32 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                default=60 (fast)
 
       iteration_type (string) : 'median', 'average', or 'total'.  Determines
-                how to combine the blobs in each iteration to create the
+                how to combine the blobs within each iteration to create the
                 iteration image. (default is  'median', but note that it 
                 should be set to 'total' if making emission measure map)
+                if paramname is a list, then can also give iteration_type 
+                as a list of the same length, specifying a different 
+                iteration_type for each map -- this is important if, e.g.
+                one of the paramnames is 'blob_em', which should generally
+                use iteration_type='total'.
 
       ctype (string) : 'median', 'average', 'total', or 'error' to specify 
                 how to combine the different iteration images when making 
                 the final image. error will produce a map of the parameter
-                error (default='median')
+                error (default='median'). if paramname is a list, then can
+                also give ctype as a list of the same length, specifying
+                a differenty ctype for each map.
 
       imagesize (float) : optionally specify the size of output image 
                           (length of one side of square image) in same u
-                          nits as paramx,y
+                          nits as paramx,y. if paramnames is list, then 
+                          all maps will have the same image size as the
+                          first one in the list.
 
       x0,y0 (floats):  center coordinates of the desired output image, in
-                       same units as paramx,paramy
+                       same units as paramx,paramy. if paramname is a list,
+                       then all maps will have the same x0,y0 coordinates
+                       as the first map.
 
       exclude_region (3D float tuple): tuple of form (x0,y0,radius)
                 specifying a circular region to mask (set image
@@ -118,8 +135,9 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       nproc:  if parallel=True, then nproc sets the number of 
               processors to use (default=3). ignored if parallel=False
 
-      cint:   bool to turn on/off the use of ctypes for integration (default=True)
-              set cint=False if gaussian.c is not compiled on your machine.
+      cint:   bool to turn on/off the use of ctypes for integration 
+              (default=True). set cint=False if gaussian.c is not 
+              compiled on your machine.
 
     Output:
 
@@ -134,29 +152,31 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     #----Import Modules----
     import time
 
+    #----Check if lists----
+    if not isinstance(paramname,list):
+        paramname=[paramname]
+    if not isinstance(paramweights,list):
+        paramweights = [paramweights]*len(paramname)
+    if not isinstance(iteration_type,list):
+        iteration_type = [iteration_type]*len(paramname)
+    if not isinstance(ctype,list):
+        ctype = [ctype]*len(paramname)
+
     #----Store blob information in DataFrame and set output file----
-    if type(indata) is str:
+    if outfile is not None:
+        outfile_base,ext = os.path.splitext(outfile)
+        if outfile_base[-1] != '_': outfile_base = outfile_base+'_'
+    if isinstance(indata,str):
         df = pd.read_table(indata,sep='\t',index_col = 0)
         if outfile is None:
             (fname,ext) = os.path.splitext(indata)
-            outfile = fname + '_'+paramname+'_'+ctype+'.fits'
+            outfile_base = fname+'_'+ctype+'_bin'+str(int(binsize))+'_'
         indatastr = indata
     else:
         df = indata
         if outfile is None:
-            outfile = paramname+'_'+ctype+'.fits'
+            outfile_base = ctype+'_bin'+str(int(binsize))+'_'
         indatastr = 'DataFrame'
-
-    #----Check if output file already exists----
-    if os.path.isfile(outfile) and clobber is not True:
-        print "ERROR: "+outfile+" exists and clobber=False.  Returning."
-        return None
-
-    #----Check for weights----
-    if paramweights is None:
-        weights = None
-    else:
-        weights = df[paramweights]
 
     #----Set default image size and center----
     if imagesize is None:
@@ -170,48 +190,71 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
     print imagesize,x0,y0
 
-    #----Calculate the map----
-    img = calculate_map(df[paramname],df[paramx],df[paramy],df[paramsize],
+    imgs = [] #empty list of image arrays
+
+    #----Loop over paramnames----
+    for p in xrange(len(paramname)):
+        par = paramname[p]
+        outfile = outfile_base+par+'.fits'
+
+        #----Check if output file already exists----
+        if os.path.isfile(outfile) and clobber is not True:
+            print "ERROR: "+outfile+" exists and clobber=False. "\
+                  "Not mapping "+par+"."
+
+        else:
+            print "Mapping "+par
+        
+            #----Check for weights----
+            if paramweights[p] is None:
+                weights = None
+            else:
+                weights = df[paramweights[p]]
+
+            #----Calculate the map----
+            img = calculate_map(df[par],df[paramx],df[paramy],
+                                df[paramsize],
                         blobiterations=df['iteration'],
                         blobweights=weights,binsize=binsize,
-                        iteration_type=iteration_type,ctype=ctype,
+                        iteration_type=iteration_type[p],ctype=ctype[p],
                         imagesize=imagesize,itmod=itmod,
                         x0=x0,y0=y0,shape=paramshape,nlayers=nlayers,
                         parallel=parallel,nproc=nproc,use_ctypes=cint)
 
-#    print "max, min img = ",np.max(img), np.min(img)
+            #----Mask Region----
+            if exclude_region is not None:
+                msk = circle_mask(df,paramx,paramy,exclude_region,binsize,
+                                  imagesize,x0,y0)
+                img = img*msk
 
-    #----Mask Region----
-    if exclude_region is not None:
-        msk = circle_mask(df,paramx,paramy,exclude_region,binsize,
-                          imagesize,x0,y0)
-        img = img*msk
+            #----Save map to fits file----
 
-    #----Save map to fits file----
+            #--write history--
+            history1 = ('make_map,'+indatastr+',outfile='+nstr(outfile)
+                        +',paramname='+nstr(par)
+                        +',paramweights='+nstr(paramweights[p])
+                        +',paramx='+nstr(paramx)+',paramy='+nstr(paramy)
+                        +',paramsize='+nstr(paramsize)+',binsize='
+                        +nstr(binsize)+',itmod='+nstr(itmod)+',paramshape='
+                        +nstr(paramshape)+',ctype='+nstr(ctype[p])
+                        +',iteration_type='
+                        +nstr(iteration_type[p])+',x0='+nstr(x0)+',y0='
+                        +nstr(y0)
+                        +',imagesize='+nstr(imagesize)+',sigthresh='
+                        +nstr(sigthresh))
 
-    #--write history--
-    history1 = ('make_map,'+indatastr+',outfile='+nstr(outfile)
-                +',paramname='+nstr(paramname)
-                +',paramweights='+nstr(paramweights)
-                +',paramx='+nstr(paramx)+',paramy='+nstr(paramy)
-                +',paramsize='+nstr(paramsize)+',binsize='
-                +nstr(binsize)+',itmod='+nstr(itmod)+',paramshape='
-                +nstr(paramshape)+',ctype='+nstr(ctype)+',iteration_type='
-                +nstr(iteration_type)+',x0='+nstr(x0)+',y0='+nstr(y0)
-                +',imagesize='+nstr(imagesize)+',sigthresh='
-                +nstr(sigthresh))
-    
-    history2 = 'Created '+str(time.strftime("%x %H:%M:%S"))
+            history2 = 'Created '+str(time.strftime("%x %H:%M:%S"))
 
-    #--write file--
-    hdr = fits.Header()
-    hdr['HISTORY']=history2
-    hdr['HISTORY']=history1
-    hdu = fits.PrimaryHDU(img,header=hdr)
-    
-    hdu.writeto(outfile,clobber=clobber)
+            #--write file--
+            hdr = fits.Header()
+            hdr['HISTORY']=history2
+            hdr['HISTORY']=history1
+            hdu = fits.PrimaryHDU(img,header=hdr)
 
-    return img
+            hdu.writeto(outfile,clobber=clobber)
+
+            imgs = imgs+[img]
+    return imgs
 
 #--------------------------------------------------------------------------
 def nstr(x):
