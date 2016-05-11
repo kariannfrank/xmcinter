@@ -21,7 +21,7 @@ import bokeh.plotting as bplt
 import bokeh.charts as bchart
 
 #----------------------------------------------------------
-def chi2(runpath='./'):
+def chi2(runpath='./',itmin=0,itmax=None):
     """
     Author: Kari A. Frank
     Date: October 20, 2015
@@ -36,6 +36,7 @@ def chi2(runpath='./'):
      runpath:     string containing the relative path to xmc run folder, which
                   contains the statistic.* files.
 
+     itmin/itmax: minimum/maximum iteration to plot
 
     Output:
      - plots chi2 vs iteration for the specified iteration to an interactive plot
@@ -49,12 +50,16 @@ def chi2(runpath='./'):
 
 #----Import Modules----
     from xmcfiles import merge_output
+    from wrangle import filterblobs
 #    import bokeh
 #    from bokeh.plotting import figure, output_file, show
     #from bokeh.mpl import to_bokeh
 
 #----Read statistic files----
     statframe = merge_output(runpath,filetype='statistic',save=False)
+    if itmax is None:
+        itmax = np.max(statframe['iteration'])
+    statframe = filterblobs(statframe,'iteration',minvals=itmin,maxvals=itmax)
 
 #----Calculate reduced chi2----
     statframe['redchi2'] = statframe['chi2']/statframe['dof']
