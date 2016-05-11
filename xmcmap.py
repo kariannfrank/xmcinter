@@ -30,10 +30,12 @@ import ctypes
 #----------------------------------------------------------------------------
 def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
              binsize=10.0,itmod=100,paramshape='gauss',ctype='median',
-             x0=None,y0=None,imagesize=None,sigthresh=0.0,paramx='blob_phi',
+             x0=None,y0=None,imagesize=None,witherror=True,sigthresh=0.0,
+             paramx='blob_phi',
              paramy='blob_psi',paramsize='blob_sigma',exclude_region=None,
              iteration_type='median',clobber=False,nlayers=None,
-             parallel=True,nproc=3,cint=True):
+             parallel=True,nproc=3,cint=True,movie=False,moviedir=None,
+             cumulativemovie=False):
     """
     Author: Kari A. Frank
     Date: November 19, 2015
@@ -101,6 +103,9 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 also give ctype as a list of the same length, specifying
                 a differenty ctype for each map.
 
+      witherror (bool) : switch to also return a map of the error in 
+                         each pixel (standard deviation)
+
       imagesize (float) : optionally specify the size of output image 
                           (length of one side of square image) in same u
                           nits as paramx,y. if paramnames is list, then 
@@ -128,16 +133,33 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       clobber (bool) : specify whether any existing fits file of the same
                        name as outfile should be overwritten. 
 
-      parallel: boolean switch to specify if the iteration images
+      parallel (bool) : switch to specify if the iteration images
                     should be computed in serial or in parallel using
                     multiprocessing (default=True)
 
-      nproc:  if parallel=True, then nproc sets the number of 
+      nproc (int) :  if parallel=True, then nproc sets the number of 
               processors to use (default=3). ignored if parallel=False
 
-      cint:   bool to turn on/off the use of ctypes for integration 
+      cint (bool) :  turn on/off the use of ctypes for integration 
               (default=True). set cint=False if gaussian.c is not 
               compiled on your machine.
+
+      movie (bool) :  save each layer image individually in order to 
+              create a movie from the images. Number of frames=nlayers. 
+              (default=False).  If paramname is a list, then a movie will
+              created for each parameter map, or can pass a list of bool 
+              to movie specifying which maps in paramname should get
+              an associated movie.
+
+      moviedir (str) : optionally specify the folder in which to save
+                   the frames for the movie. ignored if 
+                   movie=False (default=outfile_base_parname_movie/).
+                   Be careful - if moviedir already exists, any frames
+                   in it will be overwritten!
+
+      cumulativemovie (bool) : create the movie using cumulative images,
+                i.e. recreate the image using all available iterations each
+                time.  ignored if movie=False (default=False)
 
     Output:
 
@@ -161,6 +183,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         iteration_type = [iteration_type]*len(paramname)
     if not isinstance(ctype,list):
         ctype = [ctype]*len(paramname)
+    if not isinstance(movie,list):
+        movie = [movie]*len(paramname)
 
     #----Store blob information in DataFrame and set output file----
     if outfile is not None:
@@ -170,12 +194,12 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         df = pd.read_table(indata,sep='\t',index_col = 0)
         if outfile is None:
             (fname,ext) = os.path.splitext(indata)
-            outfile_base = fname+'_'+ctype+'_bin'+str(int(binsize))+'_'
+            outfile_base = fname+'_bin'+str(int(binsize))+'_'
         indatastr = indata
     else:
         df = indata
         if outfile is None:
-            outfile_base = ctype+'_bin'+str(int(binsize))+'_'
+            outfile_base = 'bin'+str(int(binsize))+'_'
         indatastr = 'DataFrame'
 
     #----Set default image size and center----
@@ -191,11 +215,12 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     print imagesize,x0,y0
 
     imgs = [] #empty list of image arrays
+    errimgs = [] #empty list of image arrays
 
     #----Loop over paramnames----
     for p in xrange(len(paramname)):
         par = paramname[p]
-        outfile = outfile_base+par+'.fits'
+        outfile = outfile_base+ctype[p]+'_'+par+'.fits'
 
         #----Check if output file already exists----
         if os.path.isfile(outfile) and clobber is not True:
@@ -205,6 +230,15 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         else:
             print "Mapping "+par
         
+            #----Set up for movie----
+            if movie[p] is True:
+                if moviedir is None: 
+                    mvdir = outfile_base+ctype[p]+'_'+par+'_movie/'
+                else:
+                    mvdir = moviedir+'/'
+            else:
+                mvdir = None
+
             #----Check for weights----
             if paramweights[p] is None:
                 weights = None
@@ -212,20 +246,23 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 weights = df[paramweights[p]]
 
             #----Calculate the map----
-            img = calculate_map(df[par],df[paramx],df[paramy],
+            img,errimg = calculate_map(df[par],df[paramx],df[paramy],
                                 df[paramsize],
                         blobiterations=df['iteration'],
                         blobweights=weights,binsize=binsize,
                         iteration_type=iteration_type[p],ctype=ctype[p],
-                        imagesize=imagesize,itmod=itmod,
+                        imagesize=imagesize,itmod=itmod,sigthresh=sigthresh,
                         x0=x0,y0=y0,shape=paramshape,nlayers=nlayers,
-                        parallel=parallel,nproc=nproc,use_ctypes=cint)
+                        parallel=parallel,nproc=nproc,use_ctypes=cint,
+                        movie=movie[p],moviedir=mvdir,
+                        cumulativemovie=cumulativemovie,witherror=witherror)
 
             #----Mask Region----
             if exclude_region is not None:
                 msk = circle_mask(df,paramx,paramy,exclude_region,binsize,
                                   imagesize,x0,y0)
                 img = img*msk
+                if errimg is not None: errimg = errimg*msk
 
             #----Save map to fits file----
 
@@ -253,8 +290,76 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
             hdu.writeto(outfile,clobber=clobber)
 
+            if witherror is True:
+                hdr=fits.Header()
+                hdr['HISTORY']=history2
+                hdr['HISTORY']=history1
+                hdr['HISTORY']='error map'
+                fits.append(outfile,errimg,hdr)
+
             imgs = imgs+[img]
+            errimgs = errimgs+[errimg]
     return imgs
+
+#--------------------------------------------------------------------------
+def movie_from_stack(stack,moviedir,cumulativemovie=False,ctype='median',
+                     delay=20,cmap='CMRmap'):
+    """
+    Save each image in a stack to file for creating a movie
+
+    See http://matplotlib.org/examples/color/colormaps_reference.html for
+    list of colormaps.
+
+    """
+
+    # - import plotting functions - 
+    import matplotlib.pyplot as plt
+#    from scipy.misc import imsave
+
+    # - create directory if it doesn't exist -
+    if not os.path.exists(moviedir):
+        os.makedirs(moviedir)
+
+    # - loop over layers and save images to file -
+    nlayers = stack.shape[2]
+    for layer in xrange(nlayers):
+        if cumulativemovie is False:
+            framenum="%03d" % (layer,)
+            print 'frame '+framenum
+            im = stack[:,:,layer]
+        else:
+            if ctype == 'average':
+                collapsed_img = np.average(stack[:,:,:layer],axis=2)
+            elif ctype == 'median':
+                collapsed_img = np.median(stack[:,:,:layer],axis=2)
+            elif ctype == 'total':
+                collapsed_img = np.sum(stack[:,:,:layer],axis=2)
+            elif ctype == 'error':
+                collapsed_img = np.std(stack[:,:,:layer],axis=2)
+            else: 
+                print "movie_from_stack: ERROR: unrecognized ctype"
+            im = collapsed_img
+
+        # - convert to color image - 
+#        fig,ax=plt.subplots()
+        fig = plt.figure()
+        fig.set_size_inches(5,5)
+        ax = plt.Axes(fig,[0.,0.,1.,1.])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+        ax.imshow(im,cmap=cmap,aspect='auto')
+
+        # - save to file -
+        fig.savefig(moviedir+'frame'+framenum+'.png',dpi=300)
+#                    bbox_inches=0)
+        plt.close(fig)
+        
+    # - combine frames into movie - 
+    cmd = 'convert -set delay '+str(int(delay))+' '+moviedir+'/frame*.png '+moviedir+'/movie.gif'
+    os.system(cmd)
+
+    return None
+
 
 #--------------------------------------------------------------------------
 def nstr(x):
@@ -353,7 +458,8 @@ def circle_mask(df,paramx,paramy,exclude_region,binsize,imagesize,x0,y0):
     
 #--------------------------------------------------------------------------
 def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,
-                    iteration_type,shape,use_ctypes,fast=True,n_int_steps=None):
+                    iteration_type,shape,use_ctypes,fast=True,
+                    n_int_steps=None):
     """Function to combine blobs from single iteration into 1 image."""
     from wrangle import weighted_median
 
@@ -375,7 +481,8 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,
             else:
                 x_blob_integrals = data.apply(lambda d: \
                                 gaussian_integral_quad(lowerx,\
-                                upperx,d['x'],d['size'],use_ctypes=use_ctypes),\
+                                upperx,d['x'],d['size'],\
+                                use_ctypes=use_ctypes),\
                                 axis=1)
         elif shape == 'sphere':
             print "ERROR: spherical_integral() not yet implemented"
@@ -394,7 +501,8 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,
                 else:
                     y_blob_integrals = data.apply(lambda d: \
                                 gaussian_integral_quad(lowery,\
-                                uppery,d['y'],d['size'],use_ctypes=use_ctypes),\
+                                uppery,d['y'],d['size'],\
+                                use_ctypes=use_ctypes),\
                                 axis=1)
 
             elif shape == 'sphere':
@@ -447,7 +555,7 @@ def iteration_image_star(arglist):
     return iteration_image(*arglist)
 
 #--------------------------------------------------------------------------
-def collapse_stack(img_stack,nbins_x,nbins_y,ctype):
+def collapse_stack(img_stack,ctype):
     """Function to collapse a stack of images into a single image."""
 
     if ctype == 'average':
@@ -468,7 +576,8 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                   blobweights=None,binsize=10,iteration_type='median',
                   ctype='median',imagesize=None,itmod=100,n_int_steps=200,
                   x0=None,y0=None,shape='gauss',nlayers=None,parallel=True,
-                  nproc=3,use_ctypes=True):
+                  nproc=3,use_ctypes=True,movie=False,moviedir=None,
+                  cumulativemovie=False,witherror=False,sigthresh=0.0):
     """
     The main mapping function.
 
@@ -528,6 +637,19 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                     multiprocessing (default=True)
             nproc:  if parallel=True, then nproc sets the number of 
                     processors to use (default=3). ignored if parallel=False
+
+            movie (bool) :  save each layer image individually in order to 
+              create a movie from the images. Number of frames=nlayers. 
+              (default=False). frames will be named 'frame000.ps',etc
+
+            moviedir (str) : optionally specify the folder in which to save
+                   the frames for the movie. ignored if 
+                   movie=False (default=outfile_base_parname_movie/)
+
+            cumulativemovie (bool) : create the movie using cumulative 
+                images, i.e. recreate the image using all available 
+                iterations each time. ignored if movie=False (default=False)
+      
 
     Output:
 
@@ -638,7 +760,7 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                                                  iteration_type,shape,
                                                  use_ctypes,
                                                  fast=True,
-                                                 n_int_steps=n_int_steps)        
+                                                 n_int_steps=n_int_steps)
         else: # construct argument lists for multiprocessing
             imgargs[layer] = [group,nbins_x,nbins_y,binsize,xmin,ymin,
                               iteration_type,shape,use_ctypes]
@@ -652,9 +774,23 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         image_stack = image_stack.swapaxes(0,2).swapaxes(0,1)
 
     #--Collapse Image Stack (combine iterations)----
-    themap = collapse_stack(image_stack,nbins_x,nbins_y,ctype=ctype)
+    themap = collapse_stack(image_stack,ctype=ctype)
+
+    #--Apply significance threshold--
+    if (sigthresh != 0.0) or (witherror is True):
+        # - compute error (standard deviation) map -
+        errmap = collapse_stack(image_stack,ctype='error')
+        if sigthresh != 0.0:
+            # - set pixels with significance < threshold to zero - 
+            themap [themap/errmap < sigthresh] = 0.0
+    else:
+        errmap = None
+
+    #--Make movie--
+    if movie is True: movie_from_stack(image_stack,moviedir,
+                                       cumulativemovie=cumulativemovie)
 
     #----Return map----
-    return themap
+    return themap,errmap
 
 
