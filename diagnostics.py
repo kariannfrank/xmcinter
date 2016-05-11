@@ -77,7 +77,7 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     df = xw.filterblobs(df,'iteration',minvals=itmin,maxvals=itmax)
 
     # -- save as file --
-    outfile = ('deconvolution_merged_itmin'
+    outfile = ('deconvolution_merged_iter'
                +str(int(itmin))+'-'+str(int(itmax))+'.txt')
     df.to_csv(outfile,sep='\t')
 

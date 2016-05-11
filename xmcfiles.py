@@ -97,8 +97,8 @@ def merge_output(runpath='./',filetype='deconvolution',save=True,sep='\t'):
                       (default='\t', tab-separated)
 
     Output:
-      - if save=True, writes a text file <filetype>_merged.txt into the runpath 
-        directory
+      - if save=True, writes a text file <filetype>_merged.txt into the 
+        runpath directory
       - returns a pandas dataframe containing data from all the input files
 
     Usage Notes:
