@@ -303,7 +303,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
 #--------------------------------------------------------------------------
 def movie_from_stack(stack,moviedir,cumulativemovie=False,ctype='median',
-                     delay=20,cmap='CMRmap'):
+                     delay=20,cmap='CMRmap',parallel=True):
     """
     Save each image in a stack to file for creating a movie
 
@@ -319,6 +319,13 @@ def movie_from_stack(stack,moviedir,cumulativemovie=False,ctype='median',
     # - create directory if it doesn't exist -
     if not os.path.exists(moviedir):
         os.makedirs(moviedir)
+
+    # - set up figure object - 
+    fig = plt.figure()
+    fig.set_size_inches(5,5)
+    ax = plt.Axes(fig,[0.,0.,1.,1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
 
     # - loop over layers and save images to file -
     nlayers = stack.shape[2]
@@ -340,19 +347,17 @@ def movie_from_stack(stack,moviedir,cumulativemovie=False,ctype='median',
                 print "movie_from_stack: ERROR: unrecognized ctype"
             im = collapsed_img
 
-        # - convert to color image - 
+        # - convert to color image and plot - 
 #        fig,ax=plt.subplots()
-        fig = plt.figure()
-        fig.set_size_inches(5,5)
-        ax = plt.Axes(fig,[0.,0.,1.,1.])
-        ax.set_axis_off()
-        fig.add_axes(ax)
         ax.imshow(im,cmap=cmap,aspect='auto')
 
         # - save to file -
         fig.savefig(moviedir+'frame'+framenum+'.png',dpi=300)
 #                    bbox_inches=0)
-        plt.close(fig)
+
+        fig.clf() # clear figure
+
+    plt.close(fig) # close figure (release memory)
         
     # - combine frames into movie - 
     cmd = 'convert -set delay '+str(int(delay))+' '+moviedir+'/frame*.png '+moviedir+'/movie.gif'
@@ -771,7 +776,9 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         pool=Pool(nproc)
         image_stack = np.array(pool.map(iteration_image_star,
                                                  imgargs))
-        image_stack = image_stack.swapaxes(0,2).swapaxes(0,1)
+        pool.close()
+        pool.join()
+        image_stack = image_stack.swapaxes(0,2).swapaxes(0,1)        
 
     #--Collapse Image Stack (combine iterations)----
     themap = collapse_stack(image_stack,ctype=ctype)
@@ -788,7 +795,8 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
 
     #--Make movie--
     if movie is True: movie_from_stack(image_stack,moviedir,
-                                       cumulativemovie=cumulativemovie)
+                                       cumulativemovie=cumulativemovie,
+                                       parallel=parallel)
 
     #----Return map----
     return themap,errmap
