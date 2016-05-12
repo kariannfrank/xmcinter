@@ -16,6 +16,8 @@ Contains the following functions:
  hms2deg()
  deg2hms()
  xmc_wcs_convert()
+ chandra_psf_wing()
+ xspec_abund_to_nomoto()
 
 """
 
@@ -613,3 +615,187 @@ def wcs2xmc(ra,dec,attfile='atthk.fits'):
 
   return [phi,psi]
 #----------------------------------------------------------
+def chandra_psf_wing(dist,y,a,c,counts=1):
+  """
+  Author: Kari Frank
+  Date: July 24, 2015
+  Purpose: estimate the surface brightness due to the chandra psf wings
+            at a given distance from a bright point source
+
+  Usage: sb=chandra_psf_wing(dist,counts,y,a,c)
+  Input: 
+    dist -- distance in arcsec from the on-axis source
+    counts -- total number of counts in the point source
+    y,a,c -- parameters that describe the psf wing profile
+             (from cxc.harvard.edu/cal/Hrma/HerX1-Wings.html)
+
+  Output:
+    returns the surface brightness in counts/arcsec^2 expected due to the 
+      psf wings
+
+  Usage Notes:
+
+   - Only works for dist>15"
+   - Profiles are of the form psi=a * (theta/theta0)^(-y) * exp(-c*theta)
+       - theta0 is nominally 10"
+   - set counts=1 to return the normalized surface brightness
+  """
+
+  from math import exp
+
+  #--set constants--
+  theta0=10.0
+
+  #--calculate normalized surface brightness--
+  sb = a * ((dist/theta0)**(-1.*y)) * exp(-1.*c*dist)
+
+  #--convert to counts/arcsec^2--
+  sb = counts*sb
+
+  #--return final value--
+  return sb
+
+#----------------------------------------------------------
+def xspec_abund_to_nomoto(specZ,refZ,specZerr=0.0,refZerr=0.0):
+  """
+  Author: Kari Frank
+  Date: May 12, 2016
+
+  Purpose: Convert an abundance as defined in XSPEC with 
+           the abundance ratio (relative to the element refZ)
+           as defined in Nomoto2006:
+           [X/Fe] = log(N_X/N_Fe) - log(N_X/N_Fe)_solar = log(Z_X/Z_Fe)
+
+  Input:
+     specZ (float) : abundance value relative to solar, as used in XSPEC
+     refZ (float) : abundance, defined the same as specZ, to use as the
+                    reference abundance (denominator in the ratio).
+                    This should be an abundance associated with the same
+                    region as specZ. Typically refZ is the Fe, Si, or O
+                    abundance.
+     specZerr,refZerr (float or 2-element float tuple) : measurement 
+                    errors for the abundances. If provided, will also
+                    return the errors on the abundance
+                    ratio. If only one of specZerr, refZerr is provided, 
+                    the other will be assumed to be zero.
+                    If a tuple, then assumed to be of the form 
+                    (lowerr,higherr) or (symmetricerr)
+                  
+
+  Output:
+     Returns float containing the calculated abundance ratio, and optionally
+     the associated error bars.
+
+  Usage Notes:
+     - 
+  """
+
+  #--make sure given tuples are of correct form--
+  if isinstance(specZerr,tuple) and (len(specZerr) > 2):
+    print "ERROR: specZerr tuple has more than 2 elements."
+    return
+  if isinstance(specZerr,tuple) and (len(specZerr) == 1):
+    specZerr = (specZerr[0],specZerr[0]) # assume symmetric errors
+  if isinstance(refZerr,tuple) and (len(refZerr) > 2):
+    print "ERROR: refZerr tuple has more than 2 elements."
+    return
+  if isinstance(refZerr,tuple) and (len(refZerr) == 1):
+    refZerr = (refZerr[0],refZerr[0]) # assume symmetric errors
+  
+
+  #--convert errs to tuples if not--
+  if not isinstance(specZerr,tuple): specZerr=(specZerr,specZerr)
+  if not isinstance(refZerr,tuple): specZerr=(refZerr,refZerr)
+
+  #--convert to float if int--
+  if isinstance(specZ,int): specZ = float(specZ)
+  if isinstance(refZ,int): refZ = float(refZ)
+
+  if isinstance(specZerr[0],int): specZerr[0] = float(specZerr[0])
+  if isinstance(specZerr[1],int): specZerr[1] = float(specZerr[1])
+
+  if isinstance(refZerr[0],int): refZerr[0] = float(refZerr[0])
+  if isinstance(refZerr[1],int): refZerr[1] = float(refZerr[1])
+
+  #--Calculate ratio--
+  ratio = np.log10(specZ/refZ)
+  
+  #--Calculate errors--
+  if (specZerr[0]
+  ratioerrlow = ( (specZerr[0]/(specZ*np.log(10.0)))**2.0 + 
+                  (refZerr[0]/(refZ*np.log(10.0)))**2.0 )**0.5
+  ratioerrlow = ( (specZerr[1]/(specZ*np.log(10.0)))**2.0 + 
+                  (refZerr[1]/(refZ*np.log(10.0)))**2.0 )**0.5
+
+
+  #--Return abundance ratio and errors--
+  return, ratio,ratioerrlow,ratioerrhigh
+
+
+#----------------------------------------------------------
+def ratio_error_bars(top,bottom,top_low,toperr=0.0,bottomerr=0.0):
+  """
+  Author: Kari A. Frank
+  Date: May 12, 2016
+  
+  Purpose: Calculate the error bars for a ratio.
+
+  Input: 
+     top,bottom (float) : the numerator and denominator of the ratio
+     toperr,bottomerr (float or 2-element float tuple) : measurement errors
+                    for top and bottom. If provided, will also return 
+                    the errors on the ratio. If only one of toperr,
+                    bottomerr is provided, error for the other is 
+                    assumed to be zero.
+                    If a tuple, then assumed to be of the form 
+                    (lowerr,higherr)
+                  
+  """
+
+  #--make sure given tuples are of correct form--
+  if isinstance(toperr,tuple) and (len(toperr) > 2):
+    print "ERROR: toperr tuple has more than 2 elements."
+    return
+  if isinstance(toperr,tuple) and (len(toperr) == 1):
+    toperr = (toperr[0],toperr[0]) # assume symmetric errors
+  if isinstance(bottomerr,tuple) and (len(bottomerr) > 2):
+    print "ERROR: bottomerr tuple has more than 2 elements."
+    return
+  if isinstance(bottomerr,tuple) and (len(bottomerr) == 1):
+    bottomerr = (bottomerr[0],bottomerr[0]) # assume symmetric errors
+  
+
+  #--convert errs to tuples if not--
+  if not isinstance(toperr,tuple): toperr=(toperr,toperr)
+  if not isinstance(bottomerr,tuple): toperr=(bottomerr,bottomerr)
+
+  #--convert to float if int--
+  if isinstance(top,int): top = float(top)
+  if isinstance(bottom,int): bottom = float(bottom)
+
+  if isinstance(toperr[0],int): toperr[0] = float(toperr[0])
+  if isinstance(toperr[1],int): toperr[1] = float(toperr[1])
+
+  if isinstance(bottomerr[0],int): bottomerr[0] = float(bottomerr[0])
+  if isinstance(bottomerr[1],int): bottomerr[1] = float(bottomerr[1])
+
+
+  #--calculate the ratio--
+  ratio = top/bottom
+
+  #--calculate ratio errors--
+  ratio_lowerr = ratio - ( (toperr[0]/bottom)**2.0 + 
+                        (top/bottom**2.0*bottomerr[0])**2.0 )**0.5
+  ratio_higherr = ( (toperr[1]/bottom)**2.0 + 
+                    (top/(bottom)**2.0*bottomerr[1])**2.0 ) **0.5 + ratio
+  
+  return ratio_lowerr,ratio_higherr
+
+#----------------------------------------------------------
+def error_range_to_bars(x,xlow,xhigh):
+  """Function to convert given error range to error bars"""
+
+  xerrlow = x-xlow
+  xerrhigh = xhigh-x
+
+  return xerrlow,xerrhigh
