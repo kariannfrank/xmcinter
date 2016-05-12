@@ -313,6 +313,8 @@ def movie_from_stack(stack,moviedir,cumulativemovie=False,ctype='median',
     """
 
     # - import plotting functions - 
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 #    from scipy.misc import imsave
 
@@ -322,17 +324,19 @@ def movie_from_stack(stack,moviedir,cumulativemovie=False,ctype='median',
 
     # - set up figure object - 
     fig = plt.figure()
-    fig.set_size_inches(5,5)
-    ax = plt.Axes(fig,[0.,0.,1.,1.])
-    ax.set_axis_off()
-    fig.add_axes(ax)
 
     # - loop over layers and save images to file -
     nlayers = stack.shape[2]
     for layer in xrange(nlayers):
-        if cumulativemovie is False:
-            framenum="%03d" % (layer,)
-            print 'frame '+framenum
+        framenum="%03d" % (layer,)
+        print 'frame '+framenum
+
+        fig.set_size_inches(5,5)
+        ax = plt.Axes(fig,[0.,0.,1.,1.])
+        ax.set_axis_off()
+        fig.add_axes(ax)
+
+        if (cumulativemovie is False) or (layer == 0):
             im = stack[:,:,layer]
         else:
             if ctype == 'average':
@@ -346,6 +350,7 @@ def movie_from_stack(stack,moviedir,cumulativemovie=False,ctype='median',
             else: 
                 print "movie_from_stack: ERROR: unrecognized ctype"
             im = collapsed_img
+            print 'min,max im = ',np.min(im),np.max(im)
 
         # - convert to color image and plot - 
 #        fig,ax=plt.subplots()

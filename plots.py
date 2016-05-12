@@ -630,7 +630,10 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     bplt.output_file('spectrum.html')
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
     fig = bplt.figure(tools=TOOLS)
-    fig.xaxis.axis_label='Energy (keV)'
+    if np.max(datax) < 15.0:
+        fig.xaxis.axis_label='Energy (keV)'
+    else:
+        fig.xaxis.axis_label='Wavelength (Angstroms)'
     fig.yaxis.axis_label=''
 
     #--format ticks--
