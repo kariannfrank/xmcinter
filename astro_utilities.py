@@ -656,6 +656,47 @@ def chandra_psf_wing(dist,y,a,c,counts=1):
   return sb
 
 #----------------------------------------------------------
+def xspec_abund_to_nomoto_dataframe(df,specZcol,refZcol,specZerrcol=None,
+                             refZerrcol=None):
+                             
+  """
+  Wrapper to call primary function on a dataframe
+  
+  Takes as input the dataframe and string names of relevant columns.
+  Returns a pd.Series object with the new column
+
+  Assumes errors are symmetric.
+
+  """
+  import pandas as pd
+
+  if (specZerrcol is None) and (refZerrcol is None):
+    df[specZcol+'/'+refZcol] = df.apply(lambda x: \
+                     xspec_abund_to_nomoto(x[specZcol],x[refZcol]), axis=1)
+  elif (specZerrcol is None) and (refZerrcol is not None):
+    df[specZcol+'/'+refZcol] = df.apply(lambda x: \
+        xspec_abund_to_nomoto(x[specZcol],x[refZcol],refZerr=x[refZerrcol]), 
+                                        axis=1)
+  elif (specZerrcol is not None) and (refZerrcol is None):
+    df[specZcol+'/'+refZcol] = df.apply(lambda x: \
+        xspec_abund_to_nomoto(x[specZcol],x[refZcol],specZerr=x[specZerrcol]), 
+                                        axis=1)
+  else:
+    df[specZcol+'/'+refZcol] = df.apply(lambda x: \
+        xspec_abund_to_nomoto(x[specZcol],x[refZcol],
+                              specZerr=x[specZerrcol],
+                              refZerr=x[refZerrcol]), axis=1)
+
+  if (specZerrcol is None) and (refZerrcol is None):
+    # return series of scalars
+    df2 = pd.DataFrame(df[specZcol+'/'+refZcol].tolist(),columns=['ratio','err1','err2'],index=df.index)
+    df['scalar']=df2['ratio']
+#    df['scalar'] = df.apply(lambda x: x[specZcol+'/'+refZcol][0])
+    return df['scalar']
+  else:
+    # return series of tuples
+    return df[specZcol+'/'+refZcol]
+
 def xspec_abund_to_nomoto(specZ,refZ,specZerr=0.0,refZerr=0.0):
   """
   Author: Kari Frank
@@ -690,22 +731,23 @@ def xspec_abund_to_nomoto(specZ,refZ,specZerr=0.0,refZerr=0.0):
      - 
   """
 
+  #--convert errs to tuples if not--
+  if not isinstance(specZerr,tuple): specZerr=(specZerr,specZerr)
+  if not isinstance(refZerr,tuple): refZerr=(refZerr,refZerr)
+
   #--make sure given tuples are of correct form--
-  if isinstance(specZerr,tuple) and (len(specZerr) > 2):
+  if isinstance(specZerr,tuple) and (len(specZerr) > 2): 
     print "ERROR: specZerr tuple has more than 2 elements."
-    return
-  if isinstance(specZerr,tuple) and (len(specZerr) == 1):
+    return None
+  if isinstance(specZerr,tuple) and (len(specZerr) == 1): 
     specZerr = (specZerr[0],specZerr[0]) # assume symmetric errors
+
   if isinstance(refZerr,tuple) and (len(refZerr) > 2):
     print "ERROR: refZerr tuple has more than 2 elements."
-    return
+    return None
   if isinstance(refZerr,tuple) and (len(refZerr) == 1):
     refZerr = (refZerr[0],refZerr[0]) # assume symmetric errors
   
-
-  #--convert errs to tuples if not--
-  if not isinstance(specZerr,tuple): specZerr=(specZerr,specZerr)
-  if not isinstance(refZerr,tuple): specZerr=(refZerr,refZerr)
 
   #--convert to float if int--
   if isinstance(specZ,int): specZ = float(specZ)
@@ -721,15 +763,15 @@ def xspec_abund_to_nomoto(specZ,refZ,specZerr=0.0,refZerr=0.0):
   ratio = np.log10(specZ/refZ)
   
   #--Calculate errors--
-  if (specZerr[0]
+
   ratioerrlow = ( (specZerr[0]/(specZ*np.log(10.0)))**2.0 + 
                   (refZerr[0]/(refZ*np.log(10.0)))**2.0 )**0.5
-  ratioerrlow = ( (specZerr[1]/(specZ*np.log(10.0)))**2.0 + 
+  ratioerrhigh = ( (specZerr[1]/(specZ*np.log(10.0)))**2.0 + 
                   (refZerr[1]/(refZ*np.log(10.0)))**2.0 )**0.5
 
 
   #--Return abundance ratio and errors--
-  return, ratio,ratioerrlow,ratioerrhigh
+  return ratio,ratioerrlow,ratioerrhigh
 
 
 #----------------------------------------------------------

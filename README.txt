@@ -37,7 +37,7 @@ Usage Notes:
   gcc -shared -o gaussian.so -fPIC gaussian.c
 
   If you choose not to use this, make sure to always pass the cint=False
-  argument to make_map(). It should still run relatively fast.  
+  argument to make_map(). It should only run slightly slower.
 
 ###################################################################
 A typical workflow for early diagnostics

@@ -107,8 +107,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                          each pixel (standard deviation)
 
       imagesize (float) : optionally specify the size of output image 
-                          (length of one side of square image) in same u
-                          nits as paramx,y. if paramnames is list, then 
+                          (length of one side of square image) in same
+                          units as paramx,y. if paramnames is list, then 
                           all maps will have the same image size as the
                           first one in the list.
 
@@ -204,7 +204,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
     #----Set default image size and center----
     if imagesize is None:
-        imagesize = 1.5*(max(df[paramx] - min(df[paramx])))
+        ximagesize = 1.1*(max(df[paramx] - min(df[paramx])))
+        yimagesize = 1.1*(max(df[paramx] - min(df[paramy])))
     if x0 is None:
 #        x0 = np.median(df[paramx])
         x0 = (max(df[paramx])-min(df[paramx]))/2.0+min(df[paramx])
@@ -212,7 +213,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 #        y0 = np.median(df[paramy])
         y0 = (max(df[paramy])-min(df[paramy]))/2.0+min(df[paramy])
 
-    print imagesize,x0,y0
+    print ximagesize,yimagesize,x0,y0
 
     imgs = [] #empty list of image arrays
     errimgs = [] #empty list of image arrays
@@ -226,7 +227,6 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         if os.path.isfile(outfile) and clobber is not True:
             print "ERROR: "+outfile+" exists and clobber=False. "\
                   "Not mapping "+par+"."
-
         else:
             print "Mapping "+par
         
@@ -251,13 +251,15 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                         blobiterations=df['iteration'],
                         blobweights=weights,binsize=binsize,
                         iteration_type=iteration_type[p],ctype=ctype[p],
-                        imagesize=imagesize,itmod=itmod,sigthresh=sigthresh,
+                        imagesize=[ximagesize,yimagesize],itmod=itmod,
+                        sigthresh=sigthresh,
                         x0=x0,y0=y0,shape=paramshape,nlayers=nlayers,
                         parallel=parallel,nproc=nproc,use_ctypes=cint,
                         movie=movie[p],moviedir=mvdir,
                         cumulativemovie=cumulativemovie,witherror=witherror)
 
             #----Mask Region----
+            # not yet functional
             if exclude_region is not None:
                 msk = circle_mask(df,paramx,paramy,exclude_region,binsize,
                                   imagesize,x0,y0)
@@ -279,13 +281,16 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                         +nstr(y0)
                         +',imagesize='+nstr(imagesize)+',sigthresh='
                         +nstr(sigthresh))
-
+            history3 = 'ximagesize = '+nstr(ximagesize)
+            history4 = 'yimagesize = '+nstr(yimagesize)
             history2 = 'Created '+str(time.strftime("%x %H:%M:%S"))
 
             #--write file--
             hdr = fits.Header()
             hdr['HISTORY']=history2
             hdr['HISTORY']=history1
+            hdr['HISTORY']=history3
+            hdr['HISTORY']=history4
             hdu = fits.PrimaryHDU(img,header=hdr)
 
             hdu.writeto(outfile,clobber=clobber)
@@ -294,6 +299,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 hdr=fits.Header()
                 hdr['HISTORY']=history2
                 hdr['HISTORY']=history1
+                hdr['HISTORY']=history3
+                hdr['HISTORY']=history4
                 hdr['HISTORY']='error map'
                 fits.append(outfile,errimg,hdr)
 
@@ -628,8 +635,10 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
                     error (default=median)
             blobweights : array of weights for each blob (e.g. emission 
                           measures)
-            imagesize : length of one side of image, assumes square image 
-                        ( default=max(blobx)-min(blobx) ).
+            imagesize : length of one side of a square image (float), or
+                    a 2-element list of the form [ximagesize,yimagesize].
+                    default assumes a square image covering the entire
+                    x/y range of the blobs
             itmod : set to >1 to use only every itmod'th
                     iteration (default = 10)
             nlayers : optionally can set number of layers instead of itmod.
@@ -689,23 +698,40 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         print "Warning: Unrecognized blob shape. Using shape='gauss'"
         shape = 'gauss'
     if imagesize is None:
-        imagesize = 1.5*(max(blobx) - min(blobx))
+        ximagesize = 1.1*(max(blobx) - min(blobx))
+        yimagesize = 1.1*(max(bloby) - min(bloby))
+    elif isinstance(imagesize,tuple) or isinstance(imagesize,list):
+        if len(imagesize)>2: 
+            print ("calculate_map: Warning: imagesize has too many"+ 
+                   " elements, using first two only")
+        if len(imagesize)>=2:
+            ximagesize=imagesize[0]
+            yimagesize=imagesize[1]
+        if len(imagesize)==1:
+            ximagesize=imagesize[0]
+            yimagesize=imagesize[0]
+    else:
+        ximagesize=imagesize
+        yimagesize=imagesize
     if x0 is None:
-        x0 = np.median(blobx)
+        x0 = (max(blobx)-min(blobx))/2.0+min(blobx)
     if y0 is None:
-        y0 = np.median(bloby)
+        y0 = (max(bloby)-min(bloby))/2.0+min(bloby)
     if blobweights is None: # default is equally weight all blobs
         blobweights = pd.Series(np.ones_like(blobparam)
                                 ,index=blobparam.index)
 
     #----Set Up Map Parameters----
-    imageradius = imagesize/2
-    xmin = x0 - imageradius
-    xmax = x0 + imageradius
-    ymin = y0 - imageradius
-    ymax = y0 + imageradius
-    imageradius = (xmax-xmin)/2.0
-    imagesize = imageradius*2.0
+    ximageradius = ximagesize/2
+    yimageradius = yimagesize/2
+    xmin = x0 - ximageradius
+    xmax = x0 + ximageradius
+    ymin = y0 - yimageradius
+    ymax = y0 + yimageradius
+    ximageradius = (xmax-xmin)/2.0
+    yimageradius = (ymax-ymin)/2.0
+    ximagesize = ximageradius*2.0
+    yimagesize = yimageradius*2.0
 
     #-number of map layers (one per iteration) and number of pixels-
     niter = np.unique(blobiterations).size
