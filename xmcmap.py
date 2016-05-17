@@ -206,6 +206,19 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     if imagesize is None:
         ximagesize = 1.1*(max(df[paramx] - min(df[paramx])))
         yimagesize = 1.1*(max(df[paramx] - min(df[paramy])))
+    elif isinstance(imagesize,tuple) or isinstance(imagesize,list):
+        if len(imagesize)>2: 
+            print ("calculate_map: Warning: imagesize has too many"+ 
+                   " elements, using first two only")
+        if len(imagesize)>=2:
+            ximagesize=imagesize[0]
+            yimagesize=imagesize[1]
+        if len(imagesize)==1:
+            ximagesize=imagesize[0]
+            yimagesize=imagesize[0]
+    else:
+        ximagesize=imagesize
+        yimagesize=imagesize
     if x0 is None:
 #        x0 = np.median(df[paramx])
         x0 = (max(df[paramx])-min(df[paramx]))/2.0+min(df[paramx])
@@ -819,8 +832,8 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         # - compute error (standard deviation) map -
         errmap = collapse_stack(image_stack,ctype='error')
         if sigthresh != 0.0:
-            # - set pixels with significance < threshold to zero - 
-            themap [themap/errmap < sigthresh] = 0.0
+            # - set pixels with significance < threshold to Nan - 
+            themap [abs(themap)/errmap < sigthresh] = np.nan
     else:
         errmap = None
 
