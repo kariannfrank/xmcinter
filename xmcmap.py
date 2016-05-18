@@ -35,7 +35,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
              paramy='blob_psi',paramsize='blob_sigma',exclude_region=None,
              iteration_type='median',clobber=False,nlayers=None,
              parallel=True,nproc=3,cint=True,movie=False,moviedir=None,
-             cumulativemovie=False):
+             cumulativemovie=False,withsignificance=False):
     """
     Author: Kari A. Frank
     Date: November 19, 2015
@@ -106,6 +106,13 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       witherror (bool) : switch to also return a map of the error in 
                          each pixel (standard deviation)
 
+      withsignificance (bool) : switch to also return a map of the 
+                significance (in #sigma, i.e. img/errimg) in 
+                each pixel. if True, should also specify a non-zero
+                sigthresh. If True, then will set witherror=True, 
+                regardless of whether the witherror argument was explicitly
+                set.
+
       imagesize (float) : optionally specify the size of output image 
                           (length of one side of square image) in same
                           units as paramx,y. if paramnames is list, then 
@@ -173,6 +180,9 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     
     #----Import Modules----
     import time
+
+    #----Set any defaults----
+    if withsignificance is True: witherror = True
 
     #----Check if lists----
     if not isinstance(paramname,list):
@@ -316,6 +326,15 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 hdr['HISTORY']=history4
                 hdr['HISTORY']='error map'
                 fits.append(outfile,errimg,hdr)
+
+           if withsignificance is True:
+                hdr=fits.Header()
+                hdr['HISTORY']=history2
+                hdr['HISTORY']=history1
+                hdr['HISTORY']=history3
+                hdr['HISTORY']=history4
+                hdr['HISTORY']='significance (img/errimg) map'
+                fits.append(outfile,img/errimg,hdr)
 
             imgs = imgs+[img]
             errimgs = errimgs+[errimg]

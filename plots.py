@@ -151,7 +151,8 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
     return fig
 
 #----------------------------------------------------------
-def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None):
+def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
+               outfile='traceplots.html'):
     """
     Author: Kari A. Frank
     Date: October 26, 2015
@@ -163,19 +164,19 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None):
 
      dframe: input dataframe
 
-     agg:    type of aggregration to perform before plotting, since plotting with
-             all possible rows/blobs is generally prohibitively slow options are
+     agg:    type of aggregration to perform before plotting, since 
+             plotting with all possible rows/blobs is generally 
+             prohibitively slow. options are:
              - 'none' (plot all rows)
              - 'sampling' (take random subsample of rows, default)
-             - 'contour' (plot density contours instead of points - does not 
+             - 'contour' (plot density contours instead of points - does not
                 use linked brushing) -- not yet implemented
 
       npoints: number of aggregated points to plot, ignored if agg='none' 
                or agg='contour' (default = 1000.0)
 
-      columns: list of dataframe column names to include in the plots. default is
-               to use all columns
-
+      columns: list of dataframe column names to include in the plots. 
+               default is to use all columns
 
     Output:
      - plots matrix of scatter plots of all provided dataframe columns to 
