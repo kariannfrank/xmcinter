@@ -108,8 +108,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
       withsignificance (bool) : switch to also return a map of the 
                 significance (in #sigma, i.e. img/errimg) in 
-                each pixel. if True, should also specify a non-zero
-                sigthresh. If True, then will set witherror=True, 
+                each pixel. If True, then will set witherror=True, 
                 regardless of whether the witherror argument was explicitly
                 set.
 
@@ -327,7 +326,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 hdr['HISTORY']='error map'
                 fits.append(outfile,errimg,hdr)
 
-           if withsignificance is True:
+            if withsignificance is True:
                 hdr=fits.Header()
                 hdr['HISTORY']=history2
                 hdr['HISTORY']=history1
