@@ -207,7 +207,7 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
 #    if agg=='contour':
 
 #----Set up plot----
-    bplt.output_file('traceplots.html')
+    bplt.output_file(outfile)
     source = ColumnDataSource(df)
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
     w = 300 # plot width 
