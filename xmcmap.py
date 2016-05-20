@@ -600,6 +600,7 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,
 def iteration_image_star(arglist):
     """Function to unpack list of arguments and pass to iteration_image()"""
     # for use with multiprocessing package
+    #print 'arglist = ',arglist
     return iteration_image(*arglist)
 
 #--------------------------------------------------------------------------
@@ -784,6 +785,8 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
     else:
         imgargs = [[]]*nlayers
 
+    print 'nlayers = ',nlayers
+
     #----Concatenate into a single dataframe and filter out iterations----
     df = blobparam.to_frame(name='param')
     df['x'] = blobx
@@ -801,9 +804,15 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
         its = its + [i*itmod + itmin]
     itstr = ['iteration']*len(its)
 
+    #-verify that all layers are contain blobs, adjust iteration number if not-
+    for i in xrange(len(its)):
+        while (its[i] not in df['iteration'].values) and \
+                (its[i]<=np.max(df['iteration'])):
+            its[i] = its[i]+1
+
     #-keep only matching iterations-
     df = filterblobs(df,itstr,minvals=its,maxvals=its,logic='or')
-   
+
     #----Calculate Blob Volumes----
     if shape == 'gauss':
         df['volume'] = (2.0*np.pi*np.square(df['size']))**1.5
