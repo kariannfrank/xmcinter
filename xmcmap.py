@@ -798,17 +798,11 @@ def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
     #--Remove iterations according to itmod--
 
     #-make list of iterations to use-
-    its = []
-    itmin = np.min(df['iteration'])
-    for i in range(nlayers):
-        its = its + [i*itmod + itmin]
+    # randomly chooses the required number of iterations
+    #  from iterations which exist in the dataframe
+    its = np.random.choice(df['iteration'].unique(),size=nlayers,
+                           replace=False)
     itstr = ['iteration']*len(its)
-
-    #-verify that all layers are contain blobs, adjust iteration number if not-
-    for i in xrange(len(its)):
-        while (its[i] not in df['iteration'].values) and \
-                (its[i]<=np.max(df['iteration'])):
-            its[i] = its[i]+1
 
     #-keep only matching iterations-
     df = filterblobs(df,itstr,minvals=its,maxvals=its,logic='or')
