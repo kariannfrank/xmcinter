@@ -257,7 +257,7 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
                 figlist[row][col]=newfig
             if col == row:
                 # plot histogram
-                newfig = histogram(df[df.columns[col]],bins=30,width=wi,
+                newfig = histogram(df[df.columns[col]],bins=100,width=wi,
                                    height=he,tools=TOOLS,save=False)
 #                newfig = bchart.Histogram(df[[col]],bins=30,
 #                                          width=wi,height=he,tools=TOOLS,
@@ -285,8 +285,8 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
     return figlist
 
 #----------------------------------------------------------
-def histogram(dataseries,weights=None,bins=30,save=True,height=300,
-              width=400,tools="pan,wheel_zoom,box_zoom,reset,save",
+def histogram(dataseries,weights=None,bins=100,save=True,height=600,
+              width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',plotfile='histogram.html',
               density=False,xlog='auto',**kwargs):
     """
@@ -403,7 +403,7 @@ def histogram(dataseries,weights=None,bins=30,save=True,height=300,
     return fig
 
 #----------------------------------------------------------
-def histogram_grid(dframe,weights=None,bins=30,height=300,width=400,
+def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
                    ncols=4,outfile='histogram_grid.html',**kwargs):
     """
     Author: Kari A. Frank
