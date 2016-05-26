@@ -252,19 +252,20 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
         #--check if output file already exists--
         if os.path.isfile(outfiles[p]) and clobber is not True:
-            print "ERROR: "+outfile+" exists and clobber=False. "\
+            print "Warning: "+outfile+" exists and clobber=False. "\
                   "Not mapping "+paramname[p]+"."
-            badparams = badparams + [p]
+            badparams = badparams + [paramname[p]]
 
     #--remove parameters that would be clobbered if clobber=False--
     for b in badparams:
-        outfiles.remove(outfiles[b])
-        moviedirs.remove(moviedirs[b])
-        paramname.remove(paramname[b])
-        iteration_type.remove(iteration_type[b])
-        ctype.remove(ctype[b])
-        paramweights.remove(paramweights[b])
-        movie.remove(movie[b])
+        bi = paramname.index(b)
+        outfiles.remove(outfiles[bi])
+        moviedirs.remove(moviedirs[bi])
+        paramname.remove(paramname[bi])
+        iteration_type.remove(iteration_type[bi])
+        ctype.remove(ctype[bi])
+        paramweights.remove(paramweights[bi])
+        movie.remove(movie[bi])
 
     #----Set default image size and center----
     if imagesize is None:
@@ -356,7 +357,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
         if parallel is False: # create iteration images in serial
             print 'layer = ',layer
-    #i=iteration number (string or int?), group = subset of dataframe
+            #i=iteration number, group = subset of dataframe
             image_stacks[:,:,:,layer] = iteration_image(group,paramname,
                                  paramweights,
                                  nbins_x,nbins_y,binsize,xmin,ymin,
@@ -633,7 +634,8 @@ def circle_mask(df,paramx,paramy,exclude_region,binsize,imagesize,x0,y0):
     
 #--------------------------------------------------------------------------
 def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
-                    iteration_type,shape,blobx,bloby,blobsize,use_ctypes,fast=True,
+                    iteration_type,shape,blobx,bloby,blobsize,use_ctypes,
+                    fast=True,
                     n_int_steps=1000):
     """Function to combine blobs from single iteration into 1 image."""
     from wrangle import weighted_median,gaussian_volume
@@ -660,7 +662,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                 #   not available
                 x_blob_integrals = gaussian_integral(lowerx,upperx,
                                                      n_int_steps,
-                                                     data[blobx],data[blobsize])
+                                                     data[blobx],
+                                                     data[blobsize])
             else:
                 x_blob_integrals = data.apply(lambda d: \
                                 gaussian_integral_quad(lowerx,\
@@ -671,7 +674,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
             print "ERROR: spherical_integral() not yet implemented"
             x_blob_integrals = spherical_integral(lowerx,upperx,\
                                                       n_int_steps,\
-                                                     data[blobx],data[blobsize])
+                                                     data[blobx],
+                                                  data[blobsize])
         for y in xrange(nbins_y):
             #get y integral
             lowery = int(ymin + y*binsize)
@@ -680,7 +684,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                 if fast is False:
                     y_blob_integrals = gaussian_integral(lowery,uppery,\
                                                      n_int_steps,\
-                                                     data[bloby],data[blobsize])
+                                                     data[bloby],
+                                                         data[blobsize])
                 else:
                     y_blob_integrals = data.apply(lambda d: \
                                 gaussian_integral_quad(lowery,\
@@ -691,7 +696,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
             elif shape == 'sphere':
                 y_blob_integrals = spherical_integral(lowery,uppery,\
                                                      n_int_steps,\
-                                                     data[bloby],data[blobsize])
+                                                     data[bloby],
+                                                      data[blobsize])
                 #calculate fraction of blob volume in this pixel
 
             if shape != 'points':
@@ -727,7 +733,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                     iterimages[x,y,p]=weighted_median(data[params[p]],
                                                   weights=w*fractions)
                 elif iteration_type[p] == 'average':
-                    iterimages[x,y,p]=np.average(data[params[p]],weights=w*fractions)
+                    iterimages[x,y,p]=np.average(data[params[p]],
+                                                 weights=w*fractions)
                 elif iteration_type[p] == 'total':
                     iterimages[x,y,p]=np.sum(data[params[p]]*w*fractions)
                 elif iteration_type[p] == 'max':
@@ -741,7 +748,7 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
 def iteration_image_star(arglist):
     """Function to unpack list of arguments and pass to iteration_image()"""
     # for use with multiprocessing package
-    #print 'arglist = ',arglist
+#    print 'iteration = ',arglist[0].iteration[0]
     return iteration_image(*arglist)
 
 #--------------------------------------------------------------------------
