@@ -58,7 +58,7 @@ def norm_to_em(norm,dist_cm,redshift=0.0):
   return em
 
 #----------------------------------------------------------
-def em_to_density(em,volume,density_type='mass'):
+def em_to_density(em,volume,density_type='number'):
   """
   Author: Kari Frank
   Date: April 14, 2016
@@ -78,8 +78,7 @@ def em_to_density(em,volume,density_type='mass'):
    
    - Assumes  
         norm = 10^14/4pi[dist(1+z)]^2 * EM
-   - Units of returned emission measure are cm^-3
-   - EM = n_e*n_H*V
+        EM = n_e*n_H*V
 
   """
   #-constants-
@@ -666,36 +665,35 @@ def xspec_abund_to_nomoto_dataframe(df,specZcol,refZcol,specZerrcol=None,
   Returns a pd.Series object with the new column
 
   Assumes errors are symmetric.
-
   """
   import pandas as pd
 
   if (specZerrcol is None) and (refZerrcol is None):
-    df[specZcol+'/'+refZcol] = df.apply(lambda x: \
+    ds = df.apply(lambda x: \
                      xspec_abund_to_nomoto(x[specZcol],x[refZcol]), axis=1)
   elif (specZerrcol is None) and (refZerrcol is not None):
-    df[specZcol+'/'+refZcol] = df.apply(lambda x: \
+    ds = df.apply(lambda x: \
         xspec_abund_to_nomoto(x[specZcol],x[refZcol],refZerr=x[refZerrcol]), 
                                         axis=1)
   elif (specZerrcol is not None) and (refZerrcol is None):
-    df[specZcol+'/'+refZcol] = df.apply(lambda x: \
+    ds = df.apply(lambda x: \
         xspec_abund_to_nomoto(x[specZcol],x[refZcol],specZerr=x[specZerrcol]), 
                                         axis=1)
   else:
-    df[specZcol+'/'+refZcol] = df.apply(lambda x: \
+    ds = df.apply(lambda x: \
         xspec_abund_to_nomoto(x[specZcol],x[refZcol],
                               specZerr=x[specZerrcol],
                               refZerr=x[refZerrcol]), axis=1)
 
   if (specZerrcol is None) and (refZerrcol is None):
     # return series of scalars
-    df2 = pd.DataFrame(df[specZcol+'/'+refZcol].tolist(),columns=['ratio','err1','err2'],index=df.index)
-    df['scalar']=df2['ratio']
+    df2 = pd.DataFrame(ds.tolist(),columns=['ratio','err1','err2'],index=ds.index)
+    ds2=df2['ratio']
 #    df['scalar'] = df.apply(lambda x: x[specZcol+'/'+refZcol][0])
-    return df['scalar']
+    return ds2 #df['scalar']
   else:
     # return series of tuples
-    return df[specZcol+'/'+refZcol]
+    return df #df[specZcol+'/'+refZcol]
 
 def xspec_abund_to_nomoto(specZ,refZ,specZerr=0.0,refZerr=0.0):
   """
