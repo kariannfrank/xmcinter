@@ -4,7 +4,6 @@ Module of functions needed to create maps of xmc blob parameters
 Includes:
 
  make_map
- calculate_map
  gaussian_integral
  point_integral
  iteration_image
@@ -14,6 +13,12 @@ Includes:
 The main function that should be called is make_map.  The others are 
 essentially just helper functions for make_map. The function that does most
 of the work is iteration_image.
+
+IMPORTANT NOTE ABOUT DENSITY MAPS
+make_map() does not properly handle density maps (i.e. number density or
+mass density) since it is not linearly dependent on EM.  Intead, use
+em_to_map_density() to calculate the correct parameter columns to pass to 
+make_map(), with the weights set to 'densityspecial'.
 
 """
 #----------------------------------------------------------------------------
@@ -174,10 +179,17 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
     Usage Notes:
 
-     The implementation for shape='sphere' is not yet functional.
+     - The implementation for shape='sphere' is not yet functional.
+     - If given multiple parameters to map, then all will mapped on the
+       same x,y grid (imagesize, binsizes, and x0,y0 will be the same)
+     - The image does not have to be square, but each pixel is always square.
+     - If the input dataframe has no columns 'iteration', then all blobs will
+       be assumed to come from a single iteration.
+
     """
     
     #----Import Modules----
+    from wrangle import filterblobs,gaussian_volume
     import time
 
     #----Set any defaults----
@@ -195,6 +207,22 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     if not isinstance(movie,list):
         movie = [movie]*len(paramname)
 
+    #----Verify inputs----
+    types = ['median','average','total','error','max']
+    for i in xrange(len(paramname)):
+        if ctype[i] not in types:
+            print "Warning: Unrecognized ctype. Using ctype='median'"
+            ctype[i] = 'median'
+        if iteration_type[i] not in types:
+            print ("Warning: Unrecognized iteration_type. "
+                   "Using iteration_type='median'")
+            iteration_type[i] = 'median'
+
+    if (paramshape != 'gauss') and (paramshape != 'sphere' ) and \
+    (paramshape != 'points'):
+        print "Warning: Unrecognized paramshape. Using paramshape='gauss'"
+        paramshape = 'gauss'
+
     #----Store blob information in DataFrame and set output file----
     if outfile is not None:
         outfile_base,ext = os.path.splitext(outfile)
@@ -210,6 +238,33 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         if outfile is None:
             outfile_base = 'bin'+str(int(binsize))+'_'
         indatastr = 'DataFrame'
+
+    if 'iteration' not in df.columns:
+        df['iteration'] = np.zeros_like(df[paramname[0]])
+
+    #--set output file names and moviedirs
+    outfiles = [outfile]*len(paramname)
+    moviedirs = [None]*len(paramname)
+    badparams = []
+    for p in xrange(len(paramname)):
+        outfiles[p] = outfile_base+ctype[p]+'_'+paramname[p]+'.fits'
+        moviedirs[p] = outfile_base+ctype[p]+'_'+paramname[p]+'_movie/'
+
+        #--check if output file already exists--
+        if os.path.isfile(outfiles[p]) and clobber is not True:
+            print "ERROR: "+outfile+" exists and clobber=False. "\
+                  "Not mapping "+paramname[p]+"."
+            badparams = badparams + [p]
+
+    #--remove parameters that would be clobbered if clobber=False--
+    for b in badparams:
+        outfiles.remove(outfiles[b])
+        moviedirs.remove(moviedirs[b])
+        paramname.remove(paramname[b])
+        iteration_type.remove(iteration_type[b])
+        ctype.remove(ctype[b])
+        paramweights.remove(paramweights[b])
+        movie.remove(movie[b])
 
     #----Set default image size and center----
     if imagesize is None:
@@ -229,114 +284,186 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         ximagesize=imagesize
         yimagesize=imagesize
     if x0 is None:
-#        x0 = np.median(df[paramx])
         x0 = (max(df[paramx])-min(df[paramx]))/2.0+min(df[paramx])
     if y0 is None:
-#        y0 = np.median(df[paramy])
         y0 = (max(df[paramy])-min(df[paramy]))/2.0+min(df[paramy])
 
-    print ximagesize,yimagesize,x0,y0
+    ximageradius = ximagesize/2
+    yimageradius = yimagesize/2
+    xmin = x0 - ximageradius
+    xmax = x0 + ximageradius
+    ymin = y0 - yimageradius
+    ymax = y0 + yimageradius
+    ximageradius = (xmax-xmin)/2.0
+    yimageradius = (ymax-ymin)/2.0
+    ximagesize = ximageradius*2.0
+    yimagesize = yimageradius*2.0
 
-    imgs = [] #empty list of image arrays
-    errimgs = [] #empty list of image arrays
+    print 'x,yimagesize,x0,y0,xmin,ymin = ',ximagesize,yimagesize,x0,y0,xmin,ymin
 
-    #----Loop over paramnames----
-    for p in xrange(len(paramname)):
-        par = paramname[p]
-        outfile = outfile_base+ctype[p]+'_'+par+'.fits'
+    #-number of map layers (one per iteration) and number of pixels-
+    niter = np.unique(df['iteration']).size
+    if nlayers is None:
+        nlayers = niter/itmod
+        if nlayers == 0: 
+            nlayers = 1
+    else:
+        if nlayers > niter: #max nlayers = number iterations
+            nlayers = niter
+        itmod = niter/nlayers
+    nbins_x = int(np.floor((xmax - xmin)/binsize))
+    nbins_y = int(np.floor((ymax - ymin)/binsize))
+    print 'nbins_x, nbins_y, nlayers = ',nbins_x,nbins_y,nlayers
 
-        #----Check if output file already exists----
-        if os.path.isfile(outfile) and clobber is not True:
-            print "ERROR: "+outfile+" exists and clobber=False. "\
-                  "Not mapping "+par+"."
-        else:
-            print "Mapping "+par
+    imgs = [] #empty list of image arrays (one per parameter)
+    errimgs = [] #empty list of image arrays (one per parameter)
+
+    #-initialize image stack or arguments list-
+    nparams = len(paramname)
+    if parallel is False:
+        image_stacks = np.zeros((nbins_x,nbins_y,nparams,nlayers))
+    else:
+        imgargs = [[]]*nlayers
+
+    #--Remove iterations according to itmod--
+
+    #-make list of iterations to use-
+    # randomly chooses the required number of iterations
+    #  from iterations which exist in the dataframe
+    its = np.random.choice(df['iteration'].unique(),size=nlayers,
+                           replace=False)
+    itstr = ['iteration']*len(its)
+
+    #-keep only matching iterations-
+    df = filterblobs(df,itstr,minvals=its,maxvals=its,logic='or')
+
+    #----Calculate Blob Volumes----
+    if 'blob_volume' not in df.columns:
+        if paramshape == 'gauss':
+            df['blob_volume'] = (2.0*np.pi*np.square(df[paramsize]))**1.5
+        if shape == 'sphere':
+            df['blob_volume'] = (4.0/3.0)*np.pi*df[paramsize]**3.0
+        if shape == 'points':
+            df['blob_volume'] = (0.1*binsize)**3.0 # set to much smaller 
+                                                   # than pixel
+
+    #----Group by Iteration----
+    layers = df.groupby('iteration')
+
+    #----Iterate over groups (i.e. iterations)----
+    layer = 0
+    for i, group in layers: 
+
+        if parallel is False: # create iteration images in serial
+            print 'layer = ',layer
+    #i=iteration number (string or int?), group = subset of dataframe
+            image_stacks[:,:,:,layer] = iteration_image(group,paramname,
+                                 paramweights,
+                                 nbins_x,nbins_y,binsize,xmin,ymin,
+                                 iteration_type,paramshape,paramx,paramy,
+                                 paramsize,cint,fast=True,
+                                 n_int_steps=n_int_steps)
+        else: # construct argument lists for multiprocessing
+            imgargs[layer] = [group,paramname,paramweights,nbins_x,nbins_y,
+                              binsize,xmin,ymin,iteration_type,paramshape,
+                              paramx,paramy,paramsize,cint]
+        layer = layer + 1
+
+    # using multiprocessing package
+    if parallel is True:
+        pool=Pool(nproc)
+        image_stacks = np.array(pool.map(iteration_image_star,
+                                                 imgargs))
+        pool.close()
+        pool.join()
+        image_stacks = image_stacks.swapaxes(0,2).swapaxes(0,1).swapaxes(2,3)        
         
-            #----Set up for movie----
-            if movie[p] is True:
-                if moviedir is None: 
-                    mvdir = outfile_base+ctype[p]+'_'+par+'_movie/'
-                else:
-                    mvdir = moviedir+'/'
-            else:
-                mvdir = None
+    #----Loop through parameters to create and manipulate final images----
 
-            #----Check for weights----
-            if paramweights[p] is None:
-                weights = None
-            else:
-                weights = df[paramweights[p]]
+    #--Collapse Image Stack (combine iterations)--
+    collapsed_images = np.zeros((nbins_x,nbins_y,nparams))
+    err_images = np.zeros((nbins_x,nbins_y,nparams))
+    for p in xrange(len(paramname)):
+        themap = collapse_stack(image_stacks[:,:,p,:],
+                                                 ctype=ctype[p])
 
-            #----Calculate the map----
-            img,errimg = calculate_map(df[par],df[paramx],df[paramy],
-                                df[paramsize],
-                        blobiterations=df['iteration'],
-                        blobweights=weights,binsize=binsize,
-                        iteration_type=iteration_type[p],ctype=ctype[p],
-                        imagesize=[ximagesize,yimagesize],itmod=itmod,
-                        sigthresh=sigthresh,
-                        x0=x0,y0=y0,shape=paramshape,nlayers=nlayers,
-                        parallel=parallel,nproc=nproc,use_ctypes=cint,
-                        movie=movie[p],moviedir=mvdir,
-                        cumulativemovie=cumulativemovie,witherror=witherror)
+        #--Apply significance threshold and Create Error Maps--
+        if (sigthresh != 0.0) or (witherror is True):
+            # - compute error (standard deviation) map -
+            errmap = collapse_stack(image_stacks[:,:,p,:],
+                                               ctype='error')
+            if sigthresh != 0.0:
+            # - set pixels with significance < threshold to Nan - 
+                themap[abs(themap)/errmap < sigthresh] = np.nan
+        else:
+            errmap = None
 
-            #----Mask Region----
-            # not yet functional
-            if exclude_region is not None:
-                msk = circle_mask(df,paramx,paramy,exclude_region,binsize,
-                                  imagesize,x0,y0)
-                img = img*msk
-                if errimg is not None: errimg = errimg*msk
+        collapsed_images[:,:,p] = themap
+        err_images[:,:,p] = errmap
 
-            #----Save map to fits file----
+        #--Mask Region--
+        # not yet functional
+        if exclude_region is not None:
+            msk = circle_mask(df,paramx,paramy,exclude_region,binsize,
+                              imagesize,x0,y0)
+            themap = themap*msk
+            if errmap is not None: errmap = errmap*msk
 
-            #--write history--
-            history1 = ('make_map,'+indatastr+',outfile='+nstr(outfile)
-                        +',paramname='+nstr(par)
-                        +',paramweights='+nstr(paramweights[p])
-                        +',paramx='+nstr(paramx)+',paramy='+nstr(paramy)
-                        +',paramsize='+nstr(paramsize)+',binsize='
-                        +nstr(binsize)+',itmod='+nstr(itmod)+',paramshape='
-                        +nstr(paramshape)+',ctype='+nstr(ctype[p])
-                        +',iteration_type='
-                        +nstr(iteration_type[p])+',x0='+nstr(x0)+',y0='
-                        +nstr(y0)
-                        +',imagesize='+nstr(imagesize)+',sigthresh='
-                        +nstr(sigthresh))
-            history3 = 'ximagesize = '+nstr(ximagesize)
-            history4 = 'yimagesize = '+nstr(yimagesize)
-            history2 = 'Created '+str(time.strftime("%x %H:%M:%S"))
+        #--Make movie--
+        if movie[p] is True: movie_from_stack(themap,moviedirs[p],
+                                       cumulativemovie=cumulativemovie,
+                                       parallel=parallel)
+        
+        #--Save map to fits file--
 
-            #--write file--
-            hdr = fits.Header()
+        #--write history--
+        history1 = ('make_map,'+indatastr+',outfile='+nstr(outfiles[p])
+                    +',paramname='+nstr(paramname[p])
+                    +',paramweights='+nstr(paramweights[p])
+                    +',paramx='+nstr(paramx)+',paramy='+nstr(paramy)
+                    +',paramsize='+nstr(paramsize)+',binsize='
+                    +nstr(binsize)+',itmod='+nstr(itmod)+',paramshape='
+                    +nstr(paramshape)+',ctype='+nstr(ctype[p])
+                    +',iteration_type='
+                    +nstr(iteration_type[p])+',x0='+nstr(x0)+',y0='
+                    +nstr(y0)
+                    +',imagesize='+nstr(imagesize)+',sigthresh='
+                    +nstr(sigthresh)+',movie='+str(movie[p])
+                    +',moviedir='+moviedirs[p])
+        history3 = 'ximagesize = '+nstr(ximagesize)
+        history4 = 'yimagesize = '+nstr(yimagesize)
+        history2 = 'Created '+str(time.strftime("%x %H:%M:%S"))
+
+        #--write file--
+        hdr = fits.Header()
+        hdr['HISTORY']=history2
+        hdr['HISTORY']=history1
+        hdr['HISTORY']=history3
+        hdr['HISTORY']=history4
+        hdu = fits.PrimaryHDU(themap,header=hdr)
+
+        hdu.writeto(outfiles[p],clobber=clobber)
+
+        if witherror is True:
+            hdr=fits.Header()
             hdr['HISTORY']=history2
             hdr['HISTORY']=history1
             hdr['HISTORY']=history3
             hdr['HISTORY']=history4
-            hdu = fits.PrimaryHDU(img,header=hdr)
+            hdr['HISTORY']='error map'
+            fits.append(outfiles[p],errmap,hdr)
 
-            hdu.writeto(outfile,clobber=clobber)
+        if withsignificance is True:
+            hdr=fits.Header()
+            hdr['HISTORY']=history2
+            hdr['HISTORY']=history1
+            hdr['HISTORY']=history3
+            hdr['HISTORY']=history4
+            hdr['HISTORY']='significance (img/errimg) map'
+            fits.append(outfiles[p],themap/errmap,hdr)
 
-            if witherror is True:
-                hdr=fits.Header()
-                hdr['HISTORY']=history2
-                hdr['HISTORY']=history1
-                hdr['HISTORY']=history3
-                hdr['HISTORY']=history4
-                hdr['HISTORY']='error map'
-                fits.append(outfile,errimg,hdr)
-
-            if withsignificance is True:
-                hdr=fits.Header()
-                hdr['HISTORY']=history2
-                hdr['HISTORY']=history1
-                hdr['HISTORY']=history3
-                hdr['HISTORY']=history4
-                hdr['HISTORY']='significance (img/errimg) map'
-                fits.append(outfile,img/errimg,hdr)
-
-            imgs = imgs+[img]
-            errimgs = errimgs+[errimg]
+        imgs = imgs+[themap]
+        errimgs = errimgs+[errmap]
     return imgs
 
 #--------------------------------------------------------------------------
@@ -505,14 +632,22 @@ def circle_mask(df,paramx,paramy,exclude_region,binsize,imagesize,x0,y0):
     return mask
     
 #--------------------------------------------------------------------------
-def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,
-                    iteration_type,shape,use_ctypes,fast=True,
-                    n_int_steps=None):
+def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
+                    iteration_type,shape,blobx,bloby,blobsize,use_ctypes,fast=True,
+                    n_int_steps=1000):
     """Function to combine blobs from single iteration into 1 image."""
-    from wrangle import weighted_median
+    from wrangle import weighted_median,gaussian_volume
 
-    #--initialize 2D image array--
-    iterimage = np.zeros((nbins_x,nbins_y))
+    #--initialize stack of 2D images, one for each parameter--
+    iterimages = np.zeros((nbins_x,nbins_y,len(params)))
+
+   #----Calculate blob volumes in correct units----
+    if shape == 'gauss':
+        volumes = gaussian_volume(data[blobsize]) 
+    elif shape == 'sphere':
+        volumes = (4.0/3.0)*np.pi*data[blobsize]**3.0
+    else: # points
+        volumes = (0.1*binsize)**3.0 # set to much smaller than pixel
 
     #--loop over image--
     for x in xrange(nbins_x):
@@ -525,18 +660,18 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,
                 #   not available
                 x_blob_integrals = gaussian_integral(lowerx,upperx,
                                                      n_int_steps,
-                                                     data['x'],data['size'])
+                                                     data[blobx],data[blobsize])
             else:
                 x_blob_integrals = data.apply(lambda d: \
                                 gaussian_integral_quad(lowerx,\
-                                upperx,d['x'],d['size'],\
+                                upperx,d[blobx],d[blobsize],\
                                 use_ctypes=use_ctypes),\
                                 axis=1)
         elif shape == 'sphere':
             print "ERROR: spherical_integral() not yet implemented"
             x_blob_integrals = spherical_integral(lowerx,upperx,\
                                                       n_int_steps,\
-                                                     data['x'],data['size'])
+                                                     data[blobx],data[blobsize])
         for y in xrange(nbins_y):
             #get y integral
             lowery = int(ymin + y*binsize)
@@ -545,56 +680,62 @@ def iteration_image(data,nbins_x,nbins_y,binsize,xmin,ymin,
                 if fast is False:
                     y_blob_integrals = gaussian_integral(lowery,uppery,\
                                                      n_int_steps,\
-                                                     data['y'],data['size'])
+                                                     data[bloby],data[blobsize])
                 else:
                     y_blob_integrals = data.apply(lambda d: \
                                 gaussian_integral_quad(lowery,\
-                                uppery,d['y'],d['size'],\
+                                uppery,d[bloby],d[blobsize],\
                                 use_ctypes=use_ctypes),\
                                 axis=1)
 
             elif shape == 'sphere':
                 y_blob_integrals = spherical_integral(lowery,uppery,\
                                                      n_int_steps,\
-                                                     data['y'],data['size'])
+                                                     data[bloby],data[blobsize])
                 #calculate fraction of blob volume in this pixel
 
             if shape != 'points':
                 # !! for now this assumes gaussian volume !!
                 fractions = (x_blob_integrals*y_blob_integrals*
-                                 (2.0*np.pi*data['size']**2.0)**.5 / 
-                                 data['volume'])
+                             (2.0*np.pi*data[blobsize]**2.0)**.5 / volumes)
                 #times dz integral to get total volume in pixel, 
                 #then divided by total volume
+
             else:
                 # for now, points is implemented by setting the volumes 
                 #   to be much smaller than a pixel size
                 fractions = (x_blob_integrals*y_blob_integrals*
-                                 (2.0*np.pi*data['size']**2.0)**.5 / 
-                                 data['volume'])
+                             (2.0*np.pi*data[blobsize]**2.0)**.5 / 
+                             volumes)
 #                    print "points is not yet implemented"
                     # if assuming points, then fraction=1 or 0
 #                    fractions = point_integral(lowerx,upperx,lowery,uppery,
 #                                               data['x'],data['y'])
 
-            #-combine blobs in this pixel-
-            if iteration_type == 'median':
-                iterimage[x,y]=weighted_median(data['param'],
-                                              weights=data['weight']
-                                              *fractions)
-            elif iteration_type == 'average':
-                iterimage[x,y]=np.average(data['param'],
-                                         weights=data['weight']*fractions)
-            elif iteration_type == 'total':
-                iterimage[x,y]=np.sum(data['param']*data['weight']
-                                          *fractions)
-            elif iteration_type == 'max':
-                iterimage[x,y]=np.max(data['param']*data['weight']
-                                          *fractions)
-            else:
-                print "ERROR: unrecognized iteration_type"
+            #-combine blobs in this pixel (loop over parameters)-
+            for p in xrange(len(params)):
+                if weights[p] is None: # default is equal weights
+                    w = pd.Series(np.ones_like(data[params[p]]),
+                                  index=data[params[p]].index)
+#                elif weights[p] == 'densityspecial': 
+                    # for plotting density from EM - assumes the column passed
+                    # was sqrt(EM*Volume/1.21), so weights=1/Vblobpix
+#                    w = 1.0/(fractions*data['blob_volume'])
+                else: 
+                    w = data[weights[p]]
+                if iteration_type[p] == 'median':
+                    iterimages[x,y,p]=weighted_median(data[params[p]],
+                                                  weights=w*fractions)
+                elif iteration_type[p] == 'average':
+                    iterimages[x,y,p]=np.average(data[params[p]],weights=w*fractions)
+                elif iteration_type[p] == 'total':
+                    iterimages[x,y,p]=np.sum(data[params[p]]*w*fractions)
+                elif iteration_type[p] == 'max':
+                    iterimages[x,y,p]=np.max(data[params[p]]*w*fractions)
+                else:
+                    print "ERROR: unrecognized iteration_type"
 
-    return iterimage
+    return iterimages
 
 #--------------------------------------------------------------------------
 def iteration_image_star(arglist):
@@ -619,251 +760,3 @@ def collapse_stack(img_stack,ctype):
         print "ERROR: unrecognized iteration_type"
 
     return collapsed_img
-
-#-------------------------------------------------------------------------
-def calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
-                  blobweights=None,binsize=10,iteration_type='median',
-                  ctype='median',imagesize=None,itmod=100,n_int_steps=200,
-                  x0=None,y0=None,shape='gauss',nlayers=None,parallel=True,
-                  nproc=3,use_ctypes=True,movie=False,moviedir=None,
-                  cumulativemovie=False,witherror=False,sigthresh=0.0):
-    """
-    The main mapping function.
-
-    Author: Kari A. Frank
-    Date: October 29, 2015
-    Purpose: Calculate a map (2D array) from the provided columns a 
-             dataframe.
-
-    Usage:
-         calculate_map(blobparam,blobx,bloby,blobsize,blobiterations=None,
-                      blobweights=None,binsize=10,iteration_type='median',
-                      ctype='median',imagesize=None,itmod=100,
-                      n_int_steps=50,verbose=0,x0=None,y0=None,
-                      shape='gauss')
-
-    Input:
-
-            Note: Every variable that begins with 'blob' should be a 1D 
-                  array containing one element for each blob.  All such 
-                  arrays must be the same length.
-
-            blobparam : vector of blob parameters from which to create a map
-            blobx : vector of blob x positions
-            bloby : vector of blob y positions
-            blobsize : vector of blob sizes (in arcsec)
-            binsize : width of pixels, in same units as blobx,bloby, 
-                      and blobsize (assumes square pixel, default is 10.)
-            blobiterations : array of the iteration associated with each
-                             blob in blob array. if not provided, assumes 
-                             all blobs are from the same iteration.
-            iteration_type : type=median, average, or total.  Determines 
-                    how to combine the blobs in each iteration to create the
-                    iteration image. (default is  median, but note that it 
-                    should be set to 'total' if making emission measure map)
-            ctype : ctype=median, average, total, or error to specify how to
-                    combine the different iteration images when making the 
-                    final image. error will produce a map of the blobeter
-                    error (default=median)
-            blobweights : array of weights for each blob (e.g. emission 
-                          measures)
-            imagesize : length of one side of a square image (float), or
-                    a 2-element list of the form [ximagesize,yimagesize].
-                    default assumes a square image covering the entire
-                    x/y range of the blobs
-            itmod : set to >1 to use only every itmod'th
-                    iteration (default = 10)
-            nlayers : optionally can set number of layers instead of itmod.
-                    if set, will override itmod. default=None
-            x0,y0 : cluster position, in same coordinate system as blobx 
-                    and blob (typically xmc coordinates, default is
-                    x0=median(blobx),y0=median(bloby)).
-            shape : shape of the blobs, 'gauss' (default),'sphere', 
-                    or 'points'
-            n_int_steps : number of steps in each integration loop 
-                          (default = 200, ignored if fast=True)
-
-            parallel: boolean switch to specify if the iteration images
-                    should be computed in serial or in parallel using
-                    multiprocessing (default=True)
-            nproc:  if parallel=True, then nproc sets the number of 
-                    processors to use (default=3). ignored if parallel=False
-
-            movie (bool) :  save each layer image individually in order to 
-              create a movie from the images. Number of frames=nlayers. 
-              (default=False). frames will be named 'frame000.ps',etc
-
-            moviedir (str) : optionally specify the folder in which to save
-                   the frames for the movie. ignored if 
-                   movie=False (default=outfile_base_parname_movie/)
-
-            cumulativemovie (bool) : create the movie using cumulative 
-                images, i.e. recreate the image using all available 
-                iterations each time. ignored if movie=False (default=False)
-      
-
-    Output:
-
-         Returns a 2D array containing the map.
-
-    Usage Notes
-
-    Example:
-
-
-    """
-    #----Import Modules----
-    from wrangle import filterblobs
-
-    #----Set Defaults----
-    types = ['median','average','total','error','max']
-    if ctype not in types:
-        print "Warning: Unrecognized ctype. Using ctype='median'"
-        ctype = 'median'
-    if iteration_type not in types:
-        print ("Warning: Unrecognized iteration_type. "
-               "Using iteration_type='median'")
-        iteration_type = 'median'
-    if blobiterations is None:
-        blobiterations = np.zeros_like(blobparam)
-    if (shape != 'gauss') and (shape != 'sphere' ) and (shape != 'points'):
-        print "Warning: Unrecognized blob shape. Using shape='gauss'"
-        shape = 'gauss'
-    if imagesize is None:
-        ximagesize = 1.1*(max(blobx) - min(blobx))
-        yimagesize = 1.1*(max(bloby) - min(bloby))
-    elif isinstance(imagesize,tuple) or isinstance(imagesize,list):
-        if len(imagesize)>2: 
-            print ("calculate_map: Warning: imagesize has too many"+ 
-                   " elements, using first two only")
-        if len(imagesize)>=2:
-            ximagesize=imagesize[0]
-            yimagesize=imagesize[1]
-        if len(imagesize)==1:
-            ximagesize=imagesize[0]
-            yimagesize=imagesize[0]
-    else:
-        ximagesize=imagesize
-        yimagesize=imagesize
-    if x0 is None:
-        x0 = (max(blobx)-min(blobx))/2.0+min(blobx)
-    if y0 is None:
-        y0 = (max(bloby)-min(bloby))/2.0+min(bloby)
-    if blobweights is None: # default is equally weight all blobs
-        blobweights = pd.Series(np.ones_like(blobparam)
-                                ,index=blobparam.index)
-
-    #----Set Up Map Parameters----
-    ximageradius = ximagesize/2
-    yimageradius = yimagesize/2
-    xmin = x0 - ximageradius
-    xmax = x0 + ximageradius
-    ymin = y0 - yimageradius
-    ymax = y0 + yimageradius
-    ximageradius = (xmax-xmin)/2.0
-    yimageradius = (ymax-ymin)/2.0
-    ximagesize = ximageradius*2.0
-    yimagesize = yimageradius*2.0
-
-    #-number of map layers (one per iteration) and number of pixels-
-    niter = np.unique(blobiterations).size
-    if nlayers is None:
-        nlayers = niter/itmod
-        if nlayers == 0: 
-            nlayers = 1
-    else:
-        if nlayers > niter: #max nlayers = number iterations
-            nlayers = niter
-        itmod = niter/nlayers
-    nbins_x = int(np.floor((xmax - xmin)/binsize))
-    nbins_y = int(np.floor((ymax - ymin)/binsize))
-    print 'nbins_x, nbins_y, nlayers = ',nbins_x,nbins_y,nlayers
-
-    #-initialize image stack or arguments list-
-    if parallel is False:
-        image_stack = np.zeros((nbins_x,nbins_y,nlayers))
-    else:
-        imgargs = [[]]*nlayers
-
-    print 'nlayers = ',nlayers
-
-    #----Concatenate into a single dataframe and filter out iterations----
-    df = blobparam.to_frame(name='param')
-    df['x'] = blobx
-    df['y'] = bloby
-    df['size'] = blobsize
-    df['weight'] = blobweights
-    df['iteration'] = blobiterations
-
-    #--Remove iterations according to itmod--
-
-    #-make list of iterations to use-
-    # randomly chooses the required number of iterations
-    #  from iterations which exist in the dataframe
-    its = np.random.choice(df['iteration'].unique(),size=nlayers,
-                           replace=False)
-    itstr = ['iteration']*len(its)
-
-    #-keep only matching iterations-
-    df = filterblobs(df,itstr,minvals=its,maxvals=its,logic='or')
-
-    #----Calculate Blob Volumes----
-    if shape == 'gauss':
-        df['volume'] = (2.0*np.pi*np.square(df['size']))**1.5
-    if shape == 'sphere':
-        df['volume'] = (4.0/3.0)*np.pi*df['size']**3.0
-    if shape == 'points':
-        df['volume'] = (0.1*binsize)**3.0 # set to much smaller than pixel
-
-    #----Group by Iteration----
-    layers = df.groupby('iteration')
-
-    #----Iterate over groups (i.e. iterations)----
-    layer = 0
-    for i, group in layers: 
-
-        if parallel is False: # create iteration images in serial
-            print 'layer = ',layer
-    #i=iteration number (string or int?), group = subset of dataframe
-            image_stack[:,:,layer] = iteration_image(group,nbins_x,nbins_y,
-                                                 binsize,xmin,ymin,
-                                                 iteration_type,shape,
-                                                 use_ctypes,
-                                                 fast=True,
-                                                 n_int_steps=n_int_steps)
-        else: # construct argument lists for multiprocessing
-            imgargs[layer] = [group,nbins_x,nbins_y,binsize,xmin,ymin,
-                              iteration_type,shape,use_ctypes]
-        layer = layer + 1
-        
-    # using multiprocessing package
-    if parallel is True:
-        pool=Pool(nproc)
-        image_stack = np.array(pool.map(iteration_image_star,
-                                                 imgargs))
-        pool.close()
-        pool.join()
-        image_stack = image_stack.swapaxes(0,2).swapaxes(0,1)        
-
-    #--Collapse Image Stack (combine iterations)----
-    themap = collapse_stack(image_stack,ctype=ctype)
-
-    #--Apply significance threshold--
-    if (sigthresh != 0.0) or (witherror is True):
-        # - compute error (standard deviation) map -
-        errmap = collapse_stack(image_stack,ctype='error')
-        if sigthresh != 0.0:
-            # - set pixels with significance < threshold to Nan - 
-            themap [abs(themap)/errmap < sigthresh] = np.nan
-    else:
-        errmap = None
-
-    #--Make movie--
-    if movie is True: movie_from_stack(image_stack,moviedir,
-                                       cumulativemovie=cumulativemovie,
-                                       parallel=parallel)
-
-    #----Return map----
-    return themap,errmap
-
-
