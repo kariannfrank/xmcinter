@@ -65,7 +65,7 @@ histfigs = xplt.histogram_grid(df[df.columns[:-1]],weights=df['blob_em'])
 
 ###################################################################
 Examples of some other common tasks
-(all executed from ipython unless specified otherwise with IDL> prompt)
+(all executed from ipython)
 
 # read in a typical merged deconvolution file
 df = pd.read_table('deconvolution_merged.txt',sep='\t',index_col=0)
@@ -91,6 +91,9 @@ scatterfigs = xplt.traceplots(df,columns=['blob_kT','blob_tau','blob_norm','blob
 # make a map of one of the parameters (saved as fits file)
 image = xm.make_map(df,paramname='blob_kT',paramweights='blob_em',binsize=10.0,withsignificance=True)
 image = xm.make_map(df,paramname='blob_em',paramweights=None,binsize=10.0,withsignificance=True,iteration_type='total')
+
+# make a map of multiple parameters, suppress pixels with faintest emission, rotate output images by -270deg
+images = xm.make_map(df,paramname=['blob_em''blob_kT','blob_nH'],paramweights=[None,'blob_em','blob_em'],binsize=10.0,withsignificance=True,iteration_type=['total','median','median'],imagesize=8.0*60.0,nproc=5,imgstdthresh=4.2,imgstdtreshparam='blob_em',rotation=-270,clobber=True)
 
 # calculate the [X/Y] abundance ratio (where Y can also be Si, O, Mg, and 
 # X can be any free abundance)

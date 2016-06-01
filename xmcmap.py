@@ -29,6 +29,7 @@ import pandas as pd
 import numpy as np
 import astropy.io.fits as fits
 from scipy.integrate import quad,nquad
+from scipy.ndimage.interpolation import rotate
 from multiprocessing import Pool
 import ctypes
 
@@ -36,11 +37,12 @@ import ctypes
 def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
              binsize=10.0,itmod=100,paramshape='gauss',ctype='median',
              x0=None,y0=None,imagesize=None,witherror=True,sigthresh=0.0,
+             sigthreshparam=None,imgstdthresh=None,imgstdthreshparam=None,
              paramx='blob_phi',
              paramy='blob_psi',paramsize='blob_sigma',exclude_region=None,
              iteration_type='median',clobber=False,nlayers=None,
              parallel=True,nproc=3,cint=True,movie=False,moviedir=None,
-             cumulativemovie=False,withsignificance=False):
+             cumulativemovie=False,withsignificance=False,rotation=0.0):
     """
     Author: Kari A. Frank
     Date: November 19, 2015
@@ -50,10 +52,10 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     Input:
 
       indata (string or DataFrame):   name of file containing the blob 
-                        parameters (string), formatted as output from 
-                        the python function
-                        xmcinter.xmcfiles.merge_output() OR
-                        a pandas dataframe of blob parameters in same format.
+                      parameters (string), formatted as output from 
+                      the python function xmcinter.xmcfiles.merge_output() 
+                      OR a pandas dataframe of blob parameters in same 
+                      format.
 
       outfile (string):  name of the output fits file
 
@@ -137,10 +139,31 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       sigthresh (float): optionally specify a significance threshold (in
                 number of sigma) for the final map.  all pixels
                 that do not meet this significance threshold are set
-                to zero.  note this takes much longer, as it
-                requires calculating an error map in addition to the desired
-                output map
+                to nan.
                
+      sigthreshparam (string): specify which parameter should be used to 
+                calculate the significance for the significance threshold.
+                Ignored if sigthresh=0.0.  Most commonly, 
+                sigthreshparam=None (default) or sigthreshparam='blob_em'. 
+                The latter will then only map the 
+                regions (on a per pixel basis) for which the emission 
+                measure significance was greater than sigthresh. If not 
+                None, then sigthreshparam must be an element of paramname 
+                list.
+
+      imgstdthresh (float) : similar to sigthresh, except the threshold is
+                set as number of standard deviations below the maximum
+                value in the image, where the stdev is calculated from the 
+                image array itself.  imgstdthresh is the number of standard
+                deviations to subtract from the maximum to obtain the 
+                minimum allowed pixel value.  If this minimum is < 0, then 
+                it will be ignored.
+
+      imgstdthreshparam (string) : same as sigthreshparam, but associated
+                with the imgstdthresh argument. typically, this should be
+                either None (do all parameters independently, default), or 
+                'blob_em'.
+
       clobber (bool) : specify whether any existing fits file of the same
                        name as outfile should be overwritten. 
 
@@ -172,6 +195,11 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 i.e. recreate the image using all available iterations each
                 time.  ignored if movie=False (default=False)
 
+      rotation (numeric) : number of degrees to rotate the final images. If
+               not a multiple of 90, then the output image size will be
+               greater than the imagesize parameter (but with empty 
+               corners), to avoid dropping any pixels.
+
     Output:
 
          Saves a fits file in the same directory as infile, containing the
@@ -182,9 +210,12 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
      - The implementation for shape='sphere' is not yet functional.
      - If given multiple parameters to map, then all will mapped on the
        same x,y grid (imagesize, binsizes, and x0,y0 will be the same)
-     - The image does not have to be square, but each pixel is always square.
-     - If the input dataframe has no columns 'iteration', then all blobs will
-       be assumed to come from a single iteration.
+     - The image does not have to be square, but each pixel is always 
+       square.
+     - If the input dataframe has no columns 'iteration', then all blobs 
+       will be assumed to come from a single iteration.
+     - If both sigthresh and imgstdthresh are used, then sigthresh 
+       will be applied first.
 
     """
     
@@ -223,6 +254,14 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         print "Warning: Unrecognized paramshape. Using paramshape='gauss'"
         paramshape = 'gauss'
 
+    if (sigthreshparam is not None) and (sigthreshparam not in paramname):
+        print "Warning: "+sigthreshparam+" is not in paramname. Resetting sigthreshparam=None."
+        sigthreshparam=None
+
+    if (imgstdthreshparam is not None) and (imgstdthreshparam not in paramname):
+        print "Warning: "+imgstdthreshparam+" is not in paramname. Resetting imgstdthreshparam=None."
+        imgstdthreshparam=None
+
     #----Store blob information in DataFrame and set output file----
     if outfile is not None:
         outfile_base,ext = os.path.splitext(outfile)
@@ -252,9 +291,22 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
 
         #--check if output file already exists--
         if os.path.isfile(outfiles[p]) and clobber is not True:
-            print "Warning: "+outfile+" exists and clobber=False. "\
-                  "Not mapping "+paramname[p]+"."
+            print ("Warning: "+outfile+" exists and clobber=False. "
+                   "Not mapping "+paramname[p]+".")
             badparams = badparams + [paramname[p]]
+            #-check if sigthreshparam is being removed-
+            if paramname[p] == sigthreshparam:
+                print ("Warning: sigthreshparam is not being mapped. "
+                       "Resetting sigthresh=0.0")
+                sigthreshparam = None
+                sigthresh = 0.0
+
+            #-check if imgstdthreshparam is being removed-
+            if paramname[p] == imgstdthreshparam:
+                print ("Warning: imgstdthreshparam is not being mapped. "
+                       "Resetting imgstdthresh=None")
+                imgstdthreshparam = None
+                imgstdthresh = None
 
     #--remove parameters that would be clobbered if clobber=False--
     for b in badparams:
@@ -393,9 +445,6 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             # - compute error (standard deviation) map -
             errmap = collapse_stack(image_stacks[:,:,p,:],
                                                ctype='error')
-            if sigthresh != 0.0:
-            # - set pixels with significance < threshold to Nan - 
-                themap[abs(themap)/errmap < sigthresh] = np.nan
         else:
             errmap = None
 
@@ -410,11 +459,59 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             themap = themap*msk
             if errmap is not None: errmap = errmap*msk
 
+        #--Rotate Image--
+        if rotation != 0.0:
+            themap = rotate(themap,rotation,axes=(0,1))
+            errmap = rotate(errmap,rotation,axes=(0,1))
+        #after testing, add cval=np.nan argument                
+
+        #--Save images to list--
+        imgs = imgs+[themap]
+        errimgs = errimgs+[errmap]
+
         #--Make movie--
         if movie[p] is True: movie_from_stack(themap,moviedirs[p],
                                        cumulativemovie=cumulativemovie,
                                        parallel=parallel)
         
+
+    #--Loop through images, apply thresholds, and save to fits--
+    # (must be separate loop to allow for sigthreshparam!=param[p])
+    if sigthreshparam is not None:
+        #-sigthreshparam has just been mapped-
+        if sigthreshparam in paramname:
+            sigp = paramname.index(sigthreshparam)
+            sigmap = abs(imgs[sigp])/errimgs[sigp]        
+
+    if imgstdthreshparam is not None:
+        #-sigthreshparam has just been mapped-
+        if imgstdthreshparam in paramname:
+            imgstdp = paramname.index(imgstdthreshparam)
+            imgstdmap = imgs[imgstdp]       
+
+    for p in xrange(len(paramname)):
+
+        themap=imgs[p]
+        errmap=errimgs[p]
+
+        #--Apply significance threshold--
+        if sigthreshparam is None:
+            sigmap = abs(imgs[p])/errimgs[p]
+
+            # - set pixels with significance < threshold to Nan - 
+        if sigthresh != 0.0:
+            themap[sigmap < sigthresh] = np.nan
+
+        #--Apply img std threshold--
+        if imgstdthresh != None:
+            if imgstdthreshparam is None:
+                imgstdmap = imgs[p]
+
+            # - set pixels with value < threshold to Nan - 
+            imgmin = np.nanmax(imgstdmap)-imgstdthresh*np.nanstd(imgstdmap)
+            if imgmin < 0.0: imgmin = 0.0
+            themap[imgstdmap < imgmin] = np.nan
+
         #--Save map to fits file--
 
         #--write history--
@@ -429,7 +526,11 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                     +nstr(iteration_type[p])+',x0='+nstr(x0)+',y0='
                     +nstr(y0)
                     +',imagesize='+nstr(imagesize)+',sigthresh='
-                    +nstr(sigthresh)+',movie='+str(movie[p])
+                    +nstr(sigthresh)+',sigthreshparam='
+                    +nstr(sigthreshparam)+',imgstdthresh='
+                    +nstr(imgstdthresh)+',imgstdthreshparam='
+                    +nstr(imgstdthreshparam)+',movie='
+                    +str(movie[p])
                     +',moviedir='+moviedirs[p])
         history3 = 'ximagesize = '+nstr(ximagesize)
         history4 = 'yimagesize = '+nstr(yimagesize)
@@ -461,10 +562,10 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             hdr['HISTORY']=history3
             hdr['HISTORY']=history4
             hdr['HISTORY']='significance (img/errimg) map'
-            fits.append(outfiles[p],themap/errmap,hdr)
+            fits.append(outfiles[p],sigmap,hdr)
 
-        imgs = imgs+[themap]
-        errimgs = errimgs+[errmap]
+#        imgs = imgs+[themap]
+#        errimgs = errimgs+[errmap]
     return imgs
 
 #--------------------------------------------------------------------------
