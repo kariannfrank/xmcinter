@@ -162,7 +162,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       imgstdthreshparam (string) : same as sigthreshparam, but associated
                 with the imgstdthresh argument. typically, this should be
                 either None (do all parameters independently, default), or 
-                'blob_em'.
+                'blob_em'. 
 
       clobber (bool) : specify whether any existing fits file of the same
                        name as outfile should be overwritten. 
@@ -255,11 +255,14 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         paramshape = 'gauss'
 
     if (sigthreshparam is not None) and (sigthreshparam not in paramname):
-        print "Warning: "+sigthreshparam+" is not in paramname. Resetting sigthreshparam=None."
+        print ("Warning: "+sigthreshparam+" is not in paramname. "
+               "Resetting sigthreshparam=None.")
         sigthreshparam=None
 
-    if (imgstdthreshparam is not None) and (imgstdthreshparam not in paramname):
-        print "Warning: "+imgstdthreshparam+" is not in paramname. Resetting imgstdthreshparam=None."
+    if (imgstdthreshparam is not None) and \
+    (imgstdthreshparam not in paramname):
+        print ("Warning: "+imgstdthreshparam+" is not in paramname. "
+               "Resetting imgstdthreshparam=None.")
         imgstdthreshparam=None
 
     #----Store blob information in DataFrame and set output file----

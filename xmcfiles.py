@@ -25,12 +25,21 @@ def remove_nans(datatable,filename=None,verbose=1):
     nb1 = len(datatable.index)
     datatable.dropna(inplace=True)
     nb2 = len(datatable.index)
-    if verbose > 1: print "number of dropped rows = ",nb1-nb2
-    if (nb1 - nb2 > 0) and (verbose > 0): 
+    ndropped = nb1-nb2
+    if ndropped <= 1: 
+        row=' row'
+        was=' was'
+    else:
+        row=' rows'
+        was=' were'
+    if verbose > 1: print "number of dropped rows = ",ndropped
+    if (ndropped > 0) and (verbose > 0): 
         if filename == None: 
-            print "Warning: "+str(nb1-nb2)+" rows contained nan values and were dropped."
+            print ("Warning: "+str(nb1-nb2)+row+" contained nan "
+                   "values and"+was+" dropped.")
         else:
-            print "Warning: "+str(nb1-nb2)+" rows in "+filename+" contained nan values and were dropped."
+            print ("Warning: "+str(nb1-nb2)+row+" in "+filename
+                   " contained nan values and"+was+" dropped.")
     return datatable
 
 #----------------------------------------------------------
