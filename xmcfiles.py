@@ -35,11 +35,11 @@ def remove_nans(datatable,filename=None,verbose=1):
     if verbose > 1: print "number of dropped rows = ",ndropped
     if (ndropped > 0) and (verbose > 0): 
         if filename == None: 
-            print ("Warning: "+str(nb1-nb2)+row+" contained nan "
-                   "values and"+was+" dropped.")
+            print "Warning: "+str(nb1-nb2)+row+" contained nan "+\
+                   "values and"+was+" dropped."
         else:
-            print ("Warning: "+str(nb1-nb2)+row+" in "+filename
-                   " contained nan values and"+was+" dropped.")
+            print "Warning: "+str(nb1-nb2)+row+" in "+filename+\
+                   " contained nan values and"+was+" dropped."
     return datatable
 
 #----------------------------------------------------------

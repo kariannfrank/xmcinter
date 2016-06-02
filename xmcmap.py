@@ -37,7 +37,7 @@ import ctypes
 def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
              binsize=10.0,itmod=100,paramshape='gauss',ctype='median',
              x0=None,y0=None,imagesize=None,witherror=True,sigthresh=0.0,
-             sigthreshparam=None,imgstdthresh=None,imgstdthreshparam=None,
+             sigthreshparam=None,imgthresh=None,imgthreshparam=None,
              paramx='blob_phi',
              paramy='blob_psi',paramsize='blob_sigma',exclude_region=None,
              iteration_type='median',clobber=False,nlayers=None,
@@ -151,17 +151,15 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 None, then sigthreshparam must be an element of paramname 
                 list.
 
-      imgstdthresh (float) : similar to sigthresh, except the threshold is
-                set as number of standard deviations below the maximum
-                value in the image, where the stdev is calculated from the 
-                image array itself.  imgstdthresh is the number of standard
-                deviations to subtract from the maximum to obtain the 
-                minimum allowed pixel value.  If this minimum is < 0, then 
+      imgthresh (float) : similar to sigthresh, except the threshold is
+                set as a minimum pixel value in the specified image 
+                (imgthreshparam map). If this minimum is greater than the
+                maximum pixel value in the imgthreshparam map, then 
                 it will be ignored.
 
-      imgstdthreshparam (string) : same as sigthreshparam, but associated
-                with the imgstdthresh argument. typically, this should be
-                either None (do all parameters independently, default), or 
+      imgthreshparam (string) : same as sigthreshparam, but associated
+                with the imgthresh argument. typically, this should be
+                either None (no thresholding, default), or 
                 'blob_em'. 
 
       clobber (bool) : specify whether any existing fits file of the same
@@ -214,7 +212,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
        square.
      - If the input dataframe has no columns 'iteration', then all blobs 
        will be assumed to come from a single iteration.
-     - If both sigthresh and imgstdthresh are used, then sigthresh 
+     - If both sigthresh and imgthresh are used, then sigthresh 
        will be applied first.
 
     """
@@ -259,11 +257,11 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                "Resetting sigthreshparam=None.")
         sigthreshparam=None
 
-    if (imgstdthreshparam is not None) and \
-    (imgstdthreshparam not in paramname):
-        print ("Warning: "+imgstdthreshparam+" is not in paramname. "
-               "Resetting imgstdthreshparam=None.")
-        imgstdthreshparam=None
+    if (imgthreshparam is not None) and \
+    (imgthreshparam not in paramname):
+        print ("Warning: "+imgthreshparam+" is not in paramname. "
+               "Resetting imgthreshparam=None.")
+        imgthreshparam=None
 
     #----Store blob information in DataFrame and set output file----
     if outfile is not None:
@@ -304,12 +302,12 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 sigthreshparam = None
                 sigthresh = 0.0
 
-            #-check if imgstdthreshparam is being removed-
-            if paramname[p] == imgstdthreshparam:
-                print ("Warning: imgstdthreshparam is not being mapped. "
-                       "Resetting imgstdthresh=None")
-                imgstdthreshparam = None
-                imgstdthresh = None
+            #-check if imgthreshparam is being removed-
+            if paramname[p] == imgthreshparam:
+                print ("Warning: imgthreshparam is not being mapped. "
+                       "Resetting imgthresh=None")
+                imgthreshparam = None
+                imgthresh = None
 
     #--remove parameters that would be clobbered if clobber=False--
     for b in badparams:
@@ -486,11 +484,11 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             sigp = paramname.index(sigthreshparam)
             sigmap = abs(imgs[sigp])/errimgs[sigp]        
 
-    if imgstdthreshparam is not None:
+    if imgthreshparam is not None:
         #-sigthreshparam has just been mapped-
-        if imgstdthreshparam in paramname:
-            imgstdp = paramname.index(imgstdthreshparam)
-            imgstdmap = imgs[imgstdp]       
+        if imgthreshparam in paramname:
+            imgthp = paramname.index(imgthreshparam)
+            imgthmap = imgs[imgthp]       
 
     for p in xrange(len(paramname)):
 
@@ -505,15 +503,18 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         if sigthresh != 0.0:
             themap[sigmap < sigthresh] = np.nan
 
-        #--Apply img std threshold--
-        if imgstdthresh != None:
-            if imgstdthreshparam is None:
-                imgstdmap = imgs[p]
+        #--Apply img threshold--
+        if imgthresh != None:
+            if imgthreshparam is None:
+                imgthmap = imgs[p]
 
             # - set pixels with value < threshold to Nan - 
-            imgmin = np.nanmax(imgstdmap)-imgstdthresh*np.nanstd(imgstdmap)
-            if imgmin < 0.0: imgmin = 0.0
-            themap[imgstdmap < imgmin] = np.nan
+            #imgmin = np.nanmax(imgmap)-imgthresh*np.nanstd(imgmap)
+            if np.nanmax(imgthmap) > imgthresh:
+                themap[imgthmap < imgthresh] = np.nan
+            else:
+                print ("Warning: imgthresh > max imgthreshparam image. "
+                       "Not applying imgthresh.")
 
         #--Save map to fits file--
 
@@ -530,9 +531,9 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                     +nstr(y0)
                     +',imagesize='+nstr(imagesize)+',sigthresh='
                     +nstr(sigthresh)+',sigthreshparam='
-                    +nstr(sigthreshparam)+',imgstdthresh='
-                    +nstr(imgstdthresh)+',imgstdthreshparam='
-                    +nstr(imgstdthreshparam)+',movie='
+                    +nstr(sigthreshparam)+',imgthresh='
+                    +nstr(imgthresh)+',imgthreshparam='
+                    +nstr(imgthreshparam)+',movie='
                     +str(movie[p])
                     +',moviedir='+moviedirs[p])
         history3 = 'ximagesize = '+nstr(ximagesize)
