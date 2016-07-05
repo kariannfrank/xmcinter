@@ -119,7 +119,7 @@ def em_to_mass(em,volume,mu=1.0,tounit='g'):
   
   nH = em_to_density(em,volume,density_type='mass',mu=mu)
 
-  if tounit = 'sol':
+  if tounit == 'sol':
     return nH*volume/Msol_g
   else:
     return nH*volume

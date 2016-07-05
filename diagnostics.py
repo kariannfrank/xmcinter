@@ -66,13 +66,14 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
                                      astro.convert_distance(distance,'kpc',
                                                             'cm'))
     
-    # -- add number densities of blobs in cm^-3 --
+    # -- add hydrogen number densities of blobs in cm^-3, hydrogen mass --
     df['blob_volume'] = xw.gaussian_volume(astro.convert_arcsec(\
             df['blob_sigma'],distance,'kpc','cm'))
     df['blob_numberdensity'] = astro.em_to_density(df['blob_em'],\
                                df['blob_volume'],density_type='number')
 
-
+    df['blob_mass'] =astro.em_to_mass(df['blob_em'],df['blob_volume'],tounit='sol')
+                               
     # -- remove iterations before convergence --
     if itmax == None:
         itmax = np.max(df['iteration'])
