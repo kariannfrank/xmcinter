@@ -95,7 +95,7 @@ def em_to_density(em,volume,density_type='number',mu=1.0):
     return proton_mass(em/(volume*mu))**0.5  
 
 #----------------------------------------------------------
-def em_to_mass(em,volume,mu=1.0):
+def em_to_mass(em,volume,mu=1.0,tounit='g'):
   """
   Author: Kari Frank
   Date: July 5, 2016
@@ -105,17 +105,25 @@ def em_to_mass(em,volume,mu=1.0):
     em (numerical): emission measure (e.g. as output from norm_to_em)
     volume (numerical): volume of region in cm^3
     mu (numerical): mean weight (cosmic abundance mu = 1.21, pure hydrogen=1.0)
-
+    tounit (string): specify units of output mass. options are 'g' (grams, default),
+         or solar masses ('sol')
+    
   Output:
-    returns mass in gm
+    returns mass in grams (default) or solar masses
 
   Usage Notes:
   """
 
+  # solar mass in g
+  Msol_g = 1.989*10.0**(33.0)
+  
   nH = em_to_density(em,volume,density_type='mass',mu=mu)
 
-  return nH*volume
-  
+  if tounit = 'sol':
+    return nH*volume/Msol_g
+  else:
+    return nH*volume
+    
 #----------------------------------------------------------
 def transfer_header(sourcefile,targetfile,newfile):
   """
