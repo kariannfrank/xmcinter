@@ -58,7 +58,7 @@ def norm_to_em(norm,dist_cm,redshift=0.0):
   return em
 
 #----------------------------------------------------------
-def em_to_density(em,volume,density_type='number'):
+def em_to_density(em,volume,density_type='number',mu=1.0):
   """
   Author: Kari Frank
   Date: April 14, 2016
@@ -79,6 +79,10 @@ def em_to_density(em,volume,density_type='number'):
    - Assumes  
         norm = 10^14/4pi[dist(1+z)]^2 * EM
         EM = n_e*n_H*V
+   - Calculates only the hydrogen densities (even if mu!=1.0; setting a different mu
+     only changes the electron density used to convert from emission measure)
+   - For typical cosmic abundances, set mu=1.21 (n_He = 0.1*n_H, all other elements
+     negligible)
 
   """
   #-constants-
@@ -86,9 +90,9 @@ def em_to_density(em,volume,density_type='number'):
 
   #-convert to density
   if density_type == 'number':
-    return 1.27*(em/volume)**0.5  
+    return (em/(volume*mu))**0.5  
   else:
-    return proton_mass*1.27*(em/volume)**0.5  
+    return proton_mass(em/(volume*mu))**0.5  
 
 #----------------------------------------------------------
 def transfer_header(sourcefile,targetfile,newfile):
