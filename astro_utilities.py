@@ -95,6 +95,28 @@ def em_to_density(em,volume,density_type='number',mu=1.0):
     return proton_mass(em/(volume*mu))**0.5  
 
 #----------------------------------------------------------
+def em_to_mass(em,volume,mu=1.0):
+  """
+  Author: Kari Frank
+  Date: July 5, 2016
+  Purpose: Given emission measure and volume, calculate the hydrogen
+           gas density.
+  Input: 
+    em (numerical): emission measure (e.g. as output from norm_to_em)
+    volume (numerical): volume of region in cm^3
+    mu (numerical): mean weight (cosmic abundance mu = 1.21, pure hydrogen=1.0)
+
+  Output:
+    returns mass in gm
+
+  Usage Notes:
+  """
+
+  nH = em_to_density(em,volume,density_type='mass',mu=mu)
+
+  return nH*volume
+  
+#----------------------------------------------------------
 def transfer_header(sourcefile,targetfile,newfile):
   """
   Author: Kari Frank
