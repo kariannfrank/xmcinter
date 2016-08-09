@@ -145,7 +145,7 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True,
 #    print len(inframe[x]),len(inframe[y])
     
 #----Import Modules----
-    from bokeh.models import ColumnDataSource,PrintfTickFormatter
+    from bokeh.models import ColumnDataSource
 
 #----Aggregate Data----
     if agg is None:
@@ -182,7 +182,6 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True,
     x_range = None
     if xlog is True:
         x_axis_type='log'
-        x_range = ()
     if ylog is True:
         y_axis_type='log'
 
@@ -207,7 +206,7 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True,
 
 #----------------------------------------------------------
 def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
-               outfile='traceplots.html'):
+               outfile='traceplots.html',save=True):
     """
     Author: Kari A. Frank
     Date: October 26, 2015
@@ -232,6 +231,9 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
 
       columns: list of dataframe column names to include in the plots. 
                default is to use all columns
+
+      save: optionally specify to return the figure list, without saving the 
+            plot file or plotting in a browser
 
     Output:
      - plots matrix of scatter plots of all provided dataframe columns to 
@@ -299,7 +301,7 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
         rowlist = []
 
 #--plot grid--
-    bplt.show(column(figarr[:]))
+    if save is True: bplt.show(column(figarr[:]))
 
 #----Return----
     return figarr
@@ -396,14 +398,15 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 #    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
 
     if infig is None:
-        fig = bplt.figure(tools=tools,width=width,height=height,webgl=True,
+        fig = bplt.figure(tools=tools,width=width,height=height,
                           x_axis_type=bintype,x_range=(rng[0],rng[1]))
         fig.xaxis.axis_label=dataseries.name
     else:
         fig = infig
     if weights is not None:
         fig.yaxis.axis_label=weights.name
-        if np.log10(max(histy))>3: fig.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
+        if np.log10(max(histy))>3: 
+            fig.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
 
 #----Format Ticks----
 #    fig.yaxis.formatter=PrintfTickFormatter(format="%4.1e")
@@ -474,7 +477,7 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 #----Fill in list of figures----
     for column in dframe:
         newfig = histogram(dframe[column],weights=weights,
-                           save=False,height=height,width=width,
+                           save=False,#height=height,width=width,
                            bins=bins,**kwargs)
         figlist=figlist+[newfig]
         #print column,bins
@@ -482,20 +485,21 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 #----Reshape list into a 4 column array---
 
     #--define new shape--
-    nfigs = len(figlist)
-    nrows = int(math.ceil(float(nfigs)/float(ncols)))
+#    nfigs = len(figlist)
+#    nrows = int(math.ceil(float(nfigs)/float(ncols)))
 
     #--pad list with None to have nrows*ncols elements--
-    figlist = figlist+[None]*(nrows*ncols-nfigs)
+#    figlist = figlist+[None]*(nrows*ncols-nfigs)
 
     #--reshape list--
-    figarr = [figlist[ncols*i:ncols*(i+1)] for i in range(nrows)]
+#    figarr = [figlist[ncols*i:ncols*(i+1)] for i in range(nrows)]
 
 #----Plot histograms----
-    p = gridplot(figarr)
+#    p = gridplot(figarr)
+    p = gridplot(figlist,ncols=ncols,plot_width=width,plot_height=height)
     bplt.show(p)
 
-    return figarr
+    return figlist
 
 #----------------------------------------------------------
 def format_ticks(vals):
