@@ -19,6 +19,7 @@ import numpy as np
 import bokeh
 import bokeh.plotting as bplt
 import bokeh.charts as bchart
+from bokeh.layouts import gridplot
 
 #----------------------------------------------------------
 def chi2(runpath='./',itmin=0,itmax=None):
@@ -82,7 +83,9 @@ def chi2(runpath='./',itmin=0,itmax=None):
     return statframe
 
 #----------------------------------------------------------
-def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
+def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True,
+            width=600,height=600,source=None,tools=None,size=5,
+            xlog='auto',ylog='auto'):
     """
     scatter()
  
@@ -102,7 +105,7 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
     agg:    type of aggregration to perform before plotting, since 
          plotting with  all possible rows/blobs is generally prohibitively 
          slow options are
-         - 'none' (plot all rows)
+         - None (plot all rows)
          - 'sampling' (take random subsample of rows, default)
          - 'contour' (plot density contours instead of points - does not 
             use linked brushing) -- not yet implemented
@@ -112,6 +115,21 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
 
     save:   optionally turn off opening and saving the plot as an 
             html file - returns the figure object only (default=True)
+
+    width/height: optionally specify the size of the figure (default=300)
+
+    xlog/ylog: make x and y axis scales log. options are:
+                  - 'auto' (default) -- try to automatically determine
+                    which is best based on the data range
+                  - True -- force log scale
+                  - False -- force linear scale
+
+    size: optionally specify size of data points (default=5)
+
+    source: a ColumnDataSource object specifying the data source (to use for
+            linked brushing)
+
+    tools: optionally pass plot tools
 
    Output:
    - plots x vs y to an interactive plot
@@ -126,8 +144,11 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
   """
 #    print len(inframe[x]),len(inframe[y])
     
+#----Import Modules----
+    from bokeh.models import ColumnDataSource,PrintfTickFormatter
+
 #----Aggregate Data----
-    if agg=='none':
+    if agg is None:
         df = inframe
     if agg=='sampling':
         if len(inframe.index) > npoints:
@@ -135,16 +156,50 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True):
         else:
             df = inframe
 
+#----Set default source----
+    if source is None:
+        source = ColumnDataSource(df)
+
+#----Check for log scale----
+    x_rng = (df[x].min(),df[x].max())
+    if xlog == 'auto':
+        norders = np.log10(x_rng[1]) - np.log10(x_rng[0])
+        if norders > 2.0:
+            xlog = True
+        else:
+            xlog = False
+    y_rng = (df[y].min(),df[y].max())
+    if ylog == 'auto':
+        norders = np.log10(y_rng[1]) - np.log10(y_rng[0])
+        if norders > 2.0:
+            ylog = True
+        else:
+            ylog = False
+
+    x_axis_type='linear'
+    y_axis_type='linear'
+    y_range = None
+    x_range = None
+    if xlog is True:
+        x_axis_type='log'
+        x_range = ()
+    if ylog is True:
+        y_axis_type='log'
+
+
 #----Set up Plot----
-    bplt.output_file(x+'_vs_'+y+'.html')
-    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
-    fig = bplt.figure(tools=TOOLS)
+    if save is True: bplt.output_file(x+'_vs_'+y+'.html')
+    if tools is None: 
+        tools = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
+    fig = bplt.figure(tools=tools,width=width,height=height,
+                      x_axis_type=x_axis_type,y_axis_type=y_axis_type,
+                      y_range=y_rng,x_range=x_rng,webgl=True)
     fig.xaxis.axis_label=x
     fig.yaxis.axis_label=y
 
 #----Plot x vs y----
-
-    fig.circle(x=df[x],y=df[y])
+    
+    fig.circle(x,y,source=source,size=size)
     if save is True: bplt.show(fig)#,new='window',browser='firefox --no-remote')
 
 #----Return----
@@ -191,7 +246,8 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
 
 #----Import Modules----
     from bokeh.models import ColumnDataSource,PrintfTickFormatter
-    
+    from bokeh.layouts import column,row    
+
 #----Trim dataframe----
     if columns is not None:
         dframe = dframe[columns]
@@ -212,77 +268,41 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
     w = 300 # plot width 
     h = 300 # plot height
+    s = 1 # point size
 
 #----Plot data---
 
-#--initialize figure array--
+#--initialize row--
     dim = len(df.columns)
-    figlist=[[None]*dim for i in range(dim)]
+    figarr = [] #columns (each element will be a list of figs=row)
+    rowlist = []
 
-#--loop through parameters and fill in scatter matrix (empty above diagonal)--
-    for col in range(dim):
-        for row in range(dim):
-            # increase size if on edge (provide space for axis labels)
-            if col == 0:
-                wi=w+20
-            else:
-                wi=w
-            if row == dim-1:
-                he=h+20
-            else:
-                he=h
-
-            if col < row:
-                # create scatter plot
-                newfig = bplt.figure(width=wi,height=he,tools=TOOLS)
-                newfig.circle(df.columns[col],df.columns[row],
-                             color='navy',source=source,size=1)
-
-                # add axis labels if on edge, remove tick labels if not
-                if col == 0:
-                    newfig.yaxis.axis_label=df.columns[row]
-                    newfig.yaxis.formatter=format_ticks(df[df.columns[row]])
-                else:
-                    newfig.yaxis.major_label_text_color = None
-                    newfig.yaxis.major_label_text_font_size = '0'
-
-                if row == dim-1:
-                    newfig.xaxis.axis_label=df.columns[col]
-                    newfig.xaxis.formatter=format_ticks(df[df.columns[col]])
-                else:
-                    newfig.xaxis.major_label_text_color = None
-                    newfig.xaxis.major_label_text_font_size = '0'
-
-                # add to figure array
-                figlist[row][col]=newfig
-            if col == row:
-                # plot histogram
-                newfig = histogram(df[df.columns[col]],bins=100,width=wi,
-                                   height=he,tools=TOOLS,save=False)
-#                newfig = bchart.Histogram(df[[col]],bins=30,
-#                                          width=wi,height=he,tools=TOOLS,
-#                                          xlabel=df.columns[col])
-                # add axis label if corner, remove tick labels if not
-##                if col == 0:
-##                    newfig.yaxis.axis_label=df.columns[row]
-##                else: 
-##                    newfig.yaxis.major_label_text_font_color = None
-##                if row == dim-1:
-##                    newfig.xaxis.axis_label=df.columns[col]
-##                else:
-##                    newfig.xaxis.major_label_text_font_color = None
-                # add to figure array
-                figlist[row][col]=newfig
-            if col > row:
-                # leave plot empty
-                figlist[row][col]=bplt.figure(width=wi,height=he,tools=TOOLS)
+#--loop through parameters and fill in row--
+    parslist = list(df.columns)
+    for par in parslist:
+        for otherpar in parslist:
+            # plot scatter plot
+            if parslist.index(par) > parslist.index(otherpar):
+                newfig=scatter(
+                    df,otherpar,par,size=s,
+                    agg=None,save=False,
+                    width=w,height=h,source=source,
+                    tools=TOOLS)
+                rowlist.append(newfig)
+            # plot histogram
+            if parslist.index(par) == parslist.index(otherpar):
+                newfig = histogram(
+                    df[par],bins=100,width=w,
+                    height=h,tools=TOOLS,save=False)
+                rowlist.append(newfig)
+        figarr.append(row(rowlist[:]))
+        rowlist = []
 
 #--plot grid--
-    p = bplt.gridplot(figlist)
-    bplt.show(p)
+    bplt.show(column(figarr[:]))
 
 #----Return----
-    return figlist
+    return figarr
 
 #----------------------------------------------------------
 def histogram(dataseries,weights=None,bins=100,save=True,height=600,
@@ -376,7 +396,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 #    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
 
     if infig is None:
-        fig = bplt.figure(tools=tools,width=width,height=height,
+        fig = bplt.figure(tools=tools,width=width,height=height,webgl=True,
                           x_axis_type=bintype,x_range=(rng[0],rng[1]))
         fig.xaxis.axis_label=dataseries.name
     else:
@@ -472,7 +492,7 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
     figarr = [figlist[ncols*i:ncols*(i+1)] for i in range(nrows)]
 
 #----Plot histograms----
-    p = bplt.gridplot(figarr)
+    p = gridplot(figarr)
     bplt.show(p)
 
     return figarr
