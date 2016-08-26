@@ -68,7 +68,7 @@ def chi2(runpath='./',itmin=0,itmax=None):
 #----Set up Plot----
     bplt.output_file('chi2_vs_iteration.html')
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
-    fig = bplt.figure(tools=TOOLS)
+    fig = bplt.Figure(tools=TOOLS)
     fig.xaxis.axis_label='iteration'
     fig.yaxis.axis_label='chi2/dof'
 
@@ -78,12 +78,13 @@ def chi2(runpath='./',itmin=0,itmax=None):
 
     fig.circle(x=statframe['iteration'],y=statframe['redchi2'])
     bplt.show(fig)#,new='window',browser='firefox --no-remote')
+    bplt.curdoc().clear()
 
 #----Return----
     return statframe
 
 #----------------------------------------------------------
-def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True,
+def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
             width=600,height=600,source=None,tools=None,size=5,
             xlog='auto',ylog='auto'):
     """
@@ -102,19 +103,35 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True,
 
     x,y (strings): name of the columns in inframe to plot
              
-    agg:    type of aggregration to perform before plotting, since 
-         plotting with  all possible rows/blobs is generally prohibitively 
-         slow options are
-         - None (plot all rows)
-         - 'sampling' (take random subsample of rows, default)
-         - 'contour' (plot density contours instead of points - does not 
-            use linked brushing) -- not yet implemented
+    agg (string): type of aggregration to perform before plotting, since 
+         plotting all blobs individually is generally prohibitively 
+         slow. options are
+         - None = plot every blob as individual point (does not require
+           Datashader, can output straight to html file)
+         - Datashader options:
+             - 'dscount' = count elements in each plot bin
+             - 'dsany' = zero if bin is empty, 1 if not
+             - 'dssum','dsmin','dsmax','dsmean','dsvar','dsstd' = 
+               take the sum, mean, max, etc, of all elements in a 
+               plot bin. must also provide the aggcol argument
+               to specify which column should be used to calculate
+               the min, max, etc.
+             - 'dscount_cat' = count all elements in bin, grouped by 
+               category. must also provide the aggcol argument
+               to specify which column should be used to group by. 
+               said column must have categorical data type
+                 -- may not work yet
 
-    npoints: number of aggregated points to plot, ignored if agg='none' 
-             or agg='contour' (default = 1000.0)
+    aggcol (string): name of the column that should be passed to 
+            Datashader agg function. required for several of the 
+            agg options (see above)
 
-    save:   optionally turn off opening and saving the plot as an 
-            html file - returns the figure object only (default=True)
+    sampling: number of blobs to include in plot (default = 2000.0). If
+            set to None will include all blobs.
+
+    save:   optionally turn off automatic display of the plot 
+            (and saving the plot as an html file if not using Datashader)
+            Returns the figure object only if save=False (default=True)
 
     width/height: optionally specify the size of the figure (default=300)
 
@@ -132,29 +149,58 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True,
     tools: optionally pass plot tools
 
    Output:
-   - plots x vs y to an interactive plot
-   - returns the figure object
+   - plots x vs y to an interactive plot (if Datashader used or
+     save=True)
+   - returns the figure object and the ColumnDataSource object
 
   Usage Notes:
   - must close and save (if desired) the plot manually
-  - may not work properly if trying to plot too many points
+  - may not work properly if trying to plot too many points, unless
+    using Datashader
+  - if using Datashader agg options:
+    - MUST BE RUNNING FROM A JUPYTER NOTEBOOK!! bokeh plot output 
+      will be set to output_notebook()and an html file will not be
+      created or saved.
+    - it is necessary to call bplt.output_notebook() in the 
+      current notebook session prior to calling this function. otherwise
+      the figure will not automatically be displayed inline.
+    - a jupyter notebook can be started by simply typing 
+      'jupyter notebook' on the command line (assuming you have 
+      jupyter notebooks installed)
 
   Example:
  
   """
 #    print len(inframe[x]),len(inframe[y])
     
-#----Import Modules----
-    from bokeh.models import ColumnDataSource
+#----Import Modules and Set Output Location----
+    # switch to specify if using Datashader
 
-#----Aggregate Data----
-    if agg is None:
+    from bokeh.models import ColumnDataSource
+    if agg is not None:
+        from datashader.bokeh_ext import InteractiveImage
+        import datashader as ds 
+        import datashader.transfer_functions as tf 
+
+        # set up dictionary to fetch ds agg functions
+        fdict = {'dscount':ds.count,'dsany':ds.any,'dssum':ds.sum,'dsmin':
+                 ds.min,'dsmax':ds.max,'dsmean':ds.mean,'dsvar':ds.var,
+                 'dsstd':ds.std,'dscount_cat':ds.count_cat,
+                 'dssummary':ds.summary}
+        if agg not in fdict:
+            print "Warning: "+agg+" not a valid agg option. Using agg='dscount' instead"
+            agg = 'dscount'
+        bplt.output_notebook()
+#    else:
+    if (save is True) and (agg is None): 
+        bplt.output_file(x+'_vs_'+y+'.html')
+
+#----Sample the Data----
+    if sampling is None: sampling = len(inframe.index)
+    if len(inframe.index) > sampling:
+        df = inframe.sample(sampling)
+    else:
         df = inframe
-    if agg=='sampling':
-        if len(inframe.index) > npoints:
-            df = inframe.sample(npoints)
-        else:
-            df = inframe
 
 #----Set default source----
     if source is None:
@@ -185,34 +231,51 @@ def scatter(inframe,x,y,npoints=1000.,agg='sampling',save=True,
     if ylog is True:
         y_axis_type='log'
 
-
 #----Set up Plot----
-    if save is True: bplt.output_file(x+'_vs_'+y+'.html')
     if tools is None: 
-        tools = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
-    fig = bplt.figure(tools=tools,width=width,height=height,
+        tools = "pan,wheel_zoom,box_zoom,reset,save,box_select"
+    fig = bplt.Figure(tools=tools,width=width,height=height,
                       x_axis_type=x_axis_type,y_axis_type=y_axis_type,
                       y_range=y_rng,x_range=x_rng,webgl=True)
     fig.xaxis.axis_label=x
     fig.yaxis.axis_label=y
 
 #----Plot x vs y----
-    
-    fig.circle(x,y,source=source,size=size)
-    if save is True: bplt.show(fig)#,new='window',browser='firefox --no-remote')
+    if agg is None:
+        fig.circle(x,y,source=source,size=size)
+        if save is True: 
+            bplt.show(fig)#,new='window',browser='firefox --no-remote')
+            bplt.curdoc().clear()
+
+    else:
+        def image_callback(x_range,y_range,w,h):
+            # re-draw canvas
+#            cvs = ds.Canvas(plot_width=w,plot_height=h,x_range=x_range,
+#                           y_range=y_range)
+            cvs = ds.Canvas(x_range=x_range,y_range=y_range)
+            # re-aggregate
+            aggr = cvs.points(df,x,y,agg=fdict[agg](aggcol))
+            img = tf.interpolate(aggr,cmap=['lightblue','darkblue'],
+                                 how='log')
+            return tf.dynspread(img,shape='circle',max_px=size,
+                                threshold=0.85,how='saturate')
+        interimg = InteractiveImage(fig,image_callback)
+        if save is True: bplt.show(fig)
 
 #----Return----
-    return fig
+    return fig,source
+
 
 #----------------------------------------------------------
-def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
-               outfile='traceplots.html',save=True):
+def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
+               outfile='traceplots.html',save=True,size=50):
+# deprecated - columns
     """
     Author: Kari A. Frank
     Date: October 26, 2015
     Purpose: plot interactive matrix of scatter plots from given dataframe
 
-    Usage: traceplots(dframe,agg='sampling',npoinst=1000.0,columns=None)
+    Usage: traceplots(dframe,agg='dscounts,aggcol=None,sampling=1000)
 
     Input:
 
@@ -226,22 +289,52 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
              - 'contour' (plot density contours instead of points - does not
                 use linked brushing) -- not yet implemented
 
-      npoints: number of aggregated points to plot, ignored if agg='none' 
-               or agg='contour' (default = 1000.0)
+      columns: DEPRECATED list of dataframe column names to include in 
+               the plots. default is to use all columns
 
-      columns: list of dataframe column names to include in the plots. 
-               default is to use all columns
+      save: optionally specify to return the figure list, without 
+            saving the plot file or plotting in a browser. ignored 
+            if agg != None
 
-      save: optionally specify to return the figure list, without saving the 
-            plot file or plotting in a browser
+      agg (string): type of aggregration to perform before plotting, since 
+         plotting all blobs individually is generally prohibitively 
+         slow. options are
+         - None = plot every blob as individual point (does not require
+           Datashader, can output straight to html file)
+         - Datashader options:
+             - 'dscount' = count elements in each plot bin
+             - 'dsany' = zero if bin is empty, 1 if not
+             - 'dssum','dsmin','dsmax','dsmean','dsvar','dsstd' = 
+               take the sum, mean, max, etc, of all elements in a 
+               plot bin. must also provide the aggcol argument
+               to specify which column should be used to calculate
+               the min, max, etc.
+             - 'dscount_cat' = count all elements in bin, grouped by 
+               category. must also provide the aggcol argument
+               to specify which column should be used to group by. 
+               said column must have categorical data type
+                 -- may not work yet
+
+    aggcol (string): name of the column that should be passed to 
+            Datashader agg function. required for several of the 
+            agg options (see above)
+
+    sampling: number of blobs to include in plot (default = 2000.0). If
+            set to None will include all blobs.
+          
+    outfile: name of output html file (ignored if agg!=None)
+    
+    size: size of data points to plot
 
     Output:
      - plots matrix of scatter plots of all provided dataframe columns to 
-       interactive (browser-based) plot
+       interactive (browser-based) plot, unless save=False and agg=None, 
+       then just creates the figure object
+     - returns the list of figure objects and the ColumnDataSource object
 
     Usage Notes:
      - must close and save (if desired) the plot manually
-
+     - See important Datashader and Jupyter Notebook notes in scatter()
     Example:
 
     """
@@ -251,26 +344,24 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
     from bokeh.layouts import column,row    
 
 #----Trim dataframe----
-    if columns is not None:
-        dframe = dframe[columns]
+#    if columns is not None:
+#        dframe = dframe[columns]
+# explicitly pass columns in the dataframe, e.g. 
+#df[['blob_a','blob_c','blob_d']]
 
-#----Aggregate Data----
-    if agg=='none':
+#----Sample the Data----
+    if sampling is None: sampling = len(dframe.index)
+    if len(dframe.index) > sampling:
+        df = dframe.sample(sampling)
+    else:
         df = dframe
-    if agg=='sampling':
-        if len(dframe.index) > npoints:
-            df = dframe.sample(npoints)
-        else:
-            df = dframe
-#    if agg=='contour':
 
 #----Set up plot----
-    bplt.output_file(outfile)
+    if (agg is None) and (save is True): bplt.output_file(outfile)
     source = ColumnDataSource(df)
-    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select"
     w = 300 # plot width 
     h = 300 # plot height
-    s = 1 # point size
 
 #----Plot data---
 
@@ -285,11 +376,11 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
         for otherpar in parslist:
             # plot scatter plot
             if parslist.index(par) > parslist.index(otherpar):
-                newfig=scatter(
-                    df,otherpar,par,size=s,
-                    agg=None,save=False,
+                newfig,newsource=scatter(
+                    df,otherpar,par,size=size,
+                    agg=agg,save=False,sampling=sampling,
                     width=w,height=h,source=source,
-                    tools=TOOLS)
+                    tools=TOOLS,aggcol=aggcol)
                 rowlist.append(newfig)
             # plot histogram
             if parslist.index(par) == parslist.index(otherpar):
@@ -301,10 +392,18 @@ def traceplots(dframe,agg='sampling',npoints=1000.0,columns=None,
         rowlist = []
 
 #--plot grid--
-    if save is True: bplt.show(column(figarr[:]))
+    bigfig = column(figarr[:])
+    if agg is None:
+        if save is True: 
+#            bplt.show(column(figarr[:]))
+            bplt.show(bigfig)
+            bplt.curdoc().clear()
+    else:
+        if save is True: bplt.show(bigfig)
 
 #----Return----
-    return figarr
+#    return figarr
+    return bigfig
 
 #----------------------------------------------------------
 def histogram(dataseries,weights=None,bins=100,save=True,height=600,
@@ -398,7 +497,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 #    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
 
     if infig is None:
-        fig = bplt.figure(tools=tools,width=width,height=height,
+        fig = bplt.Figure(tools=tools,plot_width=width,plot_height=height,
                           x_axis_type=bintype,x_range=(rng[0],rng[1]))
         fig.xaxis.axis_label=dataseries.name
     else:
@@ -421,6 +520,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
     if save: 
         bplt.show(fig)#,new='window',browser='firefox --no-remote')
+        bplt.curdoc().clear()
 
 #----Return----
     return fig
@@ -477,7 +577,7 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 #----Fill in list of figures----
     for column in dframe:
         newfig = histogram(dframe[column],weights=weights,
-                           save=False,#height=height,width=width,
+                           save=False,height=height,width=width,
                            bins=bins,**kwargs)
         figlist=figlist+[newfig]
         #print column,bins
@@ -498,6 +598,7 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 #    p = gridplot(figarr)
     p = gridplot(figlist,ncols=ncols,plot_width=width,plot_height=height)
     bplt.show(p)
+    bplt.curdoc().clear()
 
     return figlist
 
@@ -654,7 +755,7 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     #----Set up Plot----
     bplt.output_file('spectrum.html')
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
-    fig = bplt.figure(tools=TOOLS)
+    fig = bplt.Figure(tools=TOOLS)
     if np.max(datax) < 15.0:
         fig.xaxis.axis_label='Energy (keV)'
     else:
@@ -674,6 +775,7 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
 
     #----Show the Plot----
     bplt.show(fig)
+    bplt.curdoc().clear()
 
 #----Return----
     return data_wave
@@ -764,6 +866,8 @@ def evolution(inframe,columns=None,iteration_type = 'median',weights=None,save=T
 
     #----Plot histograms----
     p = bplt.gridplot(figarr)
-    if save is True: bplt.show(p)
+    if save is True: 
+        bplt.show(p)
+        bplt.curdoc().clear()
 
     return fig
