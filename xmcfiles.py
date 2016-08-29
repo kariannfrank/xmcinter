@@ -148,7 +148,7 @@ def merge_output(runpath='./',filetype='deconvolution',save=True,sep='\t'):
 
     # -- Loop through files and concatenate into single dataframe --
     for f in filelist[1:]:        
-        if os.stat(f).st_size > 0:
+        if os.stat(runpath+'/'+f).st_size > 0:
             newframe = pd.read_table(runpath+'/'+f,sep='\s+',
                                      header=None)
             iternum = int(f.split('.')[-1]) # returns integer

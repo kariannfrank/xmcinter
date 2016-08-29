@@ -408,7 +408,7 @@ def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
 #----------------------------------------------------------
 def histogram(dataseries,weights=None,bins=100,save=True,height=600,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
-              infig=None,color='steelblue',plotfile='histogram.html',
+              infig=None,color='steelblue',outfile='histogram.html',
               density=False,xlog='auto',**kwargs):
     """
     Author: Kari A. Frank
@@ -432,8 +432,8 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
      height,width: height and width of each histogram
 
-     save:        optionally turn off opening and saving the plot as an 
-                  html file - returns the figure object only (default=True)
+     save:        optionally turn off opening and saving the plot,
+                  returns the figure object only (default=True)
 
      infig:       optionally pass an initialized figure object to plot on 
                   (allows plotting multiple dataseries on the same figure) 
@@ -448,6 +448,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
                   - True -- force log bins
                   - False -- force linear bins
 
+     outfile:     string name of html file to save figure to. set to 
+                  outfile='notebook' to plot to jupyter notebook.
+
      **kwargs:    pass any number of extra keyword arguments that are 
                   accepted by bokeh.plotting.quad().  some of the most
                   useful may be fill_color and line_color
@@ -460,6 +463,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
     Usage Notes:
      - must close and save (if desired) the plot manually
      - axis labels will use the pandas series names (e.g. dataseries.name)
+     - if outfile='notebook', then MUST call bplt.output_notebook() in its
+       own cell in the current notebook before calling this function, else
+       it won't automatically display the figure inline.
 
     Example:
 
@@ -492,9 +498,12 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 #    print 'binedges = ',binedges
 
 #----Set up Plot----
-    if save: 
-        bplt.output_file(plotfile)
-#    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
+    if save:
+        if (outfile != 'notebook'): 
+            bplt.output_file(outfile)
+    #    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
+        else:
+            bplt.output_notebook()
 
     if infig is None:
         fig = bplt.Figure(tools=tools,plot_width=width,plot_height=height,
@@ -518,20 +527,22 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
                  color=color,**kwargs)
 
-    if save: 
+    if save:
         bplt.show(fig)#,new='window',browser='firefox --no-remote')
-        bplt.curdoc().clear()
+        if (outfile != 'notebook'): 
+            bplt.curdoc().clear()
 
 #----Return----
     return fig
 
 #----------------------------------------------------------
 def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
-                   ncols=4,outfile='histogram_grid.html',**kwargs):
+                   ncols=2,outfile='histogram_grid.html',**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
-    Purpose: plot interactive matrix of weighted histograms from given dataframe
+    Purpose: plot interactive matrix of weighted histograms from 
+             given dataframe
 
     Usage: histogram_grid(dframe,weights=None,bins=30,**kwargs):
 
@@ -539,8 +550,9 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 
      dframe:      input dataframe
 
-     weights:     optionally provided a pandas series of weights which correspond
-                  to the values in datacolumn (e.g. emission measure)
+     weights:     optionally provided a pandas series of weights which 
+                  correspond to the values in datacolumn (e.g. emission 
+                  measure)
 
      bins:        optionally specify the number of bins (default=30)
 
@@ -548,7 +560,8 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 
      ncols:       number of columns in the grid of histograms (default=4)
 
-     outfile:     string name of output html plot file.
+     outfile:     string name of output html plot file. if plotting to 
+                  a jupyter notebook, use outfile='notebook'.
 
      **kwargs:    pass any number of extra keyword arguments that are 
                   accepted by bokeh.plotting.quad().  some of the most
@@ -560,6 +573,9 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 
     Usage Notes:
      - must close and save (if desired) the plot manually
+    - if outfile='notebook', then MUST call bplt.output_notebook() in its
+       own cell in the current notebook before calling this function, else
+       it won't automatically display the figure inline.
 
     Example:
 
@@ -569,7 +585,10 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
     import math
 
 #----Set up plot----
-    bplt.output_file(outfile)
+    if outfile != 'notebook':
+        bplt.output_file(outfile)
+    else:
+        bplt.output_notebook()
 
 #----Initialize empty figure list----
     figlist=[]
@@ -598,7 +617,7 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 #    p = gridplot(figarr)
     p = gridplot(figlist,ncols=ncols,plot_width=width,plot_height=height)
     bplt.show(p)
-    bplt.curdoc().clear()
+    if outfile != 'notebook': bplt.curdoc().clear()
 
     return figlist
 
