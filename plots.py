@@ -22,7 +22,7 @@ import bokeh.charts as bchart
 from bokeh.layouts import gridplot
 
 #----------------------------------------------------------
-def chi2(runpath='./',itmin=0,itmax=None):
+def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
     """
     Author: Kari A. Frank
     Date: October 20, 2015
@@ -34,16 +34,23 @@ def chi2(runpath='./',itmin=0,itmax=None):
 
     Input:
 
-     runpath:     string containing the relative path to xmc run folder, which
-                  contains the statistic.* files.
+     runpath:     string containing the relative path to xmc run folder, 
+                  which contains the statistic.* files.
 
      itmin/itmax: minimum/maximum iteration to plot
+     
+     outfile:     name of html file to save to, or set outfile='notebook'
+                  to plot inline in current notebook.
 
     Output:
-     - plots chi2 vs iteration for the specified iteration to an interactive plot
+     - plots chi2 vs iteration for the specified iteration to an \
+       interactive plot
 
     Usage Notes:
      - must close and save (if desired) the plot manually
+     - if outfile='notebook', then MUST have called bplt.output_notebook()
+       in current notebook session before calling this function, else it 
+       will not display the plot inline.
 
     Example:
 
@@ -66,7 +73,10 @@ def chi2(runpath='./',itmin=0,itmax=None):
     statframe['redchi2'] = statframe['chi2']/statframe['dof']
 
 #----Set up Plot----
-    bplt.output_file('chi2_vs_iteration.html')
+    if outfile != 'notebook':    
+        bplt.output_file(outfile)
+    else:
+        bplt.output_notebook()
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
     fig = bplt.Figure(tools=TOOLS)
     fig.xaxis.axis_label='iteration'
@@ -78,7 +88,7 @@ def chi2(runpath='./',itmin=0,itmax=None):
 
     fig.circle(x=statframe['iteration'],y=statframe['redchi2'])
     bplt.show(fig)#,new='window',browser='firefox --no-remote')
-    bplt.curdoc().clear()
+    if outfile != 'notebook': bplt.curdoc().clear()
 
 #----Return----
     return statframe
