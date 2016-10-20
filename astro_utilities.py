@@ -79,10 +79,11 @@ def em_to_density(em,volume,density_type='number',mu=1.0):
    - Assumes  
         norm = 10^14/4pi[dist(1+z)]^2 * EM
         EM = n_e*n_H*V
-   - Calculates only the hydrogen densities (even if mu!=1.0; setting a different mu
-     only changes the electron density used to convert from emission measure)
-   - For typical cosmic abundances, set mu=1.21 (n_He = 0.1*n_H, all other elements
-     negligible)
+   - Calculates only the hydrogen densities (even if mu!=1.0; setting a 
+     different mu only changes the electron density used to convert from 
+     emission measure)
+   - For typical cosmic abundances, set mu=1.21 (n_He = 0.1*n_H, all 
+     other elements negligible)
 
   """
   #-constants-
@@ -104,9 +105,10 @@ def em_to_mass(em,volume,mu=1.0,tounit='g'):
   Input: 
     em (numerical): emission measure (e.g. as output from norm_to_em)
     volume (numerical): volume of region in cm^3
-    mu (numerical): mean weight (cosmic abundance mu = 1.21, pure hydrogen=1.0)
-    tounit (string): specify units of output mass. options are 'g' (grams, default),
-         or solar masses ('sol')
+    mu (numerical): mean weight (cosmic abundance mu = 1.21, pure 
+                    hydrogen=1.0)
+    tounit (string): specify units of output mass. options are 'g' 
+                     (grams, default), or solar masses ('sol')
     
   Output:
     returns mass in grams (default) or solar masses

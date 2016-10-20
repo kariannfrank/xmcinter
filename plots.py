@@ -96,7 +96,7 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
 #----------------------------------------------------------
 def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
             width=600,height=600,source=None,tools=None,size=5,
-            xlog='auto',ylog='auto'):
+            xlog='auto',ylog='auto',outfile=None,returnfunc=False):
     """
     scatter()
  
@@ -142,6 +142,7 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
     save:   optionally turn off automatic display of the plot 
             (and saving the plot as an html file if not using Datashader)
             Returns the figure object only if save=False (default=True)
+            -should rename this to display or show (also in other functions)
 
     width/height: optionally specify the size of the figure (default=300)
 
@@ -158,9 +159,29 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
 
     tools: optionally pass plot tools
 
+    outfile:  name of html file to save to, or set outfile='notebook'
+              to plot inline in current notebook. setting to None
+              will result in file name containing the plotting parameter
+              names.
+
+     returnfunc: bool to specify returning of the image_callback function.
+                 returned value will be fig,source,image_callback. If True,
+                 will disable the InteractiveImage call within scatter().
+                 This allows dynamic zooming by calling 
+                 InteractiveImage(fig,image_callback) on the python
+                 command line. Only enable this if calling 
+                 scatter() directly.
+
+
    Output:
-   - plots x vs y to an interactive plot (if Datashader used or
-     save=True)
+   - plots x vs y to an interactive plot 
+   - if save=True, then plot is displayed.
+        - if outfile = 'notebook', then displayed in current
+          notebook. In this case, MUST have called 
+          bplt.output_notebook() in notebook session before 
+          calling this function.
+        - if outfile = anything else, then displayed (and saved)
+          as html file
    - returns the figure object and the ColumnDataSource object
 
   Usage Notes:
@@ -169,11 +190,8 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
     using Datashader
   - if using Datashader agg options:
     - MUST BE RUNNING FROM A JUPYTER NOTEBOOK!! bokeh plot output 
-      will be set to output_notebook()and an html file will not be
+      will be set to output_notebook() and an html file will not be
       created or saved.
-    - it is necessary to call bplt.output_notebook() in the 
-      current notebook session prior to calling this function. otherwise
-      the figure will not automatically be displayed inline.
     - a jupyter notebook can be started by simply typing 
       'jupyter notebook' on the command line (assuming you have 
       jupyter notebooks installed)
@@ -183,8 +201,7 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
   """
 #    print len(inframe[x]),len(inframe[y])
     
-#----Import Modules and Set Output Location----
-    # switch to specify if using Datashader
+#----Import Modules and Parse Datashader Functions----
 
     from bokeh.models import ColumnDataSource
     if agg is not None:
@@ -200,10 +217,22 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
         if agg not in fdict:
             print "Warning: "+agg+" not a valid agg option. Using agg='dscount' instead"
             agg = 'dscount'
-        bplt.output_notebook()
-#    else:
-    if (save is True) and (agg is None): 
-        bplt.output_file(x+'_vs_'+y+'.html')
+
+        if aggcol is not None:
+            from matplotlib.cm import jet
+            cm = jet
+        else:
+            cm = ['lightblue','darkblue']
+
+#----Set Output Type and Location, if any----
+    if save is True:
+        if (agg is not None) or (outfile == 'notebook'):
+            # force notebook output if Datashader
+            bplt.output_notebook()
+        else:
+            if outfile is None: outfile = x+'_vs_'+y+'.html'
+            bplt.output_file(outfile)
+
 
 #----Sample the Data----
     if sampling is None: sampling = len(inframe.index)
@@ -251,13 +280,15 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
     fig.yaxis.axis_label=y
 
 #----Plot x vs y----
+#    print 'agg = ',agg
     if agg is None:
         fig.circle(x,y,source=source,size=size)
+        
         if save is True: 
             bplt.show(fig)#,new='window',browser='firefox --no-remote')
-            bplt.curdoc().clear()
+            if outfile != 'notebook': bplt.curdoc().clear()
 
-    else:
+    else:        
         def image_callback(x_range,y_range,w,h):
             # re-draw canvas
 #            cvs = ds.Canvas(plot_width=w,plot_height=h,x_range=x_range,
@@ -265,20 +296,38 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
             cvs = ds.Canvas(x_range=x_range,y_range=y_range)
             # re-aggregate
             aggr = cvs.points(df,x,y,agg=fdict[agg](aggcol))
-            img = tf.interpolate(aggr,cmap=['lightblue','darkblue'],
+            img = tf.interpolate(aggr,cmap=cm,
                                  how='log')
             return tf.dynspread(img,shape='circle',max_px=size,
-                                threshold=0.85,how='saturate')
-        interimg = InteractiveImage(fig,image_callback)
-        if save is True: bplt.show(fig)
+                                threshold=0.8)#,how='saturate')
+        
+        if returnfunc is False:
+            interimg = InteractiveImage(fig,image_callback)
+#        if save is True: bplt.show(fig)
+        #print "To view interactive plot, call InteractiveImage(fig,image_callback)"
 
 #----Return----
-    return fig,source
+    if returnfunc is False:
+        return fig,source #this version will not allow dynamic zooming
+    else:
+        return fig,source,image_callback
+#----------------------------------------------------------
+#def image_callback(x_range,y_range,w,h):
+    # re-draw canvas
+    #            cvs = ds.Canvas(plot_width=w,plot_height=h,x_range=x_range,
+#                           y_range=y_range)
+#    cvs = ds.Canvas(x_range=x_range,y_range=y_range)
+    # re-aggregate
+#    aggr = cvs.points(df,x,y,agg=fdict[agg](aggcol))
+#    img = tf.interpolate(aggr,cmap=['lightblue','darkblue'],
+#                         how='log')
+#    return tf.dynspread(img,shape='circle',max_px=size,
+#                        threshold=0.9)#,how='saturate')
 
 
 #----------------------------------------------------------
 def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
-               outfile='traceplots.html',save=True,size=50):
+               outfile='traceplots.html',save=True,size=None):
 # deprecated - columns
     """
     Author: Kari A. Frank
@@ -295,18 +344,16 @@ def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
              plotting with all possible rows/blobs is generally 
              prohibitively slow. options are:
              - 'none' (plot all rows)
-             - 'sampling' (take random subsample of rows, default)
-             - 'contour' (plot density contours instead of points - does not
-                use linked brushing) -- not yet implemented
+             - 'sampling' (take random subsample of rows)
 
       columns: DEPRECATED list of dataframe column names to include in 
                the plots. default is to use all columns
 
       save: optionally specify to return the figure list, without 
-            saving the plot file or plotting in a browser. ignored 
-            if agg != None
+            saving the plot file or plotting in a browser by setting
+            save=False.
 
-      agg (string): type of aggregration to perform before plotting, since 
+      agg (string): type of aggregation to perform before plotting, since 
          plotting all blobs individually is generally prohibitively 
          slow. options are
          - None = plot every blob as individual point (does not require
@@ -332,9 +379,11 @@ def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
     sampling: number of blobs to include in plot (default = 2000.0). If
             set to None will include all blobs.
           
-    outfile: name of output html file (ignored if agg!=None)
+    outfile: name of output html file. set to 'notebook' to plot to 
+             currently open notebook.
     
-    size: size of data points to plot
+    size: size of data points to plot. if agg=None, defaults to 3, else
+          defaults to 5 (for dynamic zooming)
 
     Output:
      - plots matrix of scatter plots of all provided dataframe columns to 
@@ -359,6 +408,15 @@ def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
 # explicitly pass columns in the dataframe, e.g. 
 #df[['blob_a','blob_c','blob_d']]
 
+#----Set Output Type and Location, if any----
+    if save is True:
+        if (agg is not None) or outfile == 'notebook':
+            # force notebook output if Datashader
+            bplt.output_notebook()
+        else:
+            if outfile is None: outfile = 'traceplots.html'
+            bplt.output_file(outfile)
+
 #----Sample the Data----
     if sampling is None: sampling = len(dframe.index)
     if len(dframe.index) > sampling:
@@ -367,8 +425,11 @@ def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
         df = dframe
 
 #----Set up plot----
-    if (agg is None) and (save is True): bplt.output_file(outfile)
     source = ColumnDataSource(df)
+    if (agg != None) and (size is None):
+        size = 5
+    else:
+        if size is None: size = 3
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select"
     w = 300 # plot width 
     h = 300 # plot height
@@ -419,7 +480,7 @@ def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
 def histogram(dataseries,weights=None,bins=100,save=True,height=600,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
-              density=False,xlog='auto',**kwargs):
+              density=False,alpha=None,xlog='auto',legend=None,**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -461,6 +522,8 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
      outfile:     string name of html file to save figure to. set to 
                   outfile='notebook' to plot to jupyter notebook.
 
+     legend:      string to use for legend
+
      **kwargs:    pass any number of extra keyword arguments that are 
                   accepted by bokeh.plotting.quad().  some of the most
                   useful may be fill_color and line_color
@@ -483,6 +546,13 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
 #----Import Modules----
     from bokeh.models import PrintfTickFormatter
+
+#----Set up opacity----
+    if alpha is None:
+        if (infig is not None):
+            alpha = 0.7
+        else: 
+            alpha = 1.0
 
 #----Set up Log Bins----
     rng = (dataseries.min(),dataseries.max())
@@ -535,7 +605,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
 #---Plot the histogram----
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
-                 color=color,**kwargs)
+                 color=color,alpha=alpha,legend=legend,**kwargs)
 
     if save:
         bplt.show(fig)#,new='window',browser='firefox --no-remote')

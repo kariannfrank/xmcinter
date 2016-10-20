@@ -39,6 +39,11 @@ Usage Notes:
   If you choose not to use this, make sure to always pass the cint=False
   argument to make_map(). It should only run slightly slower.
 
+- If you encounter an error that looks like the following, the cause is 
+  likely an incorrect parameters.txt file
+
+  ValueError: Length mismatch: Expected axis has 23 elements, new values have 22 elements
+
 ###################################################################
 A typical workflow for early diagnostics
 (requires access to the original deconvolution.* and statistic.* files)

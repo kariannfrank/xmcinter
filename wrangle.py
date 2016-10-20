@@ -147,7 +147,7 @@ def filterblobs(inframe,colnames,minvals=None,maxvals=None,logic='and'):
         
 #    for col in range(len(colnames)):
 #        newframe = simplefilterblobs(inframe,colname=colnames[col],
-#                                     minval=minvals[col],maxval=maxvals[col]
+#                                   minval=minvals[col],maxval=maxvals[col]
 #                                     ,quiet=True) 
     #-warn if zero rows match-
     if len(outframe.index) == 0:
@@ -161,8 +161,10 @@ def filterblobs(inframe,colnames,minvals=None,maxvals=None,logic='and'):
     #-return filtered dataframe-
     return outframe
 
-def filtercircle(inframe,x='blob_phi',y='blob_psi',radius=20.0,x0=-60.0,y0=80.0,
-                 logic='exclude'):
+#----------------------------------------------------------------
+def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
+                 radius=20.0,x0=-60.0,y0=80.0,logic='exclude',
+                 fraction=False):
     """
     filtercircle()
 
@@ -179,6 +181,20 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',radius=20.0,x0=-60.0,y0=80.0,
       x,y (str or list of str): names of the columns containing 
            the parameters to use as x and y circle coordinates.  
            default is to use 'blob_phi' and 'blob_psi'.
+       
+      r (str or numerical): size of the blob in x,y dimension.
+           if provided, will use radius - r to check distance of
+           each blob from x0,y0. This allows non-pointlike blobs
+           which contribute to the emission in the desired region
+           to be kept/exluded, even if the blob center is outside 
+           said region. if a string is provided, it must correspond
+           to the name of column in inframe. if numerical value 
+           provided, that value will be used for all blobs.
+           default = 'blob_sigma'. to treat blobs like point sources,
+           set r=0.
+
+      x0,y0 (numerical): center coordinates of the circle, in
+           same units as x and y
 
       radius (numerical): radius of the circle, in same units as x and y
 
@@ -186,10 +202,24 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',radius=20.0,x0=-60.0,y0=80.0,
            removed (logic='exclude', default), or if everything outside the
            circle should be removed (logic='include')
 
+      fraction (bool): switch to add extra column that specifies fraction
+           of the blob volume inside (if logic='include') or outside (if
+           logic='exclude') of the specified circle, instead of dropping
+           any rows. If smaller than 0.01 (<1% is in the include region),
+           the fraction will be set to 0. If >0.99, will be set to one.
+           this allows more flexibility in deciding what is considered
+           'significant' contribution of emission to a region, and allows
+           weighting of blobs by this fraction, similar to how it is 
+           done in the weighted maps.
+           - if fraction=True, then the r argument is ignored.
+           - NOT YET IMPLEMENTED (need function for gaussian 
+             integration of blob over circular region)
+
     Output:
 
-      Returns a dataframe identical to the input dataframe but missing rows
-        which are inside (or outside if logic='include') the defined circle.
+      Returns a dataframe identical to the input dataframe but missing 
+        rows which are inside (or outside if logic='include') the 
+        defined circle.
 
     Usage Notes:
      - be very careful if x and y do not have the same units
@@ -200,11 +230,12 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',radius=20.0,x0=-60.0,y0=80.0,
           within a circle (in phi, psi coordinates) of radius 20" centered
           on phi=-40.0,psi=80.0
 
-        filtered_df = filtercircle(blobframe,x='blob_Si',y='blob_Fe',radius=0.2,
+        filtered_df = filtercircle(blobframe,x='blob_Si',y='blob_Fe',
+                                   radius=0.2,r=None,
                                    x0=1.0,y0=1.0,logic='include')
         - this will return a version of blobframe which includes only
-          rows (blobs) contained in a circle of radius 0.2 centered on 1,1 in the
-          Si-Fe plane.
+          rows (blobs) contained in a circle of radius 0.2 centered on 
+          1,1 in the Si-Fe plane.
 
     """
     #--check for valid logic--
@@ -214,23 +245,53 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',radius=20.0,x0=-60.0,y0=80.0,
                    "  Using logic='exclude'")
             logic = 'exclude'
 
+    #--save original size--
+    inblobs = len(inframe.index)
+
+    #--add column to dataframe that is distance from center--
+    inframe['R'] = ((inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 
+    #-adjust for blob size-
+    if (r is not None) and (r != 0) and (fraction is False):
+        if isinstance(r,str): 
+            inframe['R'] = inframe['R'] - inframe[r]
+        else:
+            inframe['R'] = inframe['R'] - r
+
     #--filter--
-    if logic == 'exclude':
-        outframe = inframe[ ( (inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 >= radius ]
-    else:
-        outframe = inframe[ ( (inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 <= radius ]
+    if fraction is False:
+        # find all blobs in circle - defining blobs to drop
+        if logic == 'exclude':
+            circleframe = filterblobs(inframe,'R',maxvals=radius)
+        if logic == 'include':
+            circleframe = filterblobs(inframe,'R',minvals=radius)
+
+        # drop blobs
+        inframe.drop(circleframe.index,inplace=True)
+        # remove extra column
+        inframe.drop('R',1,inplace=True)
+
+#need to make function for gaussian integral in spherical coords
+    if fraction is True:
+        print "ERROR: fraction argument not yet implemented."
+#        y_integrals = xm.gaussian_integral()
+#        inframe['circlefraction'] = 
+
+#    if logic == 'exclude':
+#        outframe = inframe[ ( (inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 >= radius ]
+#    else:
+#        outframe = inframe[ ( (inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 <= radius ]
 
     #-warn if zero rows match-
-    if len(outframe.index) == 0:
+    if len(inframe.index) == 0:
         print "filtercircle: Warning: Filtered dataframe has zero rows."
 
     #-warn if all rows match-
-    if len(outframe.index) == len(inframe.index):
+    if len(inframe.index) == inblobs:
         print ("filtercircle: Warning: Nothing was filtered"
                " (all rows match criteria).")
 
     #-return filtered dataframe-
-    return outframe
+    return inframe
 
 #----------------------------------------------------------------
 
