@@ -8,7 +8,10 @@ For wrangling the blob parameter dataframe:
  filterblobs()
  simplefilterblobs() [mainly a helper function for filterblobs()]
  filtercircle()
+
+Functions acting on blobs
  gaussian_volume()
+ distance()
 
 Statistics:
  (from the wquantiles package: 
@@ -162,9 +165,99 @@ def filterblobs(inframe,colnames,minvals=None,maxvals=None,logic='and'):
     return outframe
 
 #----------------------------------------------------------------
+def circlefraction(x,y,r,x0,y0,radius,shape='gauss',
+                   use_ctypes=False):
+    """
+    circlefraction()
+    
+    Author: Kari A. Frank
+    Date: October 21, 2016
+
+    Purpose: Calculates fraction of blob volume in specified 
+             (projected) circle.
+    
+    Input:
+
+      x,y (numerical): x and y position of the blob
+
+      r (numerical): radius of the blobs
+
+      x0,y0 (numerical): x and y position of the circle
+
+      radius (numerical): radius of the circle
+
+      shape (str): shape of the blob, either gauss or sphere
+                   - !!sphere not yet implemented!!
+
+      use_ctypes (bool): specify whether to use ctypes functionality in
+           gaussian_integrate_dblquad (using scipy.integrate). See 
+           xmcmap for more details.
+
+    Output:
+
+      Returns the fraction of the blob's volume within the circle.
+
+    Usage Notes:
+    
+      - x,y,r,x0,y0,radius should all be in the same units, usually 
+        spatial (usually arcsec)
+    
+    """
+
+    #--import gaussian_integral and related functions--
+    import xmcmap as xm
+        # for improved speed, use 
+        #  gaussian_integral_quad instead, but it requires extra 
+        #  package scipy.integrate.    
+
+    # get blob volume in correct units
+    if shape not in ['gauss','sphere']: 
+        print "Warning: Unrecognized blob shape. Using shape='gauss'"
+        shape = 'gauss'
+    if shape == 'gauss':
+        volume = gaussian_volume(r)
+    elif shape == 'sphere':
+        volume = (4.0/3.0)*np.pi*r**3.0
+
+    # define functions x(y) for lower and upper x integration limits
+    def bottomcircle(y,x0=x0,y0=y0,r0=radius):
+        x = -1.0*((r0**2.0)-(y-y0)**2.0)**0.5 + x0
+        return x
+    def topcircle(y,x0=x0,y0=y0,r0=radius):
+        x = ((r0**2.0)-(y-y0)**2.0)**0.5 + x0
+        return x
+
+#    print 'topcircle() = ',
+
+    # define y integration limits
+    lowery = y0-radius
+    uppery = y0+radius
+    
+    # integrate over circle
+    xy_integrals = xm.gaussian_integral_dblquad(bottomcircle,topcircle,lowery,uppery,x,y,r,use_ctypes=False)
+
+    # z integral, -inf to inf
+    z_integrals = (2.0*np.pi*r**2.0)**0.5    
+
+    # total integral (volume in projected circle)
+    involume = xy_integrals*z_integrals
+
+    # get blob volumes in arcsec^3
+    totalvolume = gaussian_volume(r)
+
+    return involume/totalvolume
+            
+#----------------------------------------------------------------
+def circlefraction_star(arglist):
+    """Function to unpack list of arguments and pass to circlefractions"""
+    return circlefraction(*arglist)
+            
+
+#----------------------------------------------------------------
 def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
-                 radius=20.0,x0=-60.0,y0=80.0,logic='exclude',
-                 fraction=False):
+                 r0=None,x0=-60.0,y0=80.0,logic='exclude',
+                 fraction=True,regname='circle',use_ctypes=True,
+                 parallel=False,nproc=3):
     """
     filtercircle()
 
@@ -179,11 +272,11 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
       inframe (pandas.DataFrame): dataframe to be filtered
 
       x,y (str or list of str): names of the columns containing 
-           the parameters to use as x and y circle coordinates.  
+           the parameters to use as x and y blob coordinates.  
            default is to use 'blob_phi' and 'blob_psi'.
        
       r (str or numerical): size of the blob in x,y dimension.
-           if provided, will use radius - r to check distance of
+           if provided, will use r0 - r to check distance of
            each blob from x0,y0. This allows non-pointlike blobs
            which contribute to the emission in the desired region
            to be kept/exluded, even if the blob center is outside 
@@ -196,7 +289,7 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
       x0,y0 (numerical): center coordinates of the circle, in
            same units as x and y
 
-      radius (numerical): radius of the circle, in same units as x and y
+      r0 (numerical): radius of the circle, in same units as x and y
 
       logic (string): string to specify if the circular region should be
            removed (logic='exclude', default), or if everything outside the
@@ -205,39 +298,55 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
       fraction (bool): switch to add extra column that specifies fraction
            of the blob volume inside (if logic='include') or outside (if
            logic='exclude') of the specified circle, instead of dropping
-           any rows. If smaller than 0.01 (<1% is in the include region),
-           the fraction will be set to 0. If >0.99, will be set to one.
+           any rows. 
            this allows more flexibility in deciding what is considered
            'significant' contribution of emission to a region, and allows
            weighting of blobs by this fraction, similar to how it is 
            done in the weighted maps.
-           - if fraction=True, then the r argument is ignored.
-           - NOT YET IMPLEMENTED (need function for gaussian 
-             integration of blob over circular region)
+
+       regname (string): name of the circular region, to be used in new
+           column names. the weight columns (if fraction=True) will be 
+           named regname+'_incl_fraction' (or '_excl_', according to
+           logic), and similarly the distance column regname+'_incl_dist'
+
+        use_ctypes (bool): specify whether to use ctypes in 
+           scipy.integrate.dblquad. ignored if fraction is False
+
+        parallel (bool): specify do integration in parallel. ignored
+           if fractions is False
+
+        nproc (int): number of processors to use if parallel is True
 
     Output:
 
-      Returns a dataframe identical to the input dataframe but missing 
-        rows which are inside (or outside if logic='include') the 
-        defined circle.
+      Returns a dataframe identical to the input dataframe, except:
+      - contains an extra column that is distance of each blob from 
+        the circle center
+      - if fraction is False: missing rows which are inside (or 
+        outside if logic='include') the defined circle
+      - if fraction is True: with an extra column that specifies the 
+        fraction of the blob volume either inside or outside the 
+        circular region (whichever is to be included), if fraction is True
 
     Usage Notes:
      - be very careful if x and y do not have the same units
 
     Example:
-        filtered_df = filtercircle(blobframe,radius=20.0,x0=-40.0,y0=80.0)
+        filtered_df = filtercircle(blobframe,r0=20.0,x0=-40.0,y0=80.0)
         - this will return a version of blobframe which excludes all blobs
           within a circle (in phi, psi coordinates) of radius 20" centered
           on phi=-40.0,psi=80.0
 
         filtered_df = filtercircle(blobframe,x='blob_Si',y='blob_Fe',
-                                   radius=0.2,r=None,
+                                   r0=0.2,r=None,
                                    x0=1.0,y0=1.0,logic='include')
         - this will return a version of blobframe which includes only
           rows (blobs) contained in a circle of radius 0.2 centered on 
           1,1 in the Si-Fe plane.
 
     """
+    from multiprocessing import Pool
+
     #--check for valid logic--
     if logic != 'exclude':
         if logic != 'include':
@@ -248,50 +357,86 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
     #--save original size--
     inblobs = len(inframe.index)
 
+    #--copy dataframe to avoid changing the original--
+    outframe = inframe.copy(deep=False)
+
     #--add column to dataframe that is distance from center--
-    inframe['R'] = ((inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 
+    rcol = regname+'_'+logic[0:3]+'_dist'
+    outframe[rcol] = distance(outframe[x],outframe[y],x0,y0)
+
     #-adjust for blob size-
     if (r is not None) and (r != 0) and (fraction is False):
         if isinstance(r,str): 
-            inframe['R'] = inframe['R'] - inframe[r]
+            outframe[rcol] = outframe[rcol] - outframe[r]
         else:
-            inframe['R'] = inframe['R'] - r
+            outframe[rcol] = outframe[rcol] - r
+    else: # if fraction=True 
+        if isinstance(r,str):
+            outframe['blob_size'] = outframe[r]
+        else:
+            outframe['blob_size'] = r
 
     #--filter--
     if fraction is False:
         # find all blobs in circle - defining blobs to drop
         if logic == 'exclude':
-            circleframe = filterblobs(inframe,'R',maxvals=radius)
+            circleframe = filterblobs(outframe,rcol,maxvals=r0)
         if logic == 'include':
-            circleframe = filterblobs(inframe,'R',minvals=radius)
+            circleframe = filterblobs(outframe,rcol,minvals=r0)
+
+#        print 'number of bad blobs = ',len(circleframe.index)
 
         # drop blobs
-        inframe.drop(circleframe.index,inplace=True)
+        outframe.drop(circleframe.index,inplace=True)
         # remove extra column
-        inframe.drop('R',1,inplace=True)
+#        outframe.drop(rcol,1,inplace=True)
+#        print 'number of good blobs = ',len(outframe.index)
 
-#need to make function for gaussian integral in spherical coords
     if fraction is True:
-        print "ERROR: fraction argument not yet implemented."
-#        y_integrals = xm.gaussian_integral()
-#        inframe['circlefraction'] = 
 
-#    if logic == 'exclude':
-#        outframe = inframe[ ( (inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 >= radius ]
-#    else:
-#        outframe = inframe[ ( (inframe[x]-x0)**2.0+(inframe[y]-y0)**2.0)**0.5 <= radius ]
+        if parallel is True:
+            
+            # build argument list
+            args=[[]]*len(outframe.index)
+            i = 0
+            for b in outframe.index:
+                args[i] = [outframe.loc[b,x],outframe.loc[b,y],outframe.loc[b,'blob_size'],x0,y0,r0,'gauss',use_ctypes] 
+                i = i+1
 
+            # calculate fractions in parallel
+            pool=Pool(nproc)
+            fractions = np.array(pool.map(circlefraction_star,args))
+            pool.close()
+            pool.join()
+
+        if parallel is False:
+            # calculate fractions
+            fractions = outframe.apply(lambda d: circlefraction(d[x],d[y],d['blob_size'],x0,y0,r0,use_ctypes=use_ctypes),axis=1)
+
+        # weights = amount of 'good' emission
+        fraccol = regname+'_'+logic[0:3]+'_fraction'
+        if logic == 'exclude':
+            # remove emission inside circle
+            outframe[fraccol] = 1.0-fractions
+        else:
+            # keep only emission inside circle
+            outframe[fraccol] = fractions
+
+        # remove extra column
+        outframe.drop('blob_size',1,inplace=True)
+
+    if (fraction is False):
     #-warn if zero rows match-
-    if len(inframe.index) == 0:
-        print "filtercircle: Warning: Filtered dataframe has zero rows."
+        if (len(outframe.index) == 0):
+            print "filtercircle: Warning: Filtered dataframe has zero rows."
 
     #-warn if all rows match-
-    if len(inframe.index) == inblobs:
-        print ("filtercircle: Warning: Nothing was filtered"
-               " (all rows match criteria).")
+        if len(outframe.index) == inblobs:
+            print ("filtercircle: Warning: Nothing was filtered"
+                   " (all rows match criteria).")
 
     #-return filtered dataframe-
-    return inframe
+    return outframe
 
 #----------------------------------------------------------------
 
@@ -579,3 +724,27 @@ def gaussian_volume(sigma):
     volume = (2.0*np.pi*np.square(sigma))**1.5
     
     return volume
+
+#----------------------------------------------------------------
+def distance(x,y,x0=-60.0,y0=80.0):
+    """
+    Calculate the distance between two points
+
+    Parameters
+    ----------
+    x,y : numeric or 1D array of numeric
+        x,y coordinates of first point
+
+    x0,y0 : numeric or 1D array of numeric
+        x,y coordinates of second point
+
+    Returns
+    -------
+    Distance (float) between the two points
+
+    Usage Notes
+    -------
+
+    """
+
+    return ((x-x0)**2.0+(y-y0)**2.0)**0.5

@@ -28,7 +28,7 @@ import os,inspect
 import pandas as pd
 import numpy as np
 import astropy.io.fits as fits
-from scipy.integrate import quad,nquad
+from scipy.integrate import quad,nquad,dblquad
 from scipy.ndimage.interpolation import rotate
 from multiprocessing import Pool
 import ctypes
@@ -683,9 +683,41 @@ def gaussian_integral_quad(lowerx,upperx,blobx,blobsize,use_ctypes=True):
     return result[0]
     
 #--------------------------------------------------------------------------
+def gaussian_integral_dblquad(lowerxfun,upperxfun,lowery,uppery,blobx,
+                              bloby,blobsize,use_ctypes=True):
+    """Function to calculate gaussian double integral using scipy.integrate.dblquad()."""
+
+    if use_ctypes is False:
+
+        result = dblquad(gaussian2D,lowery,uppery,lowerxfun,upperxfun,args=(blobx,bloby,blobsize,blobsize))
+
+    else:
+        # - get gaussian function information -
+#        print "ERROR: ctypes not yet implemented for dblquad."
+        gausspath = os.path.dirname(os.path.abspath(inspect.getfile(
+                    inspect.currentframe())))
+        lib = ctypes.CDLL(gausspath+'/gaussian.so')
+        cgauss = lib.gaussian2d # get function name from c library
+        cgauss.restype = ctypes.c_double
+        cgauss.argtypes = (ctypes.c_int,ctypes.c_double)
+    
+        # - integrate -
+        result = dblquad(cgauss,lowery,uppery,lowerxfun,upperxfun,(blobx,bloby,blobsize,blobsize) )
+        #result = nquad(cgauss,[[lowerx,upperx]],args=[blobx,blobsize])
+
+    return result[0]
+    
+
+#--------------------------------------------------------------------------
 def gaussian1D(x,mux,sigma):
     """1-D Gaussian function"""
     return np.exp(-1.0/2.0*(x-mux)**2.0/sigma**2.0)
+
+#--------------------------------------------------------------------------
+def gaussian2D(x,y,mux,muy,sigmax,sigmay):
+    """2-D Gaussian function"""
+    return np.exp( -1.0 * ( (x-mux)**2.0/(2.0*sigmax**2.0) + 
+                            (y-muy)**2.0/(2.0*sigmay**2.0) ) )
 
 #--------------------------------------------------------------------------
 def point_integral(lowerx,upperx,lowery,uppery,x,y):
@@ -748,7 +780,7 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
     #--initialize stack of 2D images, one for each parameter--
     iterimages = np.zeros((nbins_x,nbins_y,len(params)))
 
-   #----Calculate blob volumes in correct units----
+   #----Calculate blob volumes in correct units (usually arcsec^3)----
     if shape == 'gauss':
         volumes = gaussian_volume(data[blobsize]) 
     elif shape == 'sphere':
