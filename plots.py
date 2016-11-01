@@ -480,7 +480,8 @@ def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
 def histogram(dataseries,weights=None,bins=100,save=True,height=600,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
-              density=False,alpha=None,xlog='auto',legend=None,**kwargs):
+              density=False,alpha=None,xlog='auto',legend=None,
+              norm=False,**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -510,8 +511,13 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
                   (allows plotting multiple dataseries on the same figure) 
                   (default=None)
 
-     density:     passed to histogram. if True, then histogram is 
-                  normalized.
+     density:     passed to histogram. if True, then returned histogram is
+                  is the probability density function. In general, will
+                  not use this.
+
+
+     norm:        normalize the histogram (default=False). useful when 
+                  plotting multiple histograms for comparison.
 
      xlog:        make x-axis bins uniform in log10 space. options are:
                   - 'auto' (default) -- try to automatically determine
@@ -576,6 +582,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
                                   density=density,range=rng)
 #    print 'histy = ',histy
 #    print 'binedges = ',binedges
+
+    if norm is True:
+        histy = histy/float(np.sum(histy))
 
 #----Set up Plot----
     if save:
