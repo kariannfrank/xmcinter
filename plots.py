@@ -3,6 +3,7 @@ Module of functions for plotting xmc results.
 
 Contains the following functions:
 
+ get_range
  chi2
  traceplots
  scatter
@@ -20,6 +21,24 @@ import bokeh
 import bokeh.plotting as bplt
 import bokeh.charts as bchart
 from bokeh.layouts import gridplot
+
+#----------------------------------------------------------
+def logaxis(minval,maxval,limit=2.0):
+    """
+    Given minimum and maximum values of axis range, decide if log or linear
+    scale should be used.
+    
+    limit specifies how many orders of magnitude must separate the 
+    min and max values before switching to log scale.
+
+    Returns either True (log axis) or False (linear axis)
+    """
+#    rng = (dataseries.min(),dataseries.max())
+    norders = np.log10(maxval) - np.log10(minval)
+    if norders > float(limit):
+        return True
+    else:
+        return False
 
 #----------------------------------------------------------
 def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
@@ -248,18 +267,11 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
 #----Check for log scale----
     x_rng = (df[x].min(),df[x].max())
     if xlog == 'auto':
-        norders = np.log10(x_rng[1]) - np.log10(x_rng[0])
-        if norders > 2.0:
-            xlog = True
-        else:
-            xlog = False
+        xlog = logaxis(x_rng[0],x_rng[1])
+
     y_rng = (df[y].min(),df[y].max())
     if ylog == 'auto':
-        norders = np.log10(y_rng[1]) - np.log10(y_rng[0])
-        if norders > 2.0:
-            ylog = True
-        else:
-            ylog = False
+        ylog = logaxis(y_rng[0],y_rng[1])
 
     x_axis_type='linear'
     y_axis_type='linear'
@@ -481,7 +493,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',legend=None,
-              norm=False,**kwargs):
+              norm=False,xmin=None,xmax=None,**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -515,15 +527,17 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
                   is the probability density function. In general, will
                   not use this.
 
-
-     norm:        normalize the histogram (default=False). useful when 
-                  plotting multiple histograms for comparison.
+     norm:        normalize the histogram(s) so the y-axis goes from 0 to 1
+                  (default=False). useful when 
+                  plotting multiple histograms for comparison. 
 
      xlog:        make x-axis bins uniform in log10 space. options are:
                   - 'auto' (default) -- try to automatically determine
                     which is best based on the data range
                   - True -- force log bins
                   - False -- force linear bins
+
+     xmin,xmax:   explicitly force xaxis min and max
 
      outfile:     string name of html file to save figure to. set to 
                   outfile='notebook' to plot to jupyter notebook.
@@ -539,6 +553,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
      - returns the figure object (allows replotting it, e.g. in a grid with
        other figures), along with string to specify if the xbins are spaced
        linearly ('lin') or logarithmically ('log')
+
     Usage Notes:
      - must close and save (if desired) the plot manually
      - axis labels will use the pandas series names (e.g. dataseries.name)
@@ -560,17 +575,21 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
         else: 
             alpha = 1.0
 
-#----Set up Log Bins----
+#----Set up Log Bins and Axis----
     rng = (dataseries.min(),dataseries.max())
-    if xlog == 'auto':
-        norders = np.log10(rng[1]) - np.log10(rng[0])
-        if norders > 2.0:
-            xlog = True
-        else:
-            xlog = False
-#    print 'xlog = ',xlog
+    
+    # log axis
+    if xmin is None:
+        xmin = rng[0]
+    if xmax is None:
+        xmax = rng[1]
+    xaxisrng = (xmin,xmax)
 
-    if xlog == True: # set up log bins
+    if xlog == 'auto':
+        xlog = logaxis(xaxisrng[0],xaxisrng[1])
+
+    # set up log bins
+    if xlog is True: 
         logbins = np.logspace(np.log10(rng[0]),np.log10(rng[1]),bins)
         bins = logbins
         bintype = 'log'
@@ -584,7 +603,11 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 #    print 'binedges = ',binedges
 
     if norm is True:
-        histy = histy/float(np.sum(histy))
+#        histy = histy/float(np.sum(histy))
+        histy = histy/float(np.max(histy))
+        yaxisrng = (0.0,1.5)
+    else:
+        yaxisrng = (0.0,1.1*dataseries.max())
 
 #----Set up Plot----
     if save:
@@ -596,14 +619,20 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
     if infig is None:
         fig = bplt.Figure(tools=tools,plot_width=width,plot_height=height,
-                          x_axis_type=bintype,x_range=(rng[0],rng[1]))
+                          x_axis_type=bintype,x_range=xaxisrng,
+                          y_range=yaxisrng)
         fig.xaxis.axis_label=dataseries.name
+
+        if weights is not None:
+            if norm is True:
+                fig.yaxis.axis_label='normalized '+weights.name
+            else:
+                fig.yaxis.axis_label=weights.name
+            if np.log10(max(histy))>3: 
+                fig.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
     else:
         fig = infig
-    if weights is not None:
-        fig.yaxis.axis_label=weights.name
-        if np.log10(max(histy))>3: 
-            fig.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
+
 
 #----Format Ticks----
 #    fig.yaxis.formatter=PrintfTickFormatter(format="%4.1e")
@@ -615,6 +644,13 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 #---Plot the histogram----
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
                  color=color,alpha=alpha,legend=legend,**kwargs)
+    
+    if legend is not None:
+        # add some fancier treatment of legend (e.g. move outside the plot)
+#        fig.legend.location='top_left'
+        fig.legend.orientation='horizontal'
+#        leg = fig.legend
+        pass
 
     if save:
         bplt.show(fig)#,new='window',browser='firefox --no-remote')
@@ -625,8 +661,11 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
     return fig
 
 #----------------------------------------------------------
-def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
-                   ncols=2,outfile='histogram_grid.html',**kwargs):
+def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
+                   ncols=2,outfile='histogram_grid.html',
+                   colors=['steelblue','darkolivegreen',
+                  'mediumpurple','darkorange','firebrick','gray'],
+                   alphas=None,norm=False,legends=None,**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -637,15 +676,52 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 
     Input:
 
-     dframe:      input dataframe
+     dframes:     input dataframe, or list of dataframes
 
      weights:     optionally provided a pandas series of weights which 
                   correspond to the values in datacolumn (e.g. emission 
-                  measure)
+                  measure). if dframes is a list of len>1, then 
+                  weights must be one of the following:
+                  - a list of the same length (with
+                    each element a series corresponding one of the 
+                    dataframes in dframes)
+                  - a series that will be applied
+                    as weights to all dataframes in dframes. all 
+                    dataframes must have the same number of rows
+                  - a string containing a column name to use as weights
+                    every dataframe in dframes must contain this column
+                  - a list of strings, containing the name of a column
+                    in each dframes dataframe to use a weight
+                  Note that if a list is provided, None is a valid element.
+                  
 
-     bins:        optionally specify the number of bins (default=30)
+     bins:        numerical or list of numerical, optional. the number 
+                  of bins (default=100) used to create the histogram for 
+                  each dataframe in dframes. if dframes is a list of 
+                  len>1, then bins must be either a scalar (the same 
+                  number of bins will be used for every dataframe), or a 
+                  a list the same length as dframes.
+
+     norm:        normalize the histogram(s) so the y-axis goes from 0 to 1
+                  (default=False). useful when 
+                  plotting multiple histograms for comparison. 
 
      height,width: height and width of each histogram, passed to histogram()
+
+
+     alphas:      optionally pass float or list of floats (if 
+                  len(dframes>1) specifying the opacity of each plotted
+                  histogram (passed to histogram()). (default=0.4 if 
+                  len(dframes)>1, else default=1)
+                 
+     colors:      optionally pass color or list of colors (if 
+                  len(dframes>1) specifying the fill color of each plotted
+                  histogram (passed to histogram()). default is to choose
+                  in order from ['steelblue','darksage',
+                  'mediumpurple','darkorange','firebrick','gray']
+
+     legends:     optional string or list of strings (list if 
+                  len(dframes)>1) to use as legend labels
 
      ncols:       number of columns in the grid of histograms (default=4)
 
@@ -662,16 +738,65 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 
     Usage Notes:
      - must close and save (if desired) the plot manually
-    - if outfile='notebook', then MUST call bplt.output_notebook() in its
+     - if outfile='notebook', then MUST call bplt.output_notebook() in its
        own cell in the current notebook before calling this function, else
        it won't automatically display the figure inline.
+     - if dframes is a list of len>1, then only the columns specified in 
+       first dataframe will be plotted as histograms. corresponding 
+       columns in the other dataframes will be overplotted if they exist. 
+       additional columns in the other dataframes will be ignored.
+     - if dframes is a list, and any of the other arguments which can
+       be passed as lists are of longer length than dframes, any
+       extra elements in those lists will ignored.
 
     Example:
+     - Plot histograms of the parameters in blobcols list, in grid with 
+       1 column, weighted by the blob_weight column, with 300 bins.
+
+         hfigs=xplt.histogram_grid(df[blobcols],bins=300,
+                     ncols=1,height=200,width=400,weights=df.blob_weight)
+       
+     - Plot histograms of the columns labeled 'blob_kT' and 'blob_mass'
+       with the histograms from df2 overplotted on those from df1
+       
+         hfigs=xplt.histogram_grid([df['blob_kT','blob_mass'],df2],
+                       bins=[300,100],ncols=1,height=200,width=400,
+                       weights=[df.blob_weight,df2.blob_weight])
+
 
     """
 
 #----Import Modules----
     import math
+    from bokeh.models import Label,Span
+
+#----Check for multiple dataframes and cast variables as lists----
+    if isinstance(dframes,list):
+        
+        if not isinstance(weights,list):
+            if isinstance(weights,str):
+                weights = [dfr[weights] for dfr in dframes]
+            else:
+                weights = [weights]*len(dframes)
+
+        if not isinstance(bins,list):
+            bins = [bins]*len(dframes)
+
+        if not isinstance(alphas,list):
+            if alphas is None:
+                alphas = [0.4]*len(dframes)
+            else:
+                alphas = [alphas]
+
+        if not isinstance(legends,list):
+            legends = [legend]*len(dframes)
+
+    else:
+        dframes = [dframes]
+        if isinstance(weights,str):
+            weights = [dframes[0][weights]]
+        else:
+            weights = [weights]
 
 #----Set up plot----
     if outfile != 'notebook':
@@ -682,11 +807,64 @@ def histogram_grid(dframe,weights=None,bins=100,height=300,width=400,
 #----Initialize empty figure list----
     figlist=[]
 
+#----Create empty figure with legend only----
+
+    # create emply plot
+    newfig = bplt.figure(plot_width=width,plot_height=height)
+
+    # create labels (one per dframe)
+    for i in xrange(len(dframes)):
+        yi = height-30-30*i
+               
+        # add color bar
+        legbar = Span(location=yi,dimension='width',line_color=colors[i],
+                      line_alpha=alphas[i],line_width=25,
+                      location_units='screen')
+        newfig.add_layout(legbar)
+
+        # add text
+        leg = Label(x=70,y=yi-10,x_units='screen',y_units='screen',
+                    text=legends[i],
+                    text_color=colors[i],
+                    text_font_style='bold',#background_fill_color=colors[i],
+                    #background_fill_alpha=alphas[i]
+                    )
+        newfig.add_layout(leg)        
+
+    figlist = figlist+[newfig]
+
 #----Fill in list of figures----
-    for column in dframe:
-        newfig = histogram(dframe[column],weights=weights,
-                           save=False,height=height,width=width,
-                           bins=bins,**kwargs)
+    for column in dframes[0]:
+
+        # get min and max of xaxis
+        xmin = min([dseries.min() for dseries in 
+                    [dfr[column] for dfr in dframes] ])
+        xmax = max([dseries.max() for dseries in 
+                    [dfr[column] for dfr in dframes] ])
+
+        # get xaxis scale
+        xlog = logaxis(xmin,xmax)
+
+        # first histogram
+        newfig = histogram(dframes[0][column],weights=weights[0],
+                           save=False,height=height,width=width,xmin=xmin,
+                           xmax=xmax,xlog=xlog,#legend=legends[0],
+                           bins=bins[0],norm=norm,color=colors[0],
+                           alpha=alphas[0],**kwargs)
+
+        # loop through any remaining dataframes
+        if len(dframes)>1:
+            for d in xrange(len(dframes)-1):
+                # proceed only if column exists
+                if column in dfr.columns:
+                    # plot histogram
+                    newfig = histogram(dframes[d+1][column],
+                                     weights=weights[d+1],bins=bins[d+1],
+                                     save=False,color=colors[d+1],
+                                     alpha=alphas[d+1],
+                                     norm=norm,#legend=legends[d+1],
+                                     infig=newfig,xlog=xlog)
+
         figlist=figlist+[newfig]
         #print column,bins
 
