@@ -15,7 +15,7 @@ essentially just helper functions for make_map. The function that does most
 of the work is iteration_image.
 
 IMPORTANT NOTE ABOUT DENSITY MAPS
-make_map() does not properly handle density maps (i.e. number density or
+make_map() may not properly handle density maps (i.e. number density or
 mass density) since it is not linearly dependent on EM.  Intead, use
 em_to_map_density() to calculate the correct parameter columns to pass to 
 make_map(), with the weights set to 'densityspecial'.
@@ -80,14 +80,14 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 then can also give paramweights as a list of the same
                 length, specifying a different weights column for each
                 map -- this is important if, e.g. one of the paramnames 
-                is 'blob_em', which should is typically also used as the 
+                is 'blob_em', which is typically also used as the 
                 weights for the other parameters.  passing a value of None
                 will result in an unweighted map.
 
       itmod :   set to an integer > 1 to use only every
                it_mod'th iteration (defaul=100)
 
-      nlayers: optionally set number of layers (number of iterations to use
+      nlayers: optionally set number of layers (number of iterations) to use
                rather than itmod.  if set, will override itmod. default=None
 
       binsize : size of a pixel, in same units as paramx and paramy,
@@ -108,7 +108,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 the final image. error will produce a map of the parameter
                 error (default='median'). if paramname is a list, then can
                 also give ctype as a list of the same length, specifying
-                a differenty ctype for each map.
+                a different ctype for each map.
 
       witherror (bool) : switch to also return a map of the error in 
                          each pixel (standard deviation)

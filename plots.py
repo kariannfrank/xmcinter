@@ -512,7 +512,17 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
                   correspond to the values in datacolumn (e.g. emission 
                   measure)
 
-     bins:        optionally specify the number of bins (default=30)
+     bins:        optionally specify the number of bins (default=30).
+                  is passed directly to numpy.histogram(), so can
+                  also accept any of the strings recognized by that function
+                  for special calculation of bin sizes.
+                  - 'auto' (but don't use if using weights)
+                  - 'fd' (Freedman Diaconis Estimator)
+                  - 'doane'
+                  - 'scott'
+                  - 'rice' 
+                  - 'sturges'
+                  - 'sqrt'
 
      height,width: height and width of each histogram
 
@@ -605,9 +615,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
     if norm is True:
 #        histy = histy/float(np.sum(histy))
         histy = histy/float(np.max(histy))
-        yaxisrng = (0.0,1.5)
+        yaxisrng = (0.0,1.1)
     else:
-        yaxisrng = (0.0,1.1*dataseries.max())
+        yaxisrng = (0.0,1.1*np.max(histy))
 
 #----Set up Plot----
     if save:
@@ -630,6 +640,11 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
                 fig.yaxis.axis_label=weights.name
             if np.log10(max(histy))>3: 
                 fig.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
+        else:
+            if norm is True:
+                fig.yaxis.axis_label = 'normalized number of blobs'
+            else:
+                fig.yaxis.axis_label = 'number of blobs'
     else:
         fig = infig
 
@@ -721,7 +736,7 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
                   'mediumpurple','darkorange','firebrick','gray']
 
      legends:     optional string or list of strings (list if 
-                  len(dframes)>1) to use as legend labels
+                  len(dframes)>1) to use as legend labels.
 
      ncols:       number of columns in the grid of histograms (default=4)
 
@@ -789,7 +804,7 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
                 alphas = [alphas]
 
         if not isinstance(legends,list):
-            legends = [legend]*len(dframes)
+            legends = [legends]*len(dframes)
 
     else:
         dframes = [dframes]
@@ -797,6 +812,10 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
             weights = [dframes[0][weights]]
         else:
             weights = [weights]
+        if alphas is None:
+            alphas=[1.0]
+        bins = [bins]
+        legends = [legends]
 
 #----Set up plot----
     if outfile != 'notebook':
@@ -809,7 +828,7 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
 
 #----Create empty figure with legend only----
 
-    # create emply plot
+    # create empty plot
     newfig = bplt.figure(plot_width=width,plot_height=height)
 
     # create labels (one per dframe)
@@ -825,7 +844,7 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
         # add text
         leg = Label(x=70,y=yi-10,x_units='screen',y_units='screen',
                     text=legends[i],
-                    text_color=colors[i],
+                    text_color='black',
                     text_font_style='bold',#background_fill_color=colors[i],
                     #background_fill_alpha=alphas[i]
                     )
@@ -846,6 +865,8 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
         xlog = logaxis(xmin,xmax)
 
         # first histogram
+        if isinstance(weights[0],str):
+            weights[0] = dframes[0][weights[0]]
         newfig = histogram(dframes[0][column],weights=weights[0],
                            save=False,height=height,width=width,xmin=xmin,
                            xmax=xmax,xlog=xlog,#legend=legends[0],
@@ -857,6 +878,8 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
             for d in xrange(len(dframes)-1):
                 # proceed only if column exists
                 if column in dfr.columns:
+                    if isinstance(weights[d+1],str):
+                        weights[d+1] = dframes[d+1][weights[d+1]]
                     # plot histogram
                     newfig = histogram(dframes[d+1][column],
                                      weights=weights[d+1],bins=bins[d+1],
@@ -939,16 +962,17 @@ def format_ticks(vals):
         return PrintfTickFormatter(format = "%1.2e")
 
 #----------------------------------------------------------
-def spectra(runpath='./',smin=0,smax=None,datacolor='black',
-            modelcolor='cornflowerblue',lastmodelcolor='crimson',nbins=None):
+def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
+            modelcolor='steelblue',lastmodelcolor='firebrick',nbins=None,
+            outfile='spectrum.html'):
     """
     Author: Kari A. Frank
     Date: November 18, 2015
     Purpose: Make a plot of the data and (average) model spectra compared
 
-    Usage: spectra(runpath='./',smin=0,smax=None,nbins=350.0,
+    Usage: spectrum(runpath='./',smin=0,smax=None,nbins=350.0,
                    datacolor='black',modelcolor='steelblue',
-                   lastmodelcolor='darkred')
+                   lastmodelcolor='firebrick',save=True,outfile='spectrum.html')
 
     Input:
      runpath (string) : the relative path to xmc run folder, which
@@ -963,9 +987,15 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     nbins (int) : number of bins in the histogram. 
                   defaults to a binsize of 0.015 keV.
 
+    outfile (str) : name of output html file, or 'notebook' if plotting to 
+                    an open Jupyter notebook
+
+    save (bool) : if save is False, then will not display the final figure
+                  or save it to a file
+
     Output:
-     - plots the spectra for to an interactive plot
-     - Returns the data spectrum numpy array
+     - plots the spectra for to an interactive plot (if save=True)
+     - Returns the figure object
 
     Usage Notes:
      - must close and save (if desired) the plot manually
@@ -1039,7 +1069,12 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
     lastmodely,lastmodelx = np.histogram(model_wave,bins=nbins,density=True)
 
     #----Set up Plot----
-    bplt.output_file('spectrum.html')
+    if save is True:
+        if outfile != 'notebook':
+            bplt.output_file(outfile)
+        else:
+            bplt.output_notebook()
+
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
     fig = bplt.Figure(tools=TOOLS)
     if np.max(datax) < 15.0:
@@ -1060,14 +1095,17 @@ def spectra(runpath='./',smin=0,smax=None,datacolor='black',
              "Model (Last Iteration)")
 
     #----Show the Plot----
-    bplt.show(fig)
-    bplt.curdoc().clear()
+    if save is True:
+        bplt.show(fig)
+        if outfile != 'notebook': bplt.curdoc().clear()
 
 #----Return----
-    return data_wave
+    return fig
+
 #----------------------------------------------------------
-def evolution(inframe,columns=None,iteration_type = 'median',weights=None,save=True,
-              ncols=4):
+def evolution(inframe,iteration_type = 'median',itercol = 'iteration',
+              weights=None,save=True,outfile='evolution_plots.html',
+              ncols=4,height=300,width=300):
     """
     evolution()
  
@@ -1075,13 +1113,12 @@ def evolution(inframe,columns=None,iteration_type = 'median',weights=None,save=T
     Date: April 15, 2016
     Purpose: plot parameters vs iteration
 
-   Usage: scatter(inframe,columns=None,iteration_type='median')
+   Usage: scatter(inframe,iteration_type='median')
 
    Input:
  
-    inframe (DataFrame):  pandas DataFrame containing the data columns to be plotted   
-
-    columns (string or list of strings): names of columns to be plotted
+    inframe (DataFrame):  pandas DataFrame. all columns will be plotted
+                          and one column must contain iterations.
              
     iteration_type (string): method used to combine parameter values within
          each iteration
@@ -1091,13 +1128,19 @@ def evolution(inframe,columns=None,iteration_type = 'median',weights=None,save=T
          - 'stdev' -- plots the standard deviation from each iteration
          - 'total' -- sums all blobs within each iteration
 
-    weights (pd.Series): weights to apply to each blob (e.g. emission measure)
+    weights (str): column name of weights to apply to each blob 
+                   (e.g. emission measure)
 
     save:        optionally turn off opening and saving the plot as an 
-                  html file - returns the figure object only (default=True)
+                 html file - returns the figure object only (default=True)
 
-    ncols: optionally specify number of columns in plot grid if plotting more than
-           one parameter. ignored if len(columns)=1
+    ncols: optionally specify number of columns in plot grid if plotting 
+           more than one parameter. ignored if len(columns)=1
+
+    width/height: specify the size of the individual plots
+
+    outfile: name of output file, or 'notebook' if plotting to a 
+             Jupyter notebook
 
    Output:
    - plots parameter vs iteration to an interactive plot
@@ -1110,50 +1153,106 @@ def evolution(inframe,columns=None,iteration_type = 'median',weights=None,save=T
   Example:
  
   """
-    
+
+    #----Import Modules----
+    from bokeh.models import ColumnDataSource
+    from wrangle import weighted_median,weighted_std
+    from functools import partial
+
+    inframe = inframe.copy()
 
     #----Combine blobs in each iteration----
 
-    
+    if weights is None:
+        #--group by iteration--
+        if iteration_type == 'median':
+            iterframe = inframe.groupby(itercol,as_index=False).median()
+        elif iteration_type == 'average':
+            iterframe = inframe.groupby(itercol,as_index=False).mean()
+        elif iteration_type == 'stdev':
+            iterframe = inframe.groupby(itercol,as_index=False).std()
+        elif iteration_type == 'total':
+            iterframe = inframe.groupby(itercol,as_index=False).sum()
+        elif iteration_type is None:
+            iterframe = inframe
+        else:
+            print ("Warning: Unrecognized iteration_type. Using"
+                   " iteration_type='median'")
+            iterframe = inframe.groupby(itercol,as_index=False).median()
+
+            
+    else: # weights
+        # set up functions to use
+        if iteration_type == 'median':
+            def func(g):
+                w = inframe.ix[g.index][weights]
+                return weighted_median(g,weights=w)
+        elif iteration_type == 'average':
+            def func(g):
+                w = inframe.ix[g.index][weights]
+                return np.average(g,weights=w)
+        elif iteration_type == 'stdev':
+            def func(g):
+                w = inframe.ix[g.index][weights]
+                return weighted_std(g,weights=w)
+        elif iteration_type == 'total':
+            def func(g):
+                w = inframe.ix[g.index][weights]
+                return np.sum(g*w)/np.sum(w)
+        elif iteration_type is None:
+            print ("Warning: iteration_type = None but weights != None. "
+                   "If using weights, must aggregrate iterations. Setting"
+                   " iteration_type='median'.")
+            def func(g):
+                w = inframe.ix[g.index][weights]
+                return weighted_median(g,weights=w)
+        else:
+            print ("Warning: Unrecognized iteration_type. Using"
+                   " iteration_type='median'")
+            def func(g):
+                w = inframe.ix[g.index][weights]
+                return weighted_median(g,weights=w)
+            
+        # group and aggregrate
+        aggfunc = partial(func)
+        inframe_grp = inframe.groupby(itercol,as_index=False)
+        iterframe=inframe_grp.agg(aggfunc)#.reset_index()
+        # remove extra column index
+        # iterframe.columns = iterframe.columns.get_level_values(0)
+        print iterframe.head()
+
+
     #----Set up plot----
     if (save is True):
-        if (len(columns)>1): 
-            bplt.output_file('evolution_grid.html')
+        if (len(iterframe.columns)>1): 
             itersave=False
+            if outfile != 'notebook':
+                bplt.output_file(outfile)
+            else:
+                bplt.output_notebook()
         else:
             itersave=True
 
     source = ColumnDataSource(iterframe)
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
-    w = 300 # plot width 
-    h = 300 # plot height
 
     #----Initialize empty figure list----
     figlist=[]
 
     #----Fill in list of figures----
-    for col in columns:
+    for col in iterframe.columns:
 
         #----Plot parameter vs iteration----
-        newfig = scatter(iterframe,'iteration',col,agg='none',save=itersave)
+        newfig,newsource = scatter(iterframe,itercol,col,agg=None,source=source,
+                         tools=TOOLS,sampling=None,xlog=False,
+                         save=itersave,height=height,width=width)
         figlist=figlist+[newfig]    
 
-    #----Reshape list into a 4 column array---
+    #----Plot Grid of Figures----
+    p = gridplot(figlist,ncols=ncols,plot_width=width,plot_height=height)
 
-    #--define new shape--
-    nfigs = len(figlist)
-    nrows = int(math.ceil(float(nfigs)/float(ncols)))
-
-    #--pad list with None to have nrows*ncols elements--
-    figlist = figlist+[None]*(nrows*ncols-nfigs)
-
-    #--reshape list--
-    figarr = [figlist[ncols*i:ncols*(i+1)] for i in range(nrows)]
-
-    #----Plot histograms----
-    p = bplt.gridplot(figarr)
-    if save is True: 
+    if save is True:
         bplt.show(p)
-        bplt.curdoc().clear()
+        if outfile != 'notebook': bplt.curdoc().clear()
 
-    return fig
+    return p

@@ -37,6 +37,7 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
      distance: distance to the object in kpc (default=8.0), used to 
                calculate the emission measure
 
+
     Output:
 
      Returns the dataframe of deconvolution parameters, filtered by iteration

@@ -23,6 +23,8 @@ Statistics:
  weighted_posterior()
  weighted_modes()
  credible_region()
+ distance()
+ weighted_std()
 
 """
 #----------------------------------------------------------------
@@ -520,7 +522,8 @@ def quantile(data, quantile, weights = None):
     elif nd > 1:
         n = data.shape
         imr = data.reshape((np.prod(n[:-1]), n[-1]))
-        result = np.apply_along_axis(quantile_1D, -1, imr, weights, quantile)
+        result = np.apply_along_axis(quantile_1D, -1, imr, weights, 
+                                     quantile)
         return result.reshape(n[:-1])
 
 #----------------------------------------------------------------
@@ -594,7 +597,8 @@ def weighted_modes(data, weights=None):
 #----------------------------------------------------------------
 def credible_region(data, weights=None, frac=0.9, method='HPD'):
     """
-    Calculate the Bayesian credible region from the provided posterior distribution.
+    Calculate the Bayesian credible region from the provided posterior 
+    distribution.
 
     Parameters
     ----------
@@ -628,7 +632,6 @@ def credible_region(data, weights=None, frac=0.9, method='HPD'):
     endpoints of the credible region.
     In the case of method='HPD' and multiple modes, it will return a list
     of tuples, containing the modes and endpoints for each mode.
-    implemented]
 
     Usage Notes
     -------
@@ -684,7 +687,7 @@ def credible_region(data, weights=None, frac=0.9, method='HPD'):
             highfound = 1
     
     #-save mode and final interval (whether or not desired frac was reached)
-    interval = (modes,postx[lowxi+1],posty[highxi-1])
+    interval = (modes,postx[lowxi+1],postx[highxi-1])
             
     #-check if both upper and lower limits encountered-
     if lowxi+1 == 0: print "Lower limit reached."
@@ -748,3 +751,44 @@ def distance(x,y,x0=-60.0,y0=80.0):
     """
 
     return ((x-x0)**2.0+(y-y0)**2.0)**0.5
+
+#----------------------------------------------------------------
+def weighted_std(data, weights=None):
+    """
+    Calculate weighted standard deviation of series.
+
+    Parameters
+    ----------
+    data : 1D numeric array
+        series of values to find the standard deviation of
+
+    weights : 1D numeric array (optional)
+        series of weights to apply to data. must have the same
+        size as data.
+
+    Returns
+    -------
+    Weighted standard deviation of data (float).
+
+    Usage Notes
+    -------
+
+    """
+    
+    # convert to np.ndarray if pd.Series
+    if isinstance(data,pd.Series):
+        data = data.values
+    if isinstance(weights,pd.Series):
+        weights = weights.values
+
+    # create dummy weights array
+    if weights is None:
+        weights = np.ones_like(data)
+
+    # calculate standard deviation
+    avg = np.average(data,weights=weights)
+    a = ((data-avg)**2.0)*weights
+    numerator = np.sum(a)
+    denominator = np.sum(weights)
+
+    return (numerator/denominator)**0.5
