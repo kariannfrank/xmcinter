@@ -1219,8 +1219,6 @@ def evolution(inframe,iteration_type = 'median',itercol = 'iteration',
         iterframe=inframe_grp.agg(aggfunc)#.reset_index()
         # remove extra column index
         # iterframe.columns = iterframe.columns.get_level_values(0)
-        print iterframe.head()
-
 
     #----Set up plot----
     if (save is True):
