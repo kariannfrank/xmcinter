@@ -658,7 +658,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
 #---Plot the histogram----
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
-                 color=color,alpha=alpha,legend=legend,**kwargs)
+                 color=color,alpha=alpha,legend=legend)#,**kwargs)
     
     if legend is not None:
         # add some fancier treatment of legend (e.g. move outside the plot)
@@ -676,7 +676,8 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
     return fig
 
 #----------------------------------------------------------
-def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
+def histogram_grid(dframes,columns=None,weights=None,bins=100,
+                   height=300,width=400,
                    ncols=2,outfile='histogram_grid.html',
                    colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
@@ -692,6 +693,9 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
     Input:
 
      dframes:     input dataframe, or list of dataframes
+
+     columns:    list of column names to plot. default=None will
+                 plot all columns in the first dframe in list
 
      weights:     optionally provided a pandas series of weights which 
                   correspond to the values in datacolumn (e.g. emission 
@@ -756,11 +760,12 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
      - if outfile='notebook', then MUST call bplt.output_notebook() in its
        own cell in the current notebook before calling this function, else
        it won't automatically display the figure inline.
-     - if dframes is a list of len>1, then only the columns specified in 
-       first dataframe will be plotted as histograms. corresponding 
-       columns in the other dataframes will be overplotted if they exist. 
-       additional columns in the other dataframes will be ignored.
-     - if dframes is a list, and any of the other arguments which can
+     - only the columns specified which exist in at least one of the given 
+       dataframes will be plotted as histograms. 
+       corresponding columns in other dataframes will be overplotted 
+       if they exist. additional columns in any of the dataframes will be 
+       ignored.
+     - if dframes is a list, and any of the associated arguments which can
        be passed as lists are of longer length than dframes, any
        extra elements in those lists will ignored.
 
@@ -768,13 +773,13 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
      - Plot histograms of the parameters in blobcols list, in grid with 
        1 column, weighted by the blob_weight column, with 300 bins.
 
-         hfigs=xplt.histogram_grid(df[blobcols],bins=300,
+         hfigs=xplt.histogram_grid(df,columns=[blobcols],bins=300,
                      ncols=1,height=200,width=400,weights=df.blob_weight)
        
      - Plot histograms of the columns labeled 'blob_kT' and 'blob_mass'
        with the histograms from df2 overplotted on those from df1
        
-         hfigs=xplt.histogram_grid([df['blob_kT','blob_mass'],df2],
+         hfigs=xplt.histogram_grid([df,df2],columns=['blob_kT','blob_mass'],
                        bins=[300,100],ncols=1,height=200,width=400,
                        weights=[df.blob_weight,df2.blob_weight])
 
@@ -785,7 +790,9 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
     import math
     from bokeh.models import Label,Span
 
+
 #----Check for multiple dataframes and cast variables as lists----
+
     if isinstance(dframes,list):
         
         if not isinstance(weights,list):
@@ -816,6 +823,14 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
             alphas=[1.0]
         bins = [bins]
         legends = [legends]
+        if (not isinstance(columns,list)) and (columns is not None):
+            columns = [columns]
+
+    if columns is None:
+        columns = []
+        for df in dframes:
+            columns = columns+[c for c in df.columns if c not in columns]
+        print columns
 
 #----Set up plot----
     if outfile != 'notebook':
@@ -853,55 +868,37 @@ def histogram_grid(dframes,weights=None,bins=100,height=300,width=400,
     figlist = figlist+[newfig]
 
 #----Fill in list of figures----
-    for column in dframes[0]:
+
+    for column in columns:
 
         # get min and max of xaxis
-        xmin = min([dseries.min() for dseries in 
-                    [dfr[column] for dfr in dframes] ])
-        xmax = max([dseries.max() for dseries in 
-                    [dfr[column] for dfr in dframes] ])
+        xmin = 0.0
+        xmax = 0.0
+        for dfr in dframes:
+            if column in dfr.columns:
+                xmin = min(xmin,dfr[column].min())
+                xmax = min(xmax,dfr[column].max())
 
         # get xaxis scale
         xlog = logaxis(xmin,xmax)
 
-        # first histogram
-        if isinstance(weights[0],str):
-            weights[0] = dframes[0][weights[0]]
-        newfig = histogram(dframes[0][column],weights=weights[0],
-                           save=False,height=height,width=width,xmin=xmin,
-                           xmax=xmax,xlog=xlog,#legend=legends[0],
-                           bins=bins[0],norm=norm,color=colors[0],
-                           alpha=alphas[0],**kwargs)
-
         # loop through any remaining dataframes
-        if len(dframes)>1:
-            for d in xrange(len(dframes)-1):
-                # proceed only if column exists
-                if column in dfr.columns:
-                    if isinstance(weights[d+1],str):
-                        weights[d+1] = dframes[d+1][weights[d+1]]
-                    # plot histogram
-                    newfig = histogram(dframes[d+1][column],
-                                     weights=weights[d+1],bins=bins[d+1],
-                                     save=False,color=colors[d+1],
-                                     alpha=alphas[d+1],
+        newfig = None # reset newfig for each column
+        for d in xrange(len(dframes)):
+            # proceed only if column exists
+            if column in dframes[d].columns:
+                if isinstance(weights[d],str):
+                    weights[d] = dframes[d][weights[d]]
+
+            # plot histogram
+                newfig = histogram(dframes[d][column],
+                                     weights=weights[d],bins=bins[d],
+                                     save=False,color=colors[d],
+                                     alpha=alphas[d],height=height,
+                                     width=width,xmin=xmin,xmax=xmax,
                                      norm=norm,#legend=legends[d+1],
                                      infig=newfig,xlog=xlog)
-
         figlist=figlist+[newfig]
-        #print column,bins
-
-#----Reshape list into a 4 column array---
-
-    #--define new shape--
-#    nfigs = len(figlist)
-#    nrows = int(math.ceil(float(nfigs)/float(ncols)))
-
-    #--pad list with None to have nrows*ncols elements--
-#    figlist = figlist+[None]*(nrows*ncols-nfigs)
-
-    #--reshape list--
-#    figarr = [figlist[ncols*i:ncols*(i+1)] for i in range(nrows)]
 
 #----Plot histograms----
 #    p = gridplot(figarr)
@@ -972,7 +969,8 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
 
     Usage: spectrum(runpath='./',smin=0,smax=None,nbins=350.0,
                    datacolor='black',modelcolor='steelblue',
-                   lastmodelcolor='firebrick',save=True,outfile='spectrum.html')
+                   lastmodelcolor='firebrick',save=True,
+                   outfile='spectrum.html')
 
     Input:
      runpath (string) : the relative path to xmc run folder, which
