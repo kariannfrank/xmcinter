@@ -11,7 +11,7 @@ Contains the following functions:
  histogram_grid
  format_ticks
  spectra
- evolution
+ trace
 """
 
 #-import common modules-
@@ -338,15 +338,15 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
 
 
 #----------------------------------------------------------
-def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
-               outfile='traceplots.html',save=True,size=None):
+def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
+               outfile='scatter_grid.html',save=True,size=None):
 # deprecated - columns
     """
     Author: Kari A. Frank
     Date: October 26, 2015
     Purpose: plot interactive matrix of scatter plots from given dataframe
 
-    Usage: traceplots(dframe,agg='dscounts,aggcol=None,sampling=1000)
+    Usage: scatter_grid(dframe,agg='dscounts,aggcol=None,sampling=1000)
 
     Input:
 
@@ -426,7 +426,7 @@ def traceplots(dframe,sampling=1000.0,agg=None,aggcol=None,
             # force notebook output if Datashader
             bplt.output_notebook()
         else:
-            if outfile is None: outfile = 'traceplots.html'
+            if outfile is None: outfile = 'scatter_grid.html'
             bplt.output_file(outfile)
 
 #----Sample the Data----
@@ -1170,17 +1170,15 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     return fig
 
 #----------------------------------------------------------
-def evolution(inframe,iteration_type = 'median',itercol = 'iteration',
-              weights=None,save=True,outfile='evolution_plots.html',
+def trace(inframe,iteration_type = 'median',itercol = 'iteration',
+              weights=None,save=True,outfile='trace_plots.html',
               ncols=4,height=300,width=300):
     """
-    evolution()
+    trace()
  
    Author: Kari A. Frank
     Date: April 15, 2016
     Purpose: plot parameters vs iteration
-
-   Usage: scatter(inframe,iteration_type='median')
 
    Input:
  
