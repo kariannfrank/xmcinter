@@ -493,7 +493,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',legend=None,
-              norm=False,xmin=None,xmax=None,**kwargs):
+              norm=False,xmin=None,xmax=None,iterations=None,**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -505,7 +505,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
     Input:
 
-     datacolumn:  a pandas series of data (e.g. column of a pandas 
+     dataseries:  a pandas series of data (e.g. column of a pandas 
                   dataframe)
 
      weights:     optionally provided a pandas series of weights which 
@@ -554,6 +554,11 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
      legend:      string to use for legend
 
+     iterations:  optionally provide a series of the iterations that 
+                  correspond to each element of dataseries. if provided, 
+                  will be used to calculate the errorars for each bin
+                  which will be plotted on the histogram.
+                
      **kwargs:    pass any number of extra keyword arguments that are 
                   accepted by bokeh.plotting.quad().  some of the most
                   useful may be fill_color and line_color
@@ -580,7 +585,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
 #----Set up opacity----
     if alpha is None:
-        if (infig is not None):
+        if (infig is not None) or (iterations is not None):
             alpha = 0.7
         else: 
             alpha = 1.0
@@ -609,12 +614,52 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 #----Create the weighted histogram----
     histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
                                   density=density,range=rng)
-#    print 'histy = ',histy
 #    print 'binedges = ',binedges
 
+#----Calculate errorbars----
+
+    if iterations is not None:
+
+        # combine series into single dataframe for grouping
+        dfr = pd.concat([dataseries,iterations],axis=1)
+        dfr.columns = ['data','iteration']
+
+        if weights is not None: dfr['weight'] = weights.values
+
+        # initialize array to hold histogram 'stack'
+        niter = len(np.unique(iterations))
+        nbins = len(histy)
+        histstack = np.empty((nbins,niter))
+
+        #--create histogram for each iteration--
+        i = 0 # iteration (layer) counter
+        gdf = dfr.groupby('iteration',as_index=False)
+        for s,g in gdf: 
+            if weights is not None: 
+                gweights = g['weight']
+            else:
+                gweights = None
+            hyi,bini = np.histogram(g['data'],weights=gweights,
+                                    bins=binedges,
+                                    density=density,range=rng)
+            histstack[:,i] = hyi
+            i = i+1
+
+        #--collapse stack to standard deviation in each bin--
+        errors = np.std(histstack,axis=1)
+#        errors[:] = np.average(histy) # large errors for testing
+
+#----Normalize and set y-axis range----
     if norm is True:
-#        histy = histy/float(np.sum(histy))
+        # normalize errors
+        if iterations is not None:
+#            print errors
+            errors = errors/float(np.max(histy))
+#            print errors
+#            print np.max(histy)
+        # normalize histogram
         histy = histy/float(np.max(histy))
+        # set y axis range
         yaxisrng = (0.0,1.1)
     else:
         yaxisrng = (0.0,1.1*np.max(histy))
@@ -656,17 +701,26 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 #        fig.yaxis.formatter=format_ticks(histy)
 #        fig.xaxis.formatter=format_ticks(binedges)
 
-#---Plot the histogram----
+#----Plot the histogram----
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
                  color=color,alpha=alpha,legend=legend)#,**kwargs)
     
+#----Plot Errorbars----
+    if iterations is not None:
+        xbinsizes = binedges[1:]-binedges[:-1]
+        xbins = binedges[:-1]+xbinsizes/2.0
+        errorbar(fig, xbins, histy, xerr=None, yerr=errors, color=color, 
+                 point_kwargs={}, error_kwargs={})
+
+#----Plot the legend----
     if legend is not None:
         # add some fancier treatment of legend (e.g. move outside the plot)
 #        fig.legend.location='top_left'
-        fig.legend.orientation='horizontal'
+#        fig.legend.orientation='horizontal'
 #        leg = fig.legend
         pass
 
+#----Show the plot----
     if save:
         bplt.show(fig)#,new='window',browser='firefox --no-remote')
         if (outfile != 'notebook'): 
@@ -677,7 +731,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
 #----------------------------------------------------------
 def histogram_grid(dframes,columns=None,weights=None,bins=100,
-                   height=300,width=400,
+                   height=300,width=400,iterations=None,
                    ncols=2,outfile='histogram_grid.html',
                    colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
@@ -713,6 +767,10 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                     in each dframes dataframe to use a weight
                   Note that if a list is provided, None is a valid element.
                   
+     iterations: optionally provide the iterations associated with each 
+                 row. same options and format as weights. if provided,
+                 will be used to calculate and plot the errorbars for 
+                 each bin in each histogram.
 
      bins:        numerical or list of numerical, optional. the number 
                   of bins (default=100) used to create the histogram for 
@@ -801,6 +859,12 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
             else:
                 weights = [weights]*len(dframes)
 
+        if not isinstance(iterations,list):
+            if isinstance(iterations,str):
+                iterations = [dfr[iterations] for dfr in dframes]
+            else:
+                iterations = [iterations]*len(dframes)
+
         if not isinstance(bins,list):
             bins = [bins]*len(dframes)
 
@@ -819,6 +883,10 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
             weights = [dframes[0][weights]]
         else:
             weights = [weights]
+        if isinstance(iterations,str):
+            iterations = [dframes[0][iterations]]
+        else:
+            iterations = [iterations]
         if alphas is None:
             alphas=[1.0]
         bins = [bins]
@@ -830,7 +898,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
         columns = []
         for df in dframes:
             columns = columns+[c for c in df.columns if c not in columns]
-        print columns
+    print columns
 
 #----Set up plot----
     if outfile != 'notebook':
@@ -872,12 +940,12 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
     for column in columns:
 
         # get min and max of xaxis
-        xmin = 0.0
-        xmax = 0.0
+        xmin = dframes[0][column].min()
+        xmax = dframes[0][column].max()
         for dfr in dframes:
             if column in dfr.columns:
                 xmin = min(xmin,dfr[column].min())
-                xmax = min(xmax,dfr[column].max())
+                xmax = max(xmax,dfr[column].max())
 
         # get xaxis scale
         xlog = logaxis(xmin,xmax)
@@ -897,7 +965,8 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                                      alpha=alphas[d],height=height,
                                      width=width,xmin=xmin,xmax=xmax,
                                      norm=norm,#legend=legends[d+1],
-                                     infig=newfig,xlog=xlog)
+                                     infig=newfig,xlog=xlog,
+                                   iterations=iterations[d])
         figlist=figlist+[newfig]
 
 #----Plot histograms----
@@ -1252,3 +1321,29 @@ def evolution(inframe,iteration_type = 'median',itercol = 'iteration',
         if outfile != 'notebook': bplt.curdoc().clear()
 
     return p
+
+#----------------------------------------------------------
+def errorbar(fig, x, y, xerr=None, yerr=None, color='steelblue', 
+             point_kwargs={}, error_kwargs={}):
+    """Function to plot symmetric errorbars on top of a figure"""
+
+    """From: http://stackoverflow.com/questions/29166353/how-do-you-add-error-bars-to-bokeh-plots-in-python"""
+
+    fig.circle(x, y, color=None,fill_alpha=0, **point_kwargs)
+    
+    if xerr is not None:
+        x_err_x = []
+        x_err_y = []
+        for px, py, err in zip(x, y, xerr):
+            x_err_x.append((px - err, px + err))
+            x_err_y.append((py, py))
+        fig.multi_line(x_err_x, x_err_y, color=color, **error_kwargs)
+
+    if yerr is not None:
+        y_err_x = []
+        y_err_y = []
+        for px, py, err in zip(x, y, yerr):
+            y_err_x.append((px, px))
+            y_err_y.append((py - err, py + err))
+        fig.multi_line(y_err_x, y_err_y, color=color, **error_kwargs)
+ #----------------------------------------------------------
