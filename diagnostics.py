@@ -30,7 +30,8 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
     Input:
 
-     runpath: string of path to the deconvolution files
+     runpath: string of path to the deconvolution files, or a dataframe
+              resulting from a previous call to xw.merge_output()
 
      itmin: minimum iteration to keep
 
@@ -56,7 +57,10 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     import astro_utilities as astro
 
     # -- read deconvolution files --
-    df = merge_output(runpath,save=False)
+    if isinstance(runpath,str):
+        df = merge_output(runpath,save=False)
+    else:
+        df = runpath
 
     # -- add log10(arcsec) blob size column --
     if 'blob_lnsigma' in df.columns:
