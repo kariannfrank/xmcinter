@@ -10,7 +10,7 @@ Contains the following functions:
  histogram 
  histogram_grid
  format_ticks
- spectra
+ spectrum
  trace
 """
 
@@ -492,7 +492,7 @@ def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
 def histogram(dataseries,weights=None,bins=100,save=True,height=600,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
-              density=False,alpha=None,xlog='auto',legend=None,
+              density=False,alpha=None,xlog='auto',logbins=None,legend=None,
               norm=False,xmin=None,xmax=None,iterations=None,**kwargs):
     """
     Author: Kari A. Frank
@@ -541,11 +541,16 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
                   (default=False). useful when 
                   plotting multiple histograms for comparison. 
 
-     xlog:        make x-axis bins uniform in log10 space. options are:
+     xlog:        boolean to plot x-axis on log scale. options are
                   - 'auto' (default) -- try to automatically determine
                     which is best based on the data range
-                  - True -- force log bins
-                  - False -- force linear bins
+                  - True -- force log scale
+                  - False -- force linear scale
+
+     logbins:     boolean make x-axis bins uniform in log10 space. default
+                  is to be the same as determined by xlog. this argument
+                  separated from xlog to allow creation of log-scale bins
+                  but plotted on a linear scale, or vice versa.
 
      xmin,xmax:   explicitly force xaxis min and max
 
@@ -603,62 +608,23 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
     if xlog == 'auto':
         xlog = logaxis(xaxisrng[0],xaxisrng[1])
 
-    # set up log bins
-    if xlog is True: 
-        logbins = np.logspace(np.log10(rng[0]),np.log10(rng[1]),bins)
-        bins = logbins
-        bintype = 'log'
-    else:
-        bintype = 'linear'
+    # bin type
+    if logbins is None:
+        logbins = xlog
 
-#----Create the weighted histogram----
-    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
-                                  density=density,range=rng)
-#    print 'binedges = ',binedges
+    x_axis_type = 'linear'
+    if xlog is True:
+        x_axis_type = 'log'
 
-#----Calculate errorbars----
-
-    if iterations is not None:
-
-        # combine series into single dataframe for grouping
-        dfr = pd.concat([dataseries,iterations],axis=1)
-        dfr.columns = ['data','iteration']
-
-        if weights is not None: dfr['weight'] = weights.values
-
-        # initialize array to hold histogram 'stack'
-        niter = len(np.unique(iterations))
-        nbins = len(histy)
-        histstack = np.empty((nbins,niter))
-
-        #--create histogram for each iteration--
-        i = 0 # iteration (layer) counter
-        gdf = dfr.groupby('iteration',as_index=False)
-        for s,g in gdf: 
-            if weights is not None: 
-                gweights = g['weight']
-            else:
-                gweights = None
-            hyi,bini = np.histogram(g['data'],weights=gweights,
-                                    bins=binedges,
-                                    density=density,range=rng)
-            histstack[:,i] = hyi
-            i = i+1
-
-        #--collapse stack to standard deviation in each bin--
-        errors = np.std(histstack,axis=1)
-#        errors[:] = np.average(histy) # large errors for testing
+    #----Create the weighted histogram and errorbars----
+    histy,errors,binedges = make_histogram(dataseries,weights=weights,
+                                           density=density,datarange=rng,
+                                           bins=bins,logbins=logbins,
+                                           iterations=iterations)
 
 #----Normalize and set y-axis range----
     if norm is True:
-        # normalize errors
-        if iterations is not None:
-#            print errors
-            errors = errors/float(np.max(histy))
-#            print errors
-#            print np.max(histy)
-        # normalize histogram
-        histy = histy/float(np.max(histy))
+        histy,errors = normalize_histogram(histy,yerrors=errors)
         # set y axis range
         yaxisrng = (0.0,1.1)
     else:
@@ -674,7 +640,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
     if infig is None:
         fig = bplt.Figure(tools=tools,plot_width=width,plot_height=height,
-                          x_axis_type=bintype,x_range=xaxisrng,
+                          x_axis_type=x_axis_type,x_range=xaxisrng,
                           y_range=yaxisrng)
         fig.xaxis.axis_label=dataseries.name
 
@@ -1029,8 +995,9 @@ def format_ticks(vals):
 
 #----------------------------------------------------------
 def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
-            modelcolor='steelblue',lastmodelcolor='firebrick',nbins=None,
-            outfile='spectrum.html'):
+             modelcolor='steelblue',lastmodelcolor='firebrick',bins=None,
+             outfile='spectrum.html',ylog=False,xlog=False,logbins=None,
+             datarange=None,width=700,height=500):
     """
     Author: Kari A. Frank
     Date: November 18, 2015
@@ -1051,8 +1018,19 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
                        files spectrum_1.fits, spectrum_2.fits, and 
                        spectrum_3.fits. default is all available spectra.
 
-    nbins (int) : number of bins in the histogram. 
-                  defaults to a binsize of 0.015 keV.
+     bins:        optionally specify the number of bins
+                  or an array containing the bin edge values. bins
+                  is passed directly to numpy.histogram(), so can
+                  also accept any of the strings recognized by that 
+                  function for special calculation of bin sizes.
+                  - 'auto' (but don't use if using weights)
+                  - 'fd' (Freedman Diaconis Estimator)
+                  - 'doane'
+                  - 'scott'
+                  - 'rice' 
+                  - 'sturges'
+                  - 'sqrt'
+                  default is to create equally spaced bins of width 0.015.
 
     outfile (str) : name of output html file, or 'notebook' if plotting to 
                     an open Jupyter notebook
@@ -1060,11 +1038,16 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     save (bool) : if save is False, then will not display the final figure
                   or save it to a file
 
+
+    logbins, datarange, xlog, ylog : see make_histogram()
+
     Output:
      - plots the spectra for to an interactive plot (if save=True)
      - Returns the figure object
 
     Usage Notes:
+     - will automatically plot error bars on the average spectrum
+       if more than 3 model spectra are used
      - must close and save (if desired) the plot manually
 
     Example:
@@ -1073,11 +1056,15 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     #----Import Modules----
     import os
     import astropy.io.fits as fits
+    from bokeh.charts import Step
+    from bokeh.models.ranges import Range1d
     from file_utilities import ls_to_list
 
     #----Set defaults----
     if smax==None:
         smax = len(ls_to_list(runpath,'spectrum*')) - 1
+
+    if logbins is None: logbins=xlog
 
     # check for MPI file names (if xmc was run with mpi)
     if os.path.isfile(runpath+'/spectrum0_0.fits'):
@@ -1103,21 +1090,27 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
             model_table = fits.getdata(modelspecfile,0)
             model_wave = model_table.field('wave')
             model_wave_avg = model_wave
+            iters_avg = np.ones_like(model_wave)
+            iters_avg.fill(sm)
             foundmodel = True
         else:
-            print "Warning: "+modelspecfile+" not found.  Skipping to next spectrum."
+            print ("Warning: "+modelspecfile+" not found.  Skipping +"
+                   "to next spectrum.")
         sm = sm+1
             
     if foundmodel is False:
         print "ERROR: no spectrum files found in range."
 
     #--loop over remaining model spectra--
-    for s in range(sm,smax):
+    for s in xrange(sm,smax+1):
         modelspecfile = runpath+'/'+specname+str(s)+'.fits'
         if os.path.isfile(modelspecfile):
             model_table = fits.getdata(modelspecfile,0)
             model_wave = model_table.field('wave')
+            model_iters = np.ones_like(model_wave)
+            model_iters.fill(s) #assign 'iteration' number
             model_wave_avg = np.hstack((model_wave_avg,model_wave))
+            iters_avg = np.hstack((iters_avg,model_iters))
         else:
             print "Warning: "+modelspecfile+" does not exist. Skipping."
 
@@ -1125,15 +1118,35 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     data_wave = pd.Series(data_wave,name='Energy (keV)')    
     model_wave_avg = pd.Series(model_wave_avg,name='Energy (keV)')
     model_wave = pd.Series(model_wave,name='Energy (keV)')
+    iters_avg = pd.Series(iters_avg,name='iteration')
 
     #----Create Histograms----
-    if nbins is None:
-        nbins = np.ceil((np.max(data_wave.values)-np.min(data_wave.values))
-                        /0.015)
+    if bins is None:
+        bins = np.ceil((np.max(data_wave.values)-
+                        np.min(data_wave.values))/0.015)    
 
-    datay,datax = np.histogram(data_wave,bins=nbins,density=True)
-    avgmodely,avgmodelx = np.histogram(model_wave_avg,bins=nbins,density=True)
-    lastmodely,lastmodelx = np.histogram(model_wave,bins=nbins,density=True)
+    datay,dataerrors,dataedges = \
+        make_histogram(data_wave,bins=bins,
+                       logbins=logbins,
+                       datarange=datarange,
+                       density=False,iterations=None)
+    datay,dataerrors = normalize_histogram(datay,dataerrors)
+
+    avgmodely,avgmodelerrors,avgmodeledges=\
+        make_histogram(model_wave_avg,
+                       bins=bins,
+                       logbins=logbins,datarange=datarange,
+                       density=False,iterations=iters_avg)
+    avgmodely,avgmodelerrors = normalize_histogram(avgmodely,
+                                                   avgmodelerrors)
+
+    lastmodely,lastmodelerrors,lastmodeledges=\
+        make_histogram(model_wave,
+                       bins=bins,
+                       logbins=logbins,datarange=datarange,
+                       density=False,iterations=None)
+    lastmodely,lastmodelerrors = normalize_histogram(lastmodely,
+                                                   lastmodelerrors)
 
     #----Set up Plot----
     if save is True:
@@ -1142,45 +1155,68 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
         else:
             bplt.output_notebook()
 
-    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
-    fig = bplt.Figure(tools=TOOLS)
-    if np.max(datax) < 15.0:
-        fig.xaxis.axis_label='Energy (keV)'
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"#,box_select,lasso_select"
+    
+    x_axis_type = 'linear'
+    y_axis_type = 'linear'
+    if xlog is True:
+        x_axis_type = 'log'
+    x_range = (np.min(dataedges),np.max(dataedges))
+    if ylog is True:
+        y_axis_type = 'log'
+        y_range = (min(datay),1.5*np.max(datay))
+    else: 
+        y_range = (0.0,1.1*np.max(datay))
+    if np.max(dataedges) < 15.0:
+        xlabel = 'Energy (keV)'
     else:
-        fig.xaxis.axis_label='Wavelength (Angstroms)'
-    fig.yaxis.axis_label=''
+        xlabel = 'Wavelength (Angstroms)'
 
-    #--format ticks--
-    fig.yaxis.formatter=format_ticks(datay)
-    fig.xaxis.formatter=format_ticks(datax)
+    avglabel = 'Model (average)'
+    lastlabel = 'Model (last iteration)'
+    specframes = pd.DataFrame({'Data':datay,xlabel:dataedges[:-1],
+                               avglabel:avgmodely,lastlabel:lastmodely})
 
-    #----Plot Spectra----
-    fig.line(datax,datay,color=datacolor,line_width=2,legend="Data")
-    fig.line(avgmodelx,avgmodely,color=modelcolor,legend=
-             "Model (Average over Iterations)")
-    fig.line(lastmodelx,lastmodely,color=lastmodelcolor,legend=
-             "Model (Last Iteration)")
+    #----Plot Spectra as Step Chart----
+    step = Step(specframes,x=xlabel,y=['Data',avglabel,lastlabel],
+                color=[datacolor,modelcolor,lastmodelcolor],legend=True,
+                y_mapper_type=y_axis_type,x_mapper_type=x_axis_type,
+                dash=['solid','solid','dashed'],
+                plot_width=width,plot_height=height)
+    step.x_range=Range1d(*x_range)
+    step.y_range=Range1d(*y_range)
+    step.legend.location='top_right'
+    step.ylabel = 'normalized value'
+
+    #----Plot Errorbars----
+    print type(step)
+    xbinsizes = dataedges[1:]-dataedges[:-1]
+    xbins = dataedges[:-1]+xbinsizes/2.0
+    errorbar(step, xbins, avgmodely, xerr=None, yerr=avgmodelerrors, 
+             color=modelcolor, 
+             point_kwargs={}, error_kwargs={})
+
+    #possible attributes to Chart are above, background_fill_alpha, background_fill_color, below, border_fill_alpha, border_fill_color, disabled, extra_x_ranges, extra_y_ranges, h_symmetry, height, hidpi, left, lod_factor, lod_interval, lod_threshold, lod_timeout, min_border, min_border_bottom, min_border_left, min_border_right, min_border_top, name, outline_line_alpha, outline_line_cap, outline_line_color, outline_line_dash, outline_line_dash_offset, outline_line_join, outline_line_width, plot_height, plot_width, renderers, right, sizing_mode, tags, title, title_location, tool_events, toolbar, toolbar_location, toolbar_sticky, v_symmetry, webgl, width, x_mapper_type, x_range, xlabel, xscale, y_mapper_type, y_range, ylabel or yscale
+
 
     #----Show the Plot----
     if save is True:
-        bplt.show(fig)
-        if outfile != 'notebook': bplt.curdoc().clear()
+        bplt.show(step)
+#        if outfile != 'notebook': bplt.curdoc().clear()
 
 #----Return----
-    return fig
+    return step
 
 #----------------------------------------------------------
 def trace(inframe,iteration_type = 'median',itercol = 'iteration',
               weights=None,save=True,outfile='trace_plots.html',
               ncols=4,height=300,width=300):
     """
-    trace()
- 
-   Author: Kari A. Frank
+    Author: Kari A. Frank
     Date: April 15, 2016
     Purpose: plot parameters vs iteration
 
-   Input:
+    Input:
  
     inframe (DataFrame):  pandas DataFrame. all columns will be plotted
                           and one column must contain iterations.
@@ -1207,17 +1243,17 @@ def trace(inframe,iteration_type = 'median',itercol = 'iteration',
     outfile: name of output file, or 'notebook' if plotting to a 
              Jupyter notebook
 
-   Output:
-   - plots parameter vs iteration to an interactive plot
-   - returns the figure object
+    Output:
+    - plots parameter vs iteration to an interactive plot
+    - returns the figure object
 
-  Usage Notes:
-  - must close and save (if desired) the plot manually
-  - may not work properly if trying to plot too many points
+    Usage Notes:
+    - must close and save (if desired) the plot manually
+    - may not work properly if trying to plot too many points
 
-  Example:
+    Example:
  
-  """
+    """
 
     #----Import Modules----
     from bokeh.models import ColumnDataSource
@@ -1306,7 +1342,8 @@ def trace(inframe,iteration_type = 'median',itercol = 'iteration',
     for col in iterframe.columns:
 
         #----Plot parameter vs iteration----
-        newfig,newsource = scatter(iterframe,itercol,col,agg=None,source=source,
+        newfig,newsource = scatter(iterframe,itercol,col,agg=None,
+                                   source=source,
                          tools=TOOLS,sampling=None,xlog=False,
                          save=itersave,height=height,width=width)
         figlist=figlist+[newfig]    
@@ -1325,7 +1362,12 @@ def errorbar(fig, x, y, xerr=None, yerr=None, color='steelblue',
              point_kwargs={}, error_kwargs={}):
     """Function to plot symmetric errorbars on top of a figure"""
 
-    """From: http://stackoverflow.com/questions/29166353/how-do-you-add-error-bars-to-bokeh-plots-in-python"""
+    """
+    From: http://stackoverflow.com/questions/29166353/how-do-you-add-error-bars-to-bokeh-plots-in-python
+
+    
+    fig can be either a Bokeh Figure object or bokeh Chart object
+    """
 
     fig.circle(x, y, color=None,fill_alpha=0, **point_kwargs)
     
@@ -1344,4 +1386,138 @@ def errorbar(fig, x, y, xerr=None, yerr=None, color='steelblue',
             y_err_x.append((px, px))
             y_err_y.append((py - err, py + err))
         fig.multi_line(y_err_x, y_err_y, color=color, **error_kwargs)
- #----------------------------------------------------------
+
+#----------------------------------------------------------
+def make_histogram(dataseries,weights=None,bins=50,logbins=False,
+                   datarange=None,density=False,iterations=None,
+                   centers=False):
+    """
+    Create histogram, including optional errorbars.
+
+    Author: Kari A. Frank
+    Date: November 29, 2016
+    Purpose: Create histogram from given series.
+
+    Input:
+
+     dataseries:  a pandas series of data (e.g. column of a pandas 
+                  dataframe)
+
+     weights:     optionally provided a pandas series of weights which 
+                  correspond to the values in datacolumn (e.g. emission 
+                  measure)
+
+     bins:        optionally specify the number of bins (default=30)
+                  or an array containing the bin edge values. bins
+                  is passed directly to numpy.histogram(), so can
+                  also accept any of the strings recognized by that 
+                  function for special calculation of bin sizes.
+                  - 'auto' (but don't use if using weights)
+                  - 'fd' (Freedman Diaconis Estimator)
+                  - 'doane'
+                  - 'scott'
+                  - 'rice' 
+                  - 'sturges'
+                  - 'sqrt'
+                 
+     logbins:     boolean to specify if bins should be in log space
+
+     datarange:       minimum and maximum values to include in the histogram.
+                  
+     centers:     boolean to specify if the bincenters should be also be 
+                  returned (in addition to the binedges)
+
+     density:     passed to histogram. if True, then returned histogram is
+                  is the probability density function. In general, will
+                  not use this (call normalize_histogram() on histy 
+                  instead)
+
+     iterations:  optionally provide a series of the iterations that 
+                  correspond to each element of dataseries. if provided, 
+                  will be used to calculate the errorbars for each bin
+                  which will be plotted on the histogram. must be the same
+                  length as dataseries if provided.
+
+
+    Output:
+    
+     histy (numpy array, 1D) : series containing the y-values of the
+        histogram bins
+
+     histx (numpy array, 1D) : series containing the values of the 
+        histogram bin edges (the x-axis)
+
+     yerrors (numpy array, 1D) : series containing the error bars 
+        associated with histy
+
+    """
+
+    #----Set up bins----
+    if datarange is None:
+        datarange = (dataseries.min(),dataseries.max())
+
+    # set up log bins
+    if logbins is True: 
+        bins = np.logspace(np.log10(datarange[0]),np.log10(datarange[1]),bins)
+
+    #----Create the weighted histogram----
+    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
+                               density=density,range=datarange)
+
+    #----Calculate errorbars----
+
+    if iterations is not None:
+
+        # combine series into single dataframe for grouping
+        dfr = pd.concat([dataseries,iterations],axis=1)
+        dfr.columns = ['data','iteration']
+
+        if weights is not None: dfr['weight'] = weights.values
+
+        # initialize array to hold histogram 'stack'
+        niter = len(np.unique(iterations))
+        nbins = len(histy)
+        histstack = np.empty((nbins,niter))
+
+        #--create histogram for each iteration--
+        i = 0 # iteration (layer) counter
+        gdf = dfr.groupby('iteration',as_index=False)
+        for s,g in gdf: 
+            if weights is not None: 
+                gweights = g['weight']
+            else:
+                gweights = None
+            hyi,hyierrors,hyedges = make_histogram(g['data'],weights=gweights,
+                                           bins=binedges,iterations=None,
+                                           logbins=logbins,
+                                           density=density,
+                                           datarange=datarange)
+            histstack[:,i] = hyi
+            i = i+1
+
+        #--collapse stack to standard deviation in each bin--
+        yerrors = np.std(histstack,axis=1)
+#        errors[:] = np.average(histy) # large errors for testing
+
+    else:
+        yerrors = None
+
+    if centers is False:
+        return histy,yerrors,binedges
+    else:
+        binsizes = binedges[1:]-binedges[:-1]
+        bincenters = binedges[:-1]+binsizes/2.0
+        return histy,yerrors,binedges,bincenters
+
+#----------------------------------------------------------
+def normalize_histogram(histy,yerrors=None):
+    """Normalize histogram to go from 0 to 1 on y-axis, including scaling the errorbars if provided."""
+
+    if yerrors is not None:
+        # normalize errors
+        yerrors = yerrors/float(np.max(histy))
+
+    # normalize histogram
+    histy = histy/float(np.max(histy))
+    
+    return histy,yerrors
