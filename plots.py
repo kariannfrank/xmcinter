@@ -1420,9 +1420,10 @@ def make_histogram(dataseries,weights=None,bins=50,logbins=False,
                   - 'sturges'
                   - 'sqrt'
                  
-     logbins:     boolean to specify if bins should be in log space
+     logbins:     boolean to specify if bins should be in log space. if
+                  set, then bins should be the number of bins.
 
-     datarange:       minimum and maximum values to include in the histogram.
+     datarange:   minimum and maximum values to include in the histogram.
                   
      centers:     boolean to specify if the bincenters should be also be 
                   returned (in addition to the binedges)
@@ -1458,7 +1459,8 @@ def make_histogram(dataseries,weights=None,bins=50,logbins=False,
 
     # set up log bins
     if logbins is True: 
-        bins = np.logspace(np.log10(datarange[0]),np.log10(datarange[1]),bins)
+        bins = np.logspace(np.log10(datarange[0]),np.log10(datarange[1]),
+                           num=bins)
 
     #----Create the weighted histogram----
     histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
@@ -1487,9 +1489,10 @@ def make_histogram(dataseries,weights=None,bins=50,logbins=False,
                 gweights = g['weight']
             else:
                 gweights = None
-            hyi,hyierrors,hyedges = make_histogram(g['data'],weights=gweights,
+            hyi,hyierrors,hyedges = make_histogram(g['data'],
+                                                   weights=gweights,
                                            bins=binedges,iterations=None,
-                                           logbins=logbins,
+                                           #logbins=logbins,
                                            density=density,
                                            datarange=datarange)
             histstack[:,i] = hyi
