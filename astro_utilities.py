@@ -918,46 +918,46 @@ def show_xray_lines(kT_range=(0.1,10.0),emissivity_range=(1e-18,1.0),
  
   """
 
-    import os
+  import os
 
-    #----Read in lines----
-    linefile = os.path.dirname(__file__)+'/xraylines.txt'
-    linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
+  #----Read in lines----
+  linefile = os.path.dirname(__file__)+'/xraylines.txt'
+  linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
 
-    #----Remove extra lines----
+  #----Remove extra lines----
 
-    #--remove lines not in include_lines--
-    if include_lines is not None:
-        linedf = linedf[linedf['ion'].isin(include_lines)]
+  #--remove lines not in include_lines--
+  if include_lines is not None:
+      linedf = linedf[linedf['ion'].isin(include_lines)]
 
-    #--get only lines from gas with kT in range--
-    if kT_range is not None:
-        linedf = linedf[kT_range[0] <= linedf['kT']]
-        linedf = linedf[linedf['kT'] <= kT_range[1]]
+  #--get only lines from gas with kT in range--
+  if kT_range is not None:
+      linedf = linedf[kT_range[0] <= linedf['kT']]
+      linedf = linedf[linedf['kT'] <= kT_range[1]]
 
-    #--get only lines with emissivity in range--
-    if emissivity_range is not None:
-        linedf = linedf[emissivity_range[0] <= linedf['emissivity']]
-        linedf = linedf[linedf['emissivity'] <= emissivity_range[1]]
+  #--get only lines with emissivity in range--
+  if emissivity_range is not None:
+      linedf = linedf[emissivity_range[0] <= linedf['emissivity']]
+      linedf = linedf[linedf['emissivity'] <= emissivity_range[1]]
 
-    #--get only lines with energy in range--
-    if energy_range is not None:
-        linedf = linedf[energy_range[0] <= linedf['energy']]
-        linedf = linedf[linedf['energy'] <= energy_range[1]]
+  #--get only lines with energy in range--
+  if energy_range is not None:
+      linedf = linedf[energy_range[0] <= linedf['energy']]
+      linedf = linedf[linedf['energy'] <= energy_range[1]]
 
-    #--get only lines with wavelength in range--
-    if wavelength_range is not None:
-        linedf = linedf[wavelength_range[0] <= linedf['wavelength']]
-        linedf = linedf[linedf['wavelength'] <= wavelength_range[1]]
-    
-    #--truncate to include no more than nlines lines, keeping those with
-    # highest emissivity--
-    if (nlines is not None) and (len(linedf.index)>nlines):
-        linedf = linedf.nlargest(nlines,'emissivity')
-    else:
-      nlines = len(linedf.index)
+  #--get only lines with wavelength in range--
+  if wavelength_range is not None:
+      linedf = linedf[wavelength_range[0] <= linedf['wavelength']]
+      linedf = linedf[linedf['wavelength'] <= wavelength_range[1]]
 
-    #--print line information--
-    print linedf.head(nlines)
+  #--truncate to include no more than nlines lines, keeping those with
+  # highest emissivity--
+  if (nlines is not None) and (len(linedf.index)>nlines):
+      linedf = linedf.nlargest(nlines,'emissivity')
+  else:
+    nlines = len(linedf.index)
 
-    return linedf
+  #--print line information--
+  print linedf.head(nlines)
+
+  return linedf
