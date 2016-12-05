@@ -18,6 +18,7 @@ Contains the following functions:
  xmc_wcs_convert()
  chandra_psf_wing()
  xspec_abund_to_nomoto()
+ show_xray_lines()
 
 """
 
@@ -25,6 +26,7 @@ Contains the following functions:
 #Import common modules
 import shutil
 import numpy as np
+import pandas as pd
 from astropy.io import fits
 
 #----------------------------------------------------------
@@ -875,3 +877,87 @@ def error_range_to_bars(x,xlow,xhigh):
   xerrhigh = xhigh-x
 
   return xerrlow,xerrhigh
+
+#----------------------------------------------------------
+def show_xray_lines(kT_range=(0.1,10.0),emissivity_range=(1e-18,1.0),
+                    energy_range=None,wavelength_range=None,
+                    nlines=None,include_lines=None):
+  """
+  Author: Kari A. Frank
+  Date: December 5, 2016  
+  Purpose: Print to screen the energies and emissivities of common X-ray
+           emission lines.
+
+  Input: 
+
+   kT_range (2d tuple) : range of gas temperatures to include emission
+                         lines from
+
+   emissivity_range (2d tuple) : range of line emissivities to include 
+                                 emission lines from
+
+   wavelength_range (2d tuple) : range of line wavelengths (angstroms) 
+                         to include emission lines from
+
+   energy_range (2d tuple) : range of line energies (keV) to include
+                         emission lines from
+
+   nlines (int) : maximum number of emission lines to show. if more than
+                  nlines lines meet the other criteria, 
+                  then will whow only the nlines with highest emissivity
+       
+   include_lines (list of strings) :  list of element names to include 
+                    emission lines from. will first drop all lines from
+                    other elements, then apply remaining criteria (e.g.
+                    kT_range). Use 2-letters for each element.
+
+
+  Output:
+   Prints to screen information on the selected emission lines.
+   Returns a pandas dataframe containing the line information.
+ 
+  """
+
+    import os
+
+    #----Read in lines----
+    linefile = os.path.dirname(__file__)+'/xraylines.txt'
+    linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
+
+    #----Remove extra lines----
+
+    #--remove lines not in include_lines--
+    if include_lines is not None:
+        linedf = linedf[linedf['ion'].isin(include_lines)]
+
+    #--get only lines from gas with kT in range--
+    if kT_range is not None:
+        linedf = linedf[kT_range[0] <= linedf['kT']]
+        linedf = linedf[linedf['kT'] <= kT_range[1]]
+
+    #--get only lines with emissivity in range--
+    if emissivity_range is not None:
+        linedf = linedf[emissivity_range[0] <= linedf['emissivity']]
+        linedf = linedf[linedf['emissivity'] <= emissivity_range[1]]
+
+    #--get only lines with energy in range--
+    if energy_range is not None:
+        linedf = linedf[energy_range[0] <= linedf['energy']]
+        linedf = linedf[linedf['energy'] <= energy_range[1]]
+
+    #--get only lines with wavelength in range--
+    if wavelength_range is not None:
+        linedf = linedf[wavelength_range[0] <= linedf['wavelength']]
+        linedf = linedf[linedf['wavelength'] <= wavelength_range[1]]
+    
+    #--truncate to include no more than nlines lines, keeping those with
+    # highest emissivity--
+    if (nlines is not None) and (len(linedf.index)>nlines):
+        linedf = linedf.nlargest(nlines,'emissivity')
+    else:
+      nlines = len(linedf.index)
+
+    #--print line information--
+    print linedf.head(nlines)
+
+    return linedf

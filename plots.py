@@ -12,6 +12,7 @@ Contains the following functions:
  format_ticks
  spectrum
  trace
+ plot_lines
 """
 
 #-import common modules-
@@ -995,9 +996,10 @@ def format_ticks(vals):
 
 #----------------------------------------------------------
 def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
-             modelcolor='steelblue',lastmodelcolor='firebrick',bins=None,
+             modelcolor='steelblue',lastmodelcolor='firebrick',bins=0.03,
              outfile='spectrum.html',ylog=False,xlog=False,logbins=None,
-             datarange=None,width=700,height=500):
+             datarange=None,width=1000,height=500,lines=True,**lineargs):
+
     """
     Author: Kari A. Frank
     Date: November 18, 2015
@@ -1018,11 +1020,10 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
                        files spectrum_1.fits, spectrum_2.fits, and 
                        spectrum_3.fits. default is all available spectra.
 
-     bins:        optionally specify the number of bins
-                  or an array containing the bin edge values. bins
-                  is passed directly to numpy.histogram(), so can
-                  also accept any of the strings recognized by that 
-                  function for special calculation of bin sizes.
+     bins:        optionally specify the number of bins (int), binsize 
+                  (float), or an array containing the bin edge values. 
+                  can also accept any of the strings recognized by 
+                  np.histogram() for special calculation of bin sizes.
                   - 'auto' (but don't use if using weights)
                   - 'fd' (Freedman Diaconis Estimator)
                   - 'doane'
@@ -1030,13 +1031,18 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
                   - 'rice' 
                   - 'sturges'
                   - 'sqrt'
-                  default is to create equally spaced bins of width 0.015.
+                  default is to create equally spaced bins of width 0.03,
+                  (30 eV). note that xmc typically uses a binsize of 0.015.
 
     outfile (str) : name of output html file, or 'notebook' if plotting to 
                     an open Jupyter notebook
 
     save (bool) : if save is False, then will not display the final figure
                   or save it to a file
+
+    lines (bool) : plot the 10 stongest common emission lines within 
+                   the x-axis range. **lineargs will pass any extra 
+                   arguments directly to plot_lines()
 
 
     logbins, datarange, xlog, ylog : see make_histogram()
@@ -1121,9 +1127,10 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     iters_avg = pd.Series(iters_avg,name='iteration')
 
     #----Create Histograms----
-    if bins is None:
+    
+    if isinstance(bins,float): # assume binsize, convert to number bins
         bins = np.ceil((np.max(data_wave.values)-
-                        np.min(data_wave.values))/0.015)    
+                        np.min(data_wave.values))/bins)    
 
     datay,dataerrors,dataedges = \
         make_histogram(data_wave,bins=bins,
@@ -1195,6 +1202,10 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     errorbar(step, xbins, avgmodely, xerr=None, yerr=avgmodelerrors, 
              color=modelcolor, 
              point_kwargs={}, error_kwargs={})
+
+    #----Plot Emission Lines----
+    if lines is True:
+        step = plot_lines(step,dataedges,**lineargs)
 
     #possible attributes to Chart are above, background_fill_alpha, background_fill_color, below, border_fill_alpha, border_fill_color, disabled, extra_x_ranges, extra_y_ranges, h_symmetry, height, hidpi, left, lod_factor, lod_interval, lod_threshold, lod_timeout, min_border, min_border_bottom, min_border_left, min_border_right, min_border_top, name, outline_line_alpha, outline_line_cap, outline_line_color, outline_line_dash, outline_line_dash_offset, outline_line_join, outline_line_width, plot_height, plot_width, renderers, right, sizing_mode, tags, title, title_location, tool_events, toolbar, toolbar_location, toolbar_sticky, v_symmetry, webgl, width, x_mapper_type, x_range, xlabel, xscale, y_mapper_type, y_range, ylabel or yscale
 
@@ -1524,3 +1535,178 @@ def normalize_histogram(histy,yerrors=None):
     histy = histy/float(np.max(histy))
     
     return histy,yerrors
+
+#----------------------------------------------------------
+def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
+               nlines=50,include_lines=None):
+    """
+    Plot strong emission lines on top of a spectrum    
+
+    Author: Kari A. Frank
+    Date: December 1, 2016
+    Purpose: Plot strong emission lines on top of a spectrum figure.
+
+    Input:
+
+     fig (bokeh Chart or bokeh Figure) : chart or figure object 
+                       containing the spectrum. must already 
+                       have spectrum added to the figure.
+
+     bins (numeric array) : 1d array containing the bin edge values of
+                       the spectrum, as output by np.histogram() or 
+                       make_histogram() in spectrum()
+
+     kT_range (2d tuple) : range of gas temperatures to include emission
+                       lines from
+
+     emissivity_range (2d tuple) : range of line emissivities to include
+     
+     nlines (int) : maximum number of lines to include. if more than
+                    nlines (combined) lines meet the other criteria, 
+                    then will plot only the nlines with highest emissivity
+
+     include_lines (list of strings) : list of element names to include 
+                    emission lines from. will first drop all lines from
+                    other elements, then apply remaining criteria (e.g.
+                    kT_range).
+
+    Output:
+
+     Add vertical lines (at most one per spectral bin) to the provided
+     figure. If more than one line per bin, then a single line will be
+     plotted with a label that lists all lines in that bin (grouped by
+     ion and ionization stage).
+
+
+    """
+
+    import os
+    from bokeh.models.annotations import Span,Label
+    from bokeh.models import HoverTool
+
+    xmin = float(fig.x_range.start)
+    xmax = float(fig.x_range.end)
+    ymin = float(fig.y_range.start)
+    ymax = float(fig.y_range.end)
+
+    #----Read in lines----
+    linefile = os.path.dirname(__file__)+'/xraylines.txt'
+    linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
+
+    #----Remove extra lines----
+
+    #--remove lines not in include_lines--
+    if include_lines is not None:
+        linedf = linedf[linedf['ion'].isin(include_lines)]
+
+    #--get only lines from gas with kT in range--
+    if kT_range is not None:
+        linedf = linedf[kT_range[0] <= linedf['kT']]
+        linedf = linedf[linedf['kT'] <= kT_range[1]]
+
+    #--get only lines with emissivity in range--
+    if emissivity_range is not None:
+        linedf = linedf[emissivity_range[0] <= linedf['emissivity']]
+        linedf = linedf[linedf['emissivity'] <= emissivity_range[1]]
+    
+    #--get only lines that are within the plot range--
+
+    #-set x units-
+    if xmax <= 15.0: # epic data (keV scale)
+        x = 'energy'
+    else: # rgs data (angstrom scale)
+        x = 'wavelength'
+
+    plotdf = agg_lines(linedf.groupby(['ion','ionization_stage']),
+                       bins,units=x)
+
+    #-cut out-of-range lines-
+#    plotdf = plotdf[plotdf[x] >= xmin]
+#    plotdf = plotdf[plotdf[x] <= xmax]
+
+    #--truncate to include no more than nlines lines, keeping those with
+    # highest emissivity--
+    if (nlines is not None) and (len(plotdf.index)>nlines):
+        plotdf = plotdf.nlargest(nlines,'emissivity')
+    else:
+        nlines = len(plotdf.index)
+
+    #----Print line information----
+    print plotdf.head(nlines)
+
+    #----Plot lines----
+    
+    #--calculate label offset--
+    xoffset = (xmax - xmin)/300.0
+    labely = (ymax - ymin)/100.0 + ymin
+
+    #--plot lines--
+    for i,row in plotdf.iterrows():
+#        print row[x],row['label'],row['emissivity']
+        lspan = Span(location=row[x],dimension='height',
+                     line_color='black',
+                     line_dash='dashed',line_width=1)
+        fig.add_layout(lspan)
+        llabel = Label(x=row[x],y=labely,
+                       angle=90.0,angle_units='deg',
+                       text_font_size='10px',x_offset=xoffset,
+                       text=row['label'])
+        fig.add_layout(llabel)
+
+    return fig
+
+#----------------------------------------------------------
+def agg_lines(groupeddf,bins,units='energy'):
+    """
+    Merge emission lines from the same ions/ionization stage if they
+    are close enough (where 'close enough'=tolerance). Must provide
+    the dataframe from xraylines.txt grouped by both ion and ionization 
+    stage columns.
+
+    Returns a 2-column dataframe containing the line energies/wavelengths
+    and labels for plotting. All filtering of the lines (for temperature,
+    axis range, etc.) must be done prior to calling this function.
+
+    Called by spectrum()
+    """
+
+    # empty dataframe for output
+    outdf=pd.DataFrame(data=np.zeros((0,3)),columns=[units,'label',
+                                                     'emissivity'])
+    iondf=pd.DataFrame(data=np.zeros((0,3)),columns=[units,'label',
+                                                     'emissivity'])
+
+    # merge lines by element and ionization stage
+    for ion,grp in groupeddf:
+        # histogram with same bins as spectrum
+        y,yerrs,edges,x=make_histogram(grp[units],bins=bins,
+                   centers=True,weights=grp.emissivity)
+        # combine lines in each (non-empty) bin
+        for b in xrange(len(y)):
+            if y[b] > 0:
+                lab = ion[0]+' '+ion[1]
+                iondf=iondf.append(pd.DataFrame([[x[b],lab,y[b]]],
+                                          columns=[units,'label',
+                                                   'emissivity']))
+                
+    # check for lines from different ions or ionization stages in 
+    # the same energy bin and combine
+    y,yerrs,edges,x = make_histogram(iondf[units],bins=bins,
+                                     centers=True,
+                                     weights=iondf['emissivity'])
+    for b in xrange(len(y)):
+        if y[b] > 0:
+            # find labels of all in bin
+            subdf = iondf[iondf[units]==x[b]]
+            lab = ''
+            for i,l in subdf.iterrows():
+                if lab != '':
+                    lab = lab+', '+l.label
+                else:
+                    lab = l.label
+            outdf=outdf.append(pd.DataFrame([[x[b],lab,y[b]]],
+                                            columns=[units,'label',
+                                                     'emissivity']))
+
+    outdf.reset_index(inplace=True,drop=True)
+    return outdf
