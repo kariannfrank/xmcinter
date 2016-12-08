@@ -22,6 +22,7 @@ import bokeh
 import bokeh.plotting as bplt
 import bokeh.charts as bchart
 from bokeh.layouts import gridplot
+from wrangle import filterblobs,make_histogram,normalize_histogram
 
 #----------------------------------------------------------
 def logaxis(minval,maxval,limit=2.0):
@@ -78,7 +79,6 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
 
 #----Import Modules----
     from xmcfiles import merge_output
-    from wrangle import filterblobs
 #    import bokeh
 #    from bokeh.plotting import figure, output_file, show
     #from bokeh.mpl import to_bokeh
@@ -865,7 +865,6 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
         columns = []
         for df in dframes:
             columns = columns+[c for c in df.columns if c not in columns]
-    print columns
 
 #----Set up plot----
     if outfile != 'notebook':
@@ -1171,7 +1170,8 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     x_range = (np.min(dataedges),np.max(dataedges))
     if ylog is True:
         y_axis_type = 'log'
-        y_range = (min(datay),1.5*np.max(datay))
+        ymin = np.min(datay[np.where(datay != 0.0)])
+        y_range = (ymin,1.5*np.max(datay))
     else: 
         y_range = (0.0,1.1*np.max(datay))
     if np.max(dataedges) < 15.0:
@@ -1196,7 +1196,6 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     step.ylabel = 'normalized value'
 
     #----Plot Errorbars----
-    print type(step)
     xbinsizes = dataedges[1:]-dataedges[:-1]
     xbins = dataedges[:-1]+xbinsizes/2.0
     errorbar(step, xbins, avgmodely, xerr=None, yerr=avgmodelerrors, 
@@ -1220,8 +1219,9 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
 
 #----------------------------------------------------------
 def trace(inframe,iteration_type = 'median',itercol = 'iteration',
-              weights=None,save=True,outfile='trace_plots.html',
-              ncols=4,height=300,width=300):
+          weights=None,itmin=0,itmax=None,
+          save=True,outfile='trace_plots.html',
+          ncols=4,height=300,width=300):
     """
     Author: Kari A. Frank
     Date: April 15, 2016
@@ -1239,6 +1239,8 @@ def trace(inframe,iteration_type = 'median',itercol = 'iteration',
          - 'average' -- takes average from the iteration
          - 'stdev' -- plots the standard deviation from each iteration
          - 'total' -- sums all blobs within each iteration
+
+    itmin/itmax: minimum/maximum iteration to plot
 
     weights (str): column name of weights to apply to each blob 
                    (e.g. emission measure)
@@ -1271,7 +1273,11 @@ def trace(inframe,iteration_type = 'median',itercol = 'iteration',
     from wrangle import weighted_median,weighted_std
     from functools import partial
 
+    #----Copy frame and apply itmin/itmax----
     inframe = inframe.copy()
+    if itmax is None:
+        itmax = np.max(inframe[itercol])
+    inframe = filterblobs(inframe,itercol,minvals=itmin,maxvals=itmax)
 
     #----Combine blobs in each iteration----
 
@@ -1399,146 +1405,9 @@ def errorbar(fig, x, y, xerr=None, yerr=None, color='steelblue',
         fig.multi_line(y_err_x, y_err_y, color=color, **error_kwargs)
 
 #----------------------------------------------------------
-def make_histogram(dataseries,weights=None,bins=50,logbins=False,
-                   datarange=None,density=False,iterations=None,
-                   centers=False):
-    """
-    Create histogram, including optional errorbars.
-
-    Author: Kari A. Frank
-    Date: November 29, 2016
-    Purpose: Create histogram from given series.
-
-    Input:
-
-     dataseries:  a pandas series of data (e.g. column of a pandas 
-                  dataframe)
-
-     weights:     optionally provided a pandas series of weights which 
-                  correspond to the values in datacolumn (e.g. emission 
-                  measure)
-
-     bins:        optionally specify the number of bins (default=30)
-                  or an array containing the bin edge values. bins
-                  is passed directly to numpy.histogram(), so can
-                  also accept any of the strings recognized by that 
-                  function for special calculation of bin sizes.
-                  - 'auto' (but don't use if using weights)
-                  - 'fd' (Freedman Diaconis Estimator)
-                  - 'doane'
-                  - 'scott'
-                  - 'rice' 
-                  - 'sturges'
-                  - 'sqrt'
-                 
-     logbins:     boolean to specify if bins should be in log space. if
-                  set, then bins should be the number of bins.
-
-     datarange:   minimum and maximum values to include in the histogram.
-                  
-     centers:     boolean to specify if the bincenters should be also be 
-                  returned (in addition to the binedges)
-
-     density:     passed to histogram. if True, then returned histogram is
-                  is the probability density function. In general, will
-                  not use this (call normalize_histogram() on histy 
-                  instead)
-
-     iterations:  optionally provide a series of the iterations that 
-                  correspond to each element of dataseries. if provided, 
-                  will be used to calculate the errorbars for each bin
-                  which will be plotted on the histogram. must be the same
-                  length as dataseries if provided.
-
-
-    Output:
-    
-     histy (numpy array, 1D) : series containing the y-values of the
-        histogram bins
-
-     histx (numpy array, 1D) : series containing the values of the 
-        histogram bin edges (the x-axis)
-
-     yerrors (numpy array, 1D) : series containing the error bars 
-        associated with histy
-
-    """
-
-    #----Set up bins----
-    if datarange is None:
-        datarange = (dataseries.min(),dataseries.max())
-
-    # set up log bins
-    if logbins is True: 
-        bins = np.logspace(np.log10(datarange[0]),np.log10(datarange[1]),
-                           num=bins)
-
-    #----Create the weighted histogram----
-    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
-                               density=density,range=datarange)
-
-    #----Calculate errorbars----
-
-    if iterations is not None:
-
-        # combine series into single dataframe for grouping
-        dfr = pd.concat([dataseries,iterations],axis=1)
-        dfr.columns = ['data','iteration']
-
-        if weights is not None: dfr['weight'] = weights.values
-
-        # initialize array to hold histogram 'stack'
-        niter = len(np.unique(iterations))
-        nbins = len(histy)
-        histstack = np.empty((nbins,niter))
-
-        #--create histogram for each iteration--
-        i = 0 # iteration (layer) counter
-        gdf = dfr.groupby('iteration',as_index=False)
-        for s,g in gdf: 
-            if weights is not None: 
-                gweights = g['weight']
-            else:
-                gweights = None
-            hyi,hyierrors,hyedges = make_histogram(g['data'],
-                                                   weights=gweights,
-                                           bins=binedges,iterations=None,
-                                           #logbins=logbins,
-                                           density=density,
-                                           datarange=datarange)
-            histstack[:,i] = hyi
-            i = i+1
-
-        #--collapse stack to standard deviation in each bin--
-        yerrors = np.std(histstack,axis=1)
-#        errors[:] = np.average(histy) # large errors for testing
-
-    else:
-        yerrors = None
-
-    if centers is False:
-        return histy,yerrors,binedges
-    else:
-        binsizes = binedges[1:]-binedges[:-1]
-        bincenters = binedges[:-1]+binsizes/2.0
-        return histy,yerrors,binedges,bincenters
-
-#----------------------------------------------------------
-def normalize_histogram(histy,yerrors=None):
-    """Normalize histogram to go from 0 to 1 on y-axis, including scaling the errorbars if provided."""
-
-    if yerrors is not None:
-        # normalize errors
-        yerrors = yerrors/float(np.max(histy))
-
-    # normalize histogram
-    histy = histy/float(np.max(histy))
-    
-    return histy,yerrors
-
-#----------------------------------------------------------
 def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
-               nlines=50,include_lines=None):
+               energy_range=(0.1,10.0),wavelength_range=None,nlines=50
+               ,include_lines=None):
     """
     Plot strong emission lines on top of a spectrum    
 
@@ -1560,6 +1429,12 @@ def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
                        lines from
 
      emissivity_range (2d tuple) : range of line emissivities to include
+
+     wavelength_range (2d tuple) : range of line wavelengths (angstroms) 
+                         to include emission lines from
+
+     energy_range (2d tuple) : range of line energies (keV) to include
+                         emission lines from
      
      nlines (int) : maximum number of lines to include. if more than
                     nlines (combined) lines meet the other criteria, 
@@ -1590,7 +1465,7 @@ def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
     ymax = float(fig.y_range.end)
 
     #----Read in lines----
-    linefile = os.path.dirname(__file__)+'/xraylines.txt'
+    linefile = os.path.dirname(__file__)+'/xraylines_atomdb302.txt'
     linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
 
     #----Remove extra lines----
@@ -1609,6 +1484,16 @@ def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
         linedf = linedf[emissivity_range[0] <= linedf['emissivity']]
         linedf = linedf[linedf['emissivity'] <= emissivity_range[1]]
     
+    #--get only lines with energy in range--
+    if energy_range is not None:
+        linedf = linedf[energy_range[0] <= linedf['energy']]
+        linedf = linedf[linedf['energy'] <= energy_range[1]]
+
+    #--get only lines with wavelength in range--
+    if wavelength_range is not None:
+        linedf = linedf[wavelength_range[0] <= linedf['wavelength']]
+        linedf = linedf[linedf['wavelength'] <= wavelength_range[1]]
+
     #--get only lines that are within the plot range--
 
     #-set x units-

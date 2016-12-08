@@ -96,7 +96,7 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     return df
 
 #----------------------------------------------------------
-def check(runpath='./',itmin=0,itmax=None):
+def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
     """
     Name: clean
     Author: Kari A. Frank
@@ -113,7 +113,13 @@ def check(runpath='./',itmin=0,itmax=None):
 
      runpath: string of path to the deconvolution files
 
-     itmin: minimum iteration to use in check
+     outpath: string of path to store output files
+
+     itmin/itmax: minimum iteration to use in check
+
+     kTthresh: float to optionally specify a minimum kT. if set,
+               then all blobs with kT<kTthresh will not be included
+               in the map (but will be included in all other plots)
 
     Output:
 
@@ -131,59 +137,74 @@ def check(runpath='./',itmin=0,itmax=None):
     from file_utilities import ls_to_list
     import xmcmap as xm
 
-    # -- read deconvolution files --
-    df = merge_output(runpath,save=False)
-
-    # -- add log10(arcsec) blob size column --
-    if 'blob_lnsigma' in df.columns:
-        df['blob_sigma'] = np.exp(df['blob_lnsigma'])
-
-    # -- remove iterations before itmin --
-    if itmax == None:
-        itmax = np.max(df['iteration'])
-    df = xw.filterblobs(df,'iteration',minvals=itmin)
+    if kTthresh is None:
+        kTthresh = 0.0
 
     # -- plot chi2 --
-    sf = xplt.chi2(runpath)
+    print "\nPlotting chi2 ...\n"
+    sf = xplt.chi2(runpath,outfile=outpath+'/chi2_vs_iteration.html')
     
-    # -- print median chi2 --
+    # -- calculate median chi2 --
+    if itmax is None:
+        itmax = np.max(sf.iteration)
+    sf = xw.filterblobs(sf,'iteration',minvals=itmin,maxvals=itmax)
     medchi2 = xw.weighted_median(sf['redchi2'])
-    print ('Median chi2/dof for iteration > '+str(itmin)+': '
-           +str(medchi2))
+
+    # -- read deconvolution files --
+    print "\nReading deconvolution files ...\n"
+    dfall=merge_output(runpath,save=False)
+
+    # -- add derivative columns --
+    dfall = clean(dfall,itmin=itmin,itmax=itmax)
+    print '\nIterations '+str(itmin)+' - '+str(itmax)+' : '
+    print "Total Number of Blobs = ",len(dfall.index)
+    print 'Median chi2/dof = '+str(medchi2)+'\n'
 
     # -- plot model and data spectra --
-    data_wave = xplt.spectra(runpath,smin=itmin/100,smax=itmax/100)
+    print "\nPlotting spectrum ...\n"
+    smin = itmin/100
+    if itmax is None: 
+        smax = None
+    else:
+        smax = itmax/100
+    sfig = xplt.spectrum(runpath=runpath,smin=smin,smax=smax,bins=0.03,
+                         ylog=True,xlog=True,
+                         outfile=outpath+'/spectrum.html',
+                         lines=True,nlines=100,energy_range=(0.5,10.0))
 
-    # -- make norm maps --
-#    normmap =  'itmin'+str(itmin)+'_median_norm.fits'
-#    median_norm_img = xm.make_map(df,outfile=normmap,paramname='blob_norm'
-#                                  ,binsize=10.0,itmod=(itmax-itmin)/500
-#                                  ,iteration_type='total')
+    # -- make median traceplots --
+    print "\nPlotting traces ...\n"
+    efig = xplt.trace(dfall,weights=None,
+                      outfile=outpath+'/trace_plots.html')
 
-    normmaplatest = 'iter'+str(itmax)+'_norm.fits'
-    df_latest = xw.filterblobs(df,'iteration',minvals=itmax,maxvals=itmax)
-    latest_norm_img = xm.make_map(df_latest,outfile=normmaplatest,
-                                  paramname='blob_norm',binsize=10.0,
-                                  itmod=1,iteration_type='total',nproc=1)
-    
-
-    # -- plot parameter histograms --
-    histfigs = xplt.histogram_grid(df)
-
-    # -- plot norm maps and event file --
-
-    #-get event file names-
-    evfiles = ls_to_list('./',ls_args='*events*.fits')
-    cmd = 'ds9'
-    for evf in evfiles:
-        cmd = cmd + ' '+ evf + ' -bin factor 32'
-#    cmd = cmd + ' ' + normmap + ' ' + normmaplatest
-    cmd = cmd + ' ' + normmaplatest
-    os.system(cmd)
+    # -- make histograms --
+    print "\nPlotting posteriors ...\n"
+    nbins = 75
+    w = 500
+    h = 200
+    hfigs = xplt.histogram_grid([dfall,dfall],weights=[None,'blob_em'],
+                                bins=nbins,ncols=2,norm=True,
+                                outfile=outpath+'/histogram_grid.html',
+                                legends=['Unweighted','EM weighted'],
+                                width=w,height=h,iterations='iteration')
 
 
-    # -- make traceplots --
-#    tracefigs = xplt.traceplots(df)
+    # -- scatter plots--
+    print "\nPlotting scatter plots ...\n"
+    blobcols = [c for c in dfall.columns if 'blob' in c]
+    sfigs2 = xplt.scatter_grid(dfall[blobcols],agg=None,sampling=2000)
 
-    return (df,sf)
+    # -- make norm map --
+    print "\nMaking blob norm map ...\n"
+    pixelsize = 5.0
+    img1file = (outpath+'/bin'+str(int(pixelsize))+
+                '_iter'+str(itmin)+'-'+str(itmax))
+    img = xm.make_map(xw.filterblobs(dfall,'blob_kT',minvals=kTthresh),
+                      paramname='blob_em',
+                      paramweights=None,iteration_type='total',
+                      binsize=pixelsize,nlayers=20,
+                      withsignificance=True,nproc=4,
+                      outfile=img1file,clobber=True)
+
+    return (dfall,sf)
 

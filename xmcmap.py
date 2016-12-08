@@ -323,7 +323,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     #----Set default image size and center----
     if imagesize is None:
         ximagesize = 1.1*(max(df[paramx] - min(df[paramx])))
-        yimagesize = 1.1*(max(df[paramx] - min(df[paramy])))
+        yimagesize = 1.1*(max(df[paramy] - min(df[paramy])))
     elif isinstance(imagesize,tuple) or isinstance(imagesize,list):
         if len(imagesize)>2: 
             print ("calculate_map: Warning: imagesize has too many"+ 

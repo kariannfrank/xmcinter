@@ -539,6 +539,8 @@ def weighted_median(data, weights=None):
 #def weighted_posterior(data, weights=None, bins='knuth',normalize=False):
 def weighted_posterior(data, weights=None, bins=None,normalize=False):
     """
+    DEPRECATED -- Use make_histogram() instead.
+
     Construct a (weighted) posterior histogram from an array of data,
     e.g. a 1D array of blob temperatures.
 
@@ -565,6 +567,149 @@ def weighted_posterior(data, weights=None, bins=None,normalize=False):
     return x,y
 
 #----------------------------------------------------------------
+def make_histogram(dataseries,weights=None,bins=50,logbins=False,
+                   datarange=None,density=False,iterations=None,
+                   centers=False,normalize=False):
+    """
+    Create histogram, including optional errorbars.
+
+    Author: Kari A. Frank
+    Date: November 29, 2016
+    Purpose: Create histogram from given series.
+
+    Input:
+
+     dataseries:  a pandas series of data (e.g. column of a pandas 
+                  dataframe)
+
+     weights:     optionally provided a pandas series of weights which 
+                  correspond to the values in datacolumn (e.g. emission 
+                  measure)
+
+     bins:        optionally specify the number of bins (default=30)
+                  or an array containing the bin edge values. bins
+                  is passed directly to numpy.histogram(), so can
+                  also accept any of the strings recognized by that 
+                  function for special calculation of bin sizes.
+                  - 'auto' (but don't use if using weights)
+                  - 'fd' (Freedman Diaconis Estimator)
+                  - 'doane'
+                  - 'scott'
+                  - 'rice' 
+                  - 'sturges'
+                  - 'sqrt'
+                 
+     logbins:     boolean to specify if bins should be in log space. if
+                  set, then bins should be the number of bins.
+
+     datarange:   minimum and maximum values to include in the histogram.
+                  
+     centers:     boolean to specify if the bincenters should be also be 
+                  returned (in addition to the binedges)
+
+     density:     passed to histogram. if True, then returned histogram is
+                  is the probability density function. In general, will
+                  not use this (call normalize_histogram() on histy 
+                  instead)
+
+     iterations:  optionally provide a series of the iterations that 
+                  correspond to each element of dataseries. if provided, 
+                  will be used to calculate the errorbars for each bin
+                  which will be plotted on the histogram. must be the same
+                  length as dataseries if provided.
+
+
+    Output:
+    
+     histy (numpy array, 1D) : series containing the y-values of the
+        histogram bins
+
+     histx (numpy array, 1D) : series containing the values of the 
+        histogram bin edges (the x-axis)
+
+     yerrors (numpy array, 1D) : series containing the error bars 
+        associated with histy
+
+    """
+
+    #----Set up bins----
+    if datarange is None:
+        datarange = (dataseries.min(),dataseries.max())
+
+    # set up log bins
+    if logbins is True: 
+        bins = np.logspace(np.log10(datarange[0]),np.log10(datarange[1]),
+                           num=bins)
+
+    #----Create the weighted histogram----
+    histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
+                               density=density,range=datarange)
+
+    #----Calculate errorbars----
+
+    if iterations is not None:
+
+        # combine series into single dataframe for grouping
+        dfr = pd.concat([dataseries,iterations],axis=1)
+        dfr.columns = ['data','iteration']
+
+        if weights is not None: dfr['weight'] = weights.values
+
+        # initialize array to hold histogram 'stack'
+        niter = len(np.unique(iterations))
+        nbins = len(histy)
+        histstack = np.empty((nbins,niter))
+
+        #--create histogram for each iteration--
+        i = 0 # iteration (layer) counter
+        gdf = dfr.groupby('iteration',as_index=False)
+        for s,g in gdf: 
+            if weights is not None: 
+                gweights = g['weight']
+            else:
+                gweights = None
+            hyi,hyierrors,hyedges = make_histogram(g['data'],
+                                                   weights=gweights,
+                                           bins=binedges,iterations=None,
+                                           #logbins=logbins,
+                                           density=density,
+                                           datarange=datarange)
+            histstack[:,i] = hyi
+            i = i+1
+
+        #--collapse stack to standard deviation in each bin--
+        yerrors = np.std(histstack,axis=1)
+#        errors[:] = np.average(histy) # large errors for testing
+
+    else:
+        yerrors = None
+
+    #--normalize--
+    if normalize is True:
+        histy,yerrors = normalize_histogram(histy,yerrors=yerrors)
+
+    #--return arrays--
+    if centers is False:
+        return histy,yerrors,binedges
+    else:
+        binsizes = binedges[1:]-binedges[:-1]
+        bincenters = binedges[:-1]+binsizes/2.0
+        return histy,yerrors,binedges,bincenters
+
+#----------------------------------------------------------
+def normalize_histogram(histy,yerrors=None):
+    """Normalize histogram to go from 0 to 1 on y-axis, including scaling the errorbars if provided."""
+
+    if yerrors is not None:
+        # normalize errors
+        yerrors = yerrors/float(np.max(histy))
+
+    # normalize histogram
+    histy = histy/float(np.max(histy))
+    
+    return histy,yerrors
+
+#----------------------------------------------------------------
 def weighted_modes(data, weights=None):
     """
     Calculate the mode of a weighted array.
@@ -576,8 +721,11 @@ def weighted_modes(data, weights=None):
     """
 
     #--Construct the binned posterior--
-    postx,posty = weighted_posterior(data,weights=weights,
-                                     normalize=True)
+#    postx,posty = weighted_posterior(data,weights=weights,
+#                                     normalize=True)
+    posty,postyerr,edges,postx = make_histogram(data,weights=weights,
+                                     normalize=True,center=True)
+
 
     #--Find the mode(s)--
 #    modes = []
@@ -647,7 +795,9 @@ def credible_region(data, weights=None, frac=0.9, method='HPD'):
     modes = weighted_modes(data,weights=weights)
     
     #--get normalized posterior (probability density function)--
-    postx,posty = weighted_posterior(data,weights=weights,normalize=True)
+#    postx,posty = weighted_posterior(data,weights=weights,normalize=True)
+    posty,postyerr,edges,postx = make_histogram(data,weights=weights,
+                                     normalize=True,center=True)
 
     #--step through bins around mode, alternating directions--
     lowprob = 0.0
