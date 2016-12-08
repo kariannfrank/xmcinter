@@ -463,7 +463,8 @@ def get_xmm_attitude(attfile='atthk.fits',hms=False):
 
   Usage Notes:
      - the attitude file should be generated from the odf files using 
-       the XMM-SAS tool atthkgen
+       the XMM-SAS tool atthkgen, e.g.:
+       atthkgen atthkset=atthk.fits
   """
   
   #-ra, dec, and rotation from attitude file header-
@@ -590,7 +591,7 @@ def xmc2wcs(phi,psi,attfile='atthk.fits'):
 
   #-rotate phi and psi-
   phi_rot = phi*np.cos(obs_ang) - psi*np.sin(obs_ang)
-  psi_rot = phi*np.sin(obs_ang) - psi*np.cos(obs_ang)
+  psi_rot = phi*np.sin(obs_ang) + psi*np.cos(obs_ang)
 
   #-shift to ra and dec and convert units-
   ra = ra0 - (1.0/np.cos(dec0*np.pi/180.0))*phi_rot/3600.0
@@ -921,7 +922,7 @@ def show_xray_lines(kT_range=(0.1,10.0),emissivity_range=(1e-18,1.0),
   import os
 
   #----Read in lines----
-  linefile = os.path.dirname(__file__)+'/xraylines.txt'
+  linefile = os.path.dirname(__file__)+'/xraylines_atomdb302.txt'
   linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
 
   #----Remove extra lines----

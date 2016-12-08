@@ -116,7 +116,8 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
 #----------------------------------------------------------
 def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
             width=600,height=600,source=None,tools=None,size=5,
-            xlog='auto',ylog='auto',outfile=None,returnfunc=False):
+            xlog='auto',ylog='auto',outfile=None,returnfunc=False,
+            span=None,cscale='eq_hist'):
     """
     scatter()
  
@@ -188,9 +189,18 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
                  returned value will be fig,source,image_callback. If True,
                  will disable the InteractiveImage call within scatter().
                  This allows dynamic zooming by calling 
-                 InteractiveImage(fig,image_callback) on the python
+                    from datashader.bokeh_ext import InteractiveImage
+                    InteractiveImage(fig,image_callback) 
+                 on the python
                  command line. Only enable this if calling 
                  scatter() directly.
+
+      span : [zmin,zmax], to specify the range to use for the colorscale
+             only used datashader and aggcol is used.
+             
+      cscale : string specify type of scale to use for colorscale,
+               'log', 'linear', or 'eq_hist' (default). only used if
+               datashader is used.
 
 
    Output:
@@ -302,6 +312,10 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
             if outfile != 'notebook': bplt.curdoc().clear()
 
     else:        
+        if (span is None) and (aggcol is not None):
+            span = [df[aggcol].min(),df[aggcol].max()]
+        else:
+            span = None
         def image_callback(x_range,y_range,w,h):
             # re-draw canvas
 #            cvs = ds.Canvas(plot_width=w,plot_height=h,x_range=x_range,
@@ -309,8 +323,8 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
             cvs = ds.Canvas(x_range=x_range,y_range=y_range)
             # re-aggregate
             aggr = cvs.points(df,x,y,agg=fdict[agg](aggcol))
-            img = tf.interpolate(aggr,cmap=cm,
-                                 how='log')
+            img = tf.interpolate(aggr,cmap=cm,span=span,
+                                 how=cscale)
             return tf.dynspread(img,shape='circle',max_px=size,
                                 threshold=0.8)#,how='saturate')
         
