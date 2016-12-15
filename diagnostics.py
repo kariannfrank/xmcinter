@@ -64,9 +64,13 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     else:
         df = runpath
 
-    # -- add log10(arcsec) blob size column --
+    # -- add blob size in arcsec column --
     if 'blob_lnsigma' in df.columns:
         df['blob_sigma'] = np.exp(df['blob_lnsigma'])
+
+    # -- add tau column, if used lvpshock --
+    if 'blob_logtau' in df.columns:
+        df['blob_tau'] = 10.0**(df['blob_tau'])
 
     # -- add emission measure column --
     if 'blob_norm' in df.columns:
