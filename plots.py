@@ -508,7 +508,8 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',logbins=None,legend=None,
-              norm=False,xmin=None,xmax=None,iterations=None,**kwargs):
+              norm=False,xmin=None,xmax=None,iterations=None,
+              ytitle=None,**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -571,6 +572,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
      outfile:     string name of html file to save figure to. set to 
                   outfile='notebook' to plot to jupyter notebook.
+
+     ytitle:      string specifiying label of y-axis. default is the 
+                  column name of the provided data series.
 
      legend:      string to use for legend
 
@@ -658,12 +662,15 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
                           x_axis_type=x_axis_type,x_range=xaxisrng,
                           y_range=yaxisrng)
         fig.xaxis.axis_label=dataseries.name
-
+            
         if weights is not None:
-            if norm is True:
-                fig.yaxis.axis_label='normalized '+weights.name
+            if ytitle is not None:
+                fig.yaxis.axis_label=ytitle
             else:
-                fig.yaxis.axis_label=weights.name
+                if norm is True:
+                    fig.yaxis.axis_label='normalized '+weights.name
+                else:
+                    fig.yaxis.axis_label=weights.name
             if np.log10(max(histy))>3: 
                 fig.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
         else:
@@ -716,7 +723,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                    ncols=2,outfile='histogram_grid.html',
                    colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
-                   alphas=None,norm=False,legends=None,**kwargs):
+                   alphas=None,norm=False,legends=None,**histargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -786,9 +793,8 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
      outfile:     string name of output html plot file. if plotting to 
                   a jupyter notebook, use outfile='notebook'.
 
-     **kwargs:    pass any number of extra keyword arguments that are 
-                  accepted by bokeh.plotting.quad().  some of the most
-                  useful may be fill_color and line_color
+     **histargs:  pass any number of extra keyword arguments that are 
+                  accepted by histogram()
 
     Output:
      - plots matrix of scatter plots of all provided dataframe columns to 
@@ -946,7 +952,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                                      width=width,xmin=xmin,xmax=xmax,
                                      norm=norm,#legend=legends[d+1],
                                      infig=newfig,xlog=xlog,
-                                   iterations=iterations[d])
+                                   iterations=iterations[d],**histargs)
         figlist=figlist+[newfig]
 
 #----Plot histograms----
@@ -1009,6 +1015,7 @@ def format_ticks(vals):
 
 #----------------------------------------------------------
 def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
+             model=True,
              modelcolor='steelblue',lastmodelcolor='firebrick',bins=0.03,
              outfile='spectrum.html',ylog=False,xlog=False,logbins=None,
              datarange=None,width=1000,height=500,lines=True,**lineargs):
@@ -1052,6 +1059,8 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
 
     save (bool) : if save is False, then will not display the final figure
                   or save it to a file
+                  
+    model (bool) : if False, then will plot only the data spectrum.
 
     lines (bool) : plot the 10 stongest common emission lines within 
                    the x-axis range. **lineargs will pass any extra 
@@ -1099,45 +1108,50 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
 
     #----Read in model spectra----
 
-    #--read in first model spectrum--
-    foundmodel = False
-    sm = smin
-    #print smin,smax
-    while (sm<=smax and foundmodel is False):
-        modelspecfile = runpath+'/'+specname+str(sm)+'.fits'
-        if os.path.isfile(modelspecfile):
-            model_table = fits.getdata(modelspecfile,0)
-            model_wave = model_table.field('wave')
-            model_wave_avg = model_wave
-            iters_avg = np.ones_like(model_wave)
-            iters_avg.fill(sm)
-            foundmodel = True
-        else:
-            print ("Warning: "+modelspecfile+" not found.  Skipping +"
-                   "to next spectrum.")
-        sm = sm+1
-            
-    if foundmodel is False:
-        print "ERROR: no spectrum files found in range."
+    if model is True:
+    
+        #--read in first model spectrum--
+        foundmodel = False
+        sm = smin
+        #print smin,smax
+        while (sm<=smax and foundmodel is False):
+            modelspecfile = runpath+'/'+specname+str(sm)+'.fits'
+            if os.path.isfile(modelspecfile):
+                model_table = fits.getdata(modelspecfile,0)
+                model_wave = model_table.field('wave')
+                model_wave_avg = model_wave
+                iters_avg = np.ones_like(model_wave)
+                iters_avg.fill(sm)
+                foundmodel = True
+            else:
+                print ("Warning: "+modelspecfile+" not found.  Skipping +"
+                       "to next spectrum.")
+            sm = sm+1
 
-    #--loop over remaining model spectra--
-    for s in xrange(sm,smax+1):
-        modelspecfile = runpath+'/'+specname+str(s)+'.fits'
-        if os.path.isfile(modelspecfile):
-            model_table = fits.getdata(modelspecfile,0)
-            model_wave = model_table.field('wave')
-            model_iters = np.ones_like(model_wave)
-            model_iters.fill(s) #assign 'iteration' number
-            model_wave_avg = np.hstack((model_wave_avg,model_wave))
-            iters_avg = np.hstack((iters_avg,model_iters))
-        else:
-            print "Warning: "+modelspecfile+" does not exist. Skipping."
+        if foundmodel is False:
+            print "ERROR: no spectrum files found in range."
+
+        #--loop over remaining model spectra--
+        for s in xrange(sm,smax+1):
+            modelspecfile = runpath+'/'+specname+str(s)+'.fits'
+            if os.path.isfile(modelspecfile):
+                model_table = fits.getdata(modelspecfile,0)
+                model_wave = model_table.field('wave')
+                model_iters = np.ones_like(model_wave)
+                model_iters.fill(s) #assign 'iteration' number
+                model_wave_avg = np.hstack((model_wave_avg,model_wave))
+                iters_avg = np.hstack((iters_avg,model_iters))
+            else:
+                print "Warning: "+modelspecfile+" does not exist. Skipping."
+
+
 
     #----Convert to pandas Series----
     data_wave = pd.Series(data_wave,name='Energy (keV)')    
-    model_wave_avg = pd.Series(model_wave_avg,name='Energy (keV)')
-    model_wave = pd.Series(model_wave,name='Energy (keV)')
-    iters_avg = pd.Series(iters_avg,name='iteration')
+    if model is True:
+        model_wave_avg = pd.Series(model_wave_avg,name='Energy (keV)')
+        model_wave = pd.Series(model_wave,name='Energy (keV)')
+        iters_avg = pd.Series(iters_avg,name='iteration')
 
     #----Create Histograms----
     
@@ -1152,21 +1166,22 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
                        density=False,iterations=None)
     datay,dataerrors = normalize_histogram(datay,dataerrors)
 
-    avgmodely,avgmodelerrors,avgmodeledges=\
-        make_histogram(model_wave_avg,
-                       bins=bins,
-                       logbins=logbins,datarange=datarange,
-                       density=False,iterations=iters_avg)
-    avgmodely,avgmodelerrors = normalize_histogram(avgmodely,
-                                                   avgmodelerrors)
+    if model is True:
+        avgmodely,avgmodelerrors,avgmodeledges=\
+            make_histogram(model_wave_avg,
+                           bins=bins,
+                           logbins=logbins,datarange=datarange,
+                           density=False,iterations=iters_avg)
+        avgmodely,avgmodelerrors = normalize_histogram(avgmodely,
+                                                       avgmodelerrors)
 
-    lastmodely,lastmodelerrors,lastmodeledges=\
-        make_histogram(model_wave,
-                       bins=bins,
-                       logbins=logbins,datarange=datarange,
-                       density=False,iterations=None)
-    lastmodely,lastmodelerrors = normalize_histogram(lastmodely,
-                                                   lastmodelerrors)
+        lastmodely,lastmodelerrors,lastmodeledges=\
+            make_histogram(model_wave,
+                           bins=bins,
+                           logbins=logbins,datarange=datarange,
+                           density=False,iterations=None)
+        lastmodely,lastmodelerrors = normalize_histogram(lastmodely,
+                                                       lastmodelerrors)
 
     #----Set up Plot----
     if save is True:
@@ -1195,26 +1210,38 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
 
     avglabel = 'Model (average)'
     lastlabel = 'Model (last iteration)'
-    specframes = pd.DataFrame({'Data':datay,xlabel:dataedges[:-1],
-                               avglabel:avgmodely,lastlabel:lastmodely})
 
     #----Plot Spectra as Step Chart----
-    step = Step(specframes,x=xlabel,y=['Data',avglabel,lastlabel],
+    if model is True:
+        specframes = pd.DataFrame({'Data':datay,xlabel:dataedges[:-1],
+                               avglabel:avgmodely,lastlabel:lastmodely})
+
+        step = Step(specframes,x=xlabel,y=['Data',avglabel,lastlabel],
                 color=[datacolor,modelcolor,lastmodelcolor],legend=True,
                 y_mapper_type=y_axis_type,x_mapper_type=x_axis_type,
                 dash=['solid','solid','dashed'],
                 plot_width=width,plot_height=height)
+    else:
+        specframes = pd.DataFrame({'Data':datay,xlabel:dataedges[:-1]})
+
+        step = Step(specframes,x=xlabel,y=['Data'],
+                color=[datacolor],legend=True,
+                y_mapper_type=y_axis_type,x_mapper_type=x_axis_type,
+                dash=['solid'],
+                plot_width=width,plot_height=height)
+
     step.x_range=Range1d(*x_range)
     step.y_range=Range1d(*y_range)
     step.legend.location='top_right'
     step.ylabel = 'normalized value'
 
     #----Plot Errorbars----
-    xbinsizes = dataedges[1:]-dataedges[:-1]
-    xbins = dataedges[:-1]+xbinsizes/2.0
-    errorbar(step, xbins, avgmodely, xerr=None, yerr=avgmodelerrors, 
-             color=modelcolor, 
-             point_kwargs={}, error_kwargs={})
+    if model is True:
+        xbinsizes = dataedges[1:]-dataedges[:-1]
+        xbins = dataedges[:-1]+xbinsizes/2.0
+        errorbar(step, xbins, avgmodely, xerr=None, yerr=avgmodelerrors, 
+                 color=modelcolor, 
+                 point_kwargs={}, error_kwargs={})
 
     #----Plot Emission Lines----
     if lines is True:
@@ -1419,9 +1446,7 @@ def errorbar(fig, x, y, xerr=None, yerr=None, color='steelblue',
         fig.multi_line(y_err_x, y_err_y, color=color, **error_kwargs)
 
 #----------------------------------------------------------
-def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
-               energy_range=(0.1,10.0),wavelength_range=None,nlines=50
-               ,include_lines=None):
+def plot_lines(fig,bins,nlines=50,show=False,**fetchargs):
     """
     Plot strong emission lines on top of a spectrum    
 
@@ -1439,25 +1464,37 @@ def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
                        the spectrum, as output by np.histogram() or 
                        make_histogram() in spectrum()
 
-     kT_range (2d tuple) : range of gas temperatures to include emission
-                       lines from
+     nlines (int) : maximum number of (grouped) lines to include.
+                    if more than nlines (grouped) lines meet the 
+                    other criteria, then will plot only the nlines 
+                    with highest emissivity
 
-     emissivity_range (2d tuple) : range of line emissivities to include
+     show (bool) : specify if the line information should be printed to
+                   screen as well as plotted
 
-     wavelength_range (2d tuple) : range of line wavelengths (angstroms) 
-                         to include emission lines from
+     fetch_lines() input options:
 
-     energy_range (2d tuple) : range of line energies (keV) to include
-                         emission lines from
-     
-     nlines (int) : maximum number of lines to include. if more than
-                    nlines (combined) lines meet the other criteria, 
-                    then will plot only the nlines with highest emissivity
+         kT_range (2d tuple) : range of gas temperatures to include 
+                               emission lines from
 
-     include_lines (list of strings) : list of element names to include 
-                    emission lines from. will first drop all lines from
-                    other elements, then apply remaining criteria (e.g.
-                    kT_range).
+         emissivity_range (2d tuple) : range of line emissivities 
+                                       to include
+
+         wavelength_range (2d tuple) : range of line wavelengths 
+                             (angstroms) to include emission lines from
+
+         energy_range (2d tuple) : range of line energies (keV) to include
+                             emission lines from
+
+         include_lines (list of strings) : list of element names to 
+                        include emission lines from. will first drop 
+                        all lines from other elements, then apply 
+                        remaining criteria (e.g. kT_range).
+
+         redshift (float) : redshift of the source. if non-zero, lines 
+                            will be redshifted appropriately before
+                            applying any criteria or plotting.
+
 
     Output:
 
@@ -1472,43 +1509,18 @@ def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
     import os
     from bokeh.models.annotations import Span,Label
     from bokeh.models import HoverTool
+    from astro_utilities import fetch_lines
 
+    #--fetch lines from atomdb file--
+    linedf = fetch_lines(**fetchargs)
+
+    #--get only lines that are within the plot range--
+
+    #-get plot range-
     xmin = float(fig.x_range.start)
     xmax = float(fig.x_range.end)
     ymin = float(fig.y_range.start)
     ymax = float(fig.y_range.end)
-
-    #----Read in lines----
-    linefile = os.path.dirname(__file__)+'/xraylines_atomdb302.txt'
-    linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
-
-    #----Remove extra lines----
-
-    #--remove lines not in include_lines--
-    if include_lines is not None:
-        linedf = linedf[linedf['ion'].isin(include_lines)]
-
-    #--get only lines from gas with kT in range--
-    if kT_range is not None:
-        linedf = linedf[kT_range[0] <= linedf['kT']]
-        linedf = linedf[linedf['kT'] <= kT_range[1]]
-
-    #--get only lines with emissivity in range--
-    if emissivity_range is not None:
-        linedf = linedf[emissivity_range[0] <= linedf['emissivity']]
-        linedf = linedf[linedf['emissivity'] <= emissivity_range[1]]
-    
-    #--get only lines with energy in range--
-    if energy_range is not None:
-        linedf = linedf[energy_range[0] <= linedf['energy']]
-        linedf = linedf[linedf['energy'] <= energy_range[1]]
-
-    #--get only lines with wavelength in range--
-    if wavelength_range is not None:
-        linedf = linedf[wavelength_range[0] <= linedf['wavelength']]
-        linedf = linedf[linedf['wavelength'] <= wavelength_range[1]]
-
-    #--get only lines that are within the plot range--
 
     #-set x units-
     if xmax <= 15.0: # epic data (keV scale)
@@ -1516,22 +1528,23 @@ def plot_lines(fig,bins,kT_range=(0.17,10.0),emissivity_range=(1e-17,1.0),
     else: # rgs data (angstrom scale)
         x = 'wavelength'
 
+    #-cut lines-
+    linedf = linedf[linedf[x] <= xmax]
+    linedf = linedf[linedf[x] >= xmin]
+
+    #-group lines by ion and ionization stage
     plotdf = agg_lines(linedf.groupby(['ion','ionization_stage']),
                        bins,units=x)
 
-    #-cut out-of-range lines-
-#    plotdf = plotdf[plotdf[x] >= xmin]
-#    plotdf = plotdf[plotdf[x] <= xmax]
-
-    #--truncate to include no more than nlines lines, keeping those with
-    # highest emissivity--
+    #--truncate to include no more than nlines (grouped) lines, 
+    #   keeping those with highest emissivity--
     if (nlines is not None) and (len(plotdf.index)>nlines):
         plotdf = plotdf.nlargest(nlines,'emissivity')
     else:
         nlines = len(plotdf.index)
 
     #----Print line information----
-    print plotdf.head(nlines)
+    if show is True: print plotdf.head(nlines)
 
     #----Plot lines----
     
@@ -1609,3 +1622,4 @@ def agg_lines(groupeddf,bins,units='energy'):
 
     outdf.reset_index(inplace=True,drop=True)
     return outdf
+

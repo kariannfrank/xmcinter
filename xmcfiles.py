@@ -7,9 +7,11 @@
 # read_parnames
 
 # functions using pandas:
-#  merge_output -- replaces get_deconvolution, get_statistic, and get_xmcoutput
+#  merge_output 
 #  remove_nans
 #  add_header
+#  calculate_prior
+
 #----------------------------------------------------------
 #Import common modules
 import os
@@ -167,3 +169,11 @@ def merge_output(runpath='./',filetype='deconvolution',save=True,sep='\t'):
     return datatable
 
 #----------------------------------------------------------
+def calculate_prior(minval,maxval):
+    """Given endpoints of a range, returns the center and stepsize."""
+
+    width = maxval-minval
+    stepsize = width/2.0
+    center = minval+stepsize
+
+    return center,stepsize

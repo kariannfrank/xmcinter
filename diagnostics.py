@@ -142,7 +142,8 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
 
     # -- plot chi2 --
     print "\nPlotting chi2 ...\n"
-    sf = xplt.chi2(runpath,outfile=outpath+'/chi2_vs_iteration.html')
+    sf = xplt.chi2(runpath,itmax=itmax,
+                   outfile=outpath+'/chi2_vs_iteration.html')
     
     # -- calculate median chi2 --
     if itmax is None:
@@ -194,15 +195,19 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
     blobcols = [c for c in dfall.columns if 'blob' in c]
     sfigs2 = xplt.scatter_grid(dfall[blobcols],agg=None,sampling=2000)
 
-    # -- make norm map --
-    print "\nMaking blob norm map ...\n"
-    pixelsize = 5.0
+    # -- make norm map from most recent iteration --
+    print "\nMaking blob em map ...\n"
+    pixelsize = 3.0
+#    img1file = (outpath+'/bin'+str(int(pixelsize))+
+#                '_iter'+str(itmin)+'-'+str(itmax))
     img1file = (outpath+'/bin'+str(int(pixelsize))+
-                '_iter'+str(itmin)+'-'+str(itmax))
-    img = xm.make_map(xw.filterblobs(dfall,'blob_kT',minvals=kTthresh),
+                '_iter'+str(itmax))
+    img = xm.make_map(xw.filterblobs(dfall,['blob_kT'],
+                                     minvals=[kTthresh,itmax],
+                                     maxvals=[None,itmax]),
                       paramname='blob_em',
                       paramweights=None,iteration_type='total',
-                      binsize=pixelsize,nlayers=20,
+                      binsize=pixelsize,nlayers=1,
                       withsignificance=True,nproc=4,
                       outfile=img1file,clobber=True)
 

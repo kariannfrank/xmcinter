@@ -438,7 +438,7 @@ def convert_arcsec(theta,distance,distanceunit,tounit):
   return distance*theta
 
 #----------------------------------------------------------
-def get_xmm_attitude(attfile='atthk.fits',hms=False):
+def get_xmm_attitude(attfile='atthk.fits',hms=False,usemedian=True):
   """
   get_xmm_attitude
 
@@ -452,6 +452,9 @@ def get_xmm_attitude(attfile='atthk.fits',hms=False):
 
       hms (bool): if True, return the coordinates as [hour,minutes,seconds] 
             instead of degrees (default=False)
+
+      usemedian (bool) : if True, use the median pointing values
+            (e.g. MAHFDEC) instead of average
 
   Output:
       list of numerical: returns list of coordinates and angle, 
@@ -470,11 +473,14 @@ def get_xmm_attitude(attfile='atthk.fits',hms=False):
   #-ra, dec, and rotation from attitude file header-
   att_hdus = fits.open(attfile)
   att_hdr = att_hdus[0].header
-  # this retrieves the median values in case they were not constant, e.g. 
-  # due to a slew failure
-  att_ra = att_hdr['MAHFRA']
-  att_dec = att_hdr['MAHFDEC']
-  att_ang = att_hdr['MAHFPA']
+
+  if usemedian is True:
+    pre='MAHF'
+  else:
+    pre = 'AAHF'
+  att_ra = att_hdr[pre+'RA']
+  att_dec = att_hdr[pre+'DEC']
+  att_ang = att_hdr[pre+'PA']
   att_hdus.close()
 
   #-convert to hh,mm,ss if hms=True-
@@ -880,16 +886,19 @@ def error_range_to_bars(x,xlow,xhigh):
   return xerrlow,xerrhigh
 
 #----------------------------------------------------------
-def show_xray_lines(kT_range=(0.1,10.0),emissivity_range=(1e-18,1.0),
-                    energy_range=None,wavelength_range=None,
-                    nlines=None,include_lines=None):
+def show_xray_lines(**fetchargs):
   """
   Author: Kari A. Frank
   Date: December 5, 2016  
   Purpose: Print to screen the energies and emissivities of common X-ray
            emission lines.
 
-  Input: 
+  fetchargs Input: 
+
+   redshift (float) : redshift of the source. if non-zero, lines 
+                        will be redshifted appropriately before
+                        applying any criteria and printing to screen.
+
 
    kT_range (2d tuple) : range of gas temperatures to include emission
                          lines from
@@ -919,22 +928,89 @@ def show_xray_lines(kT_range=(0.1,10.0),emissivity_range=(1e-18,1.0),
  
   """
 
+  linedf = fetch_lines(**fetchargs)
+
+  #--print line information--
+  print linedf.head(len(linedf.index))
+
+  return linedf
+
+#----------------------------------------------------------
+def redshift_line(line,z,fromunit='angstroms'):
+  """Calculate observed wavelength or energy of a line"""
+
+  # convert to wavelength in angstroms
+  if fromunit is 'keV':
+    line = angstroms2keV(line)
+
+  # shift wavelength
+  newline = line*(1.0+z)
+
+  # convert back to energy in keV
+  if fromunit is 'keV':
+    newline = angstroms2keV(line)
+
+  return newline
+
+
+#----------------------------------------------------------
+def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
+                    emissivity_range=(1e-18,1.0),
+                    energy_range=None,wavelength_range=None,
+                    nlines=None,include_ions=None):
+  """Fetch lines from atomdb file and return as dataframe
+
+   redshift (float) : redshift of the source. if non-zero, lines 
+                        will be redshifted appropriately before
+                        applying any criteria and printing to screen.
+
+
+   kT_range (2d tuple) : range of gas temperatures to include emission
+                         lines from
+
+   emissivity_range (2d tuple) : range of line emissivities to include 
+                                 emission lines from
+
+   wavelength_range (2d tuple) : range of line wavelengths (angstroms) 
+                         to include emission lines from
+
+   energy_range (2d tuple) : range of line energies (keV) to include
+                         emission lines from
+
+   nlines (int) : maximum number of emission lines to show. if more than
+                  nlines lines meet the other criteria, 
+                  then will whow only the nlines with highest emissivity
+       
+   include_ions (list of strings) :  list of element names to include 
+                    emission lines from. will first drop all lines from
+                    other elements, then apply remaining criteria (e.g.
+                    kT_range). Use 2-letters for each element.
+
+
+  Output:
+   Returns a pandas dataframe containing the line information.
+ 
+  """
   import os
 
   #----Read in lines----
-  linefile = os.path.dirname(__file__)+'/xraylines_atomdb302.txt'
+  linefile = os.path.dirname(__file__)+'/xraylines_atomdb307.txt'
   linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
+
+  #----Redshift lines----
+  linedf['wavelength'] = redshift_line(linedf['wavelength'],redshift)
+  linedf['energy'] = angstroms2keV(linedf['wavelength'])
 
   #----Remove extra lines----
 
   #--remove lines not in include_lines--
-  if include_lines is not None:
-      linedf = linedf[linedf['ion'].isin(include_lines)]
+  if include_ions is not None:
+      linedf = linedf[linedf['ion'].isin(include_ions)]
 
   #--get only lines from gas with kT in range--
   if kT_range is not None:
-      linedf = linedf[kT_range[0] <= linedf['kT']]
-      linedf = linedf[linedf['kT'] <= kT_range[1]]
+    linedf = linedf[linedf['kT'] >= kT_range[0]]
+    linedf = linedf[linedf['kT'] <= kT_range[1]]
 
   #--get only lines with emissivity in range--
   if emissivity_range is not None:
@@ -957,8 +1033,24 @@ def show_xray_lines(kT_range=(0.1,10.0),emissivity_range=(1e-18,1.0),
       linedf = linedf.nlargest(nlines,'emissivity')
   else:
     nlines = len(linedf.index)
-
-  #--print line information--
-  print linedf.head(nlines)
-
+  
   return linedf
+
+#----------------------------------------------------------
+# function in progress
+def distance2redshift(d,fromunit='kpc'):
+  """Convert a distance to a redshift"""
+
+  # convert to kpc
+  if fromunit is not 'kpc':
+    convert_distance(d,fromunit,'kpc')
+
+  print "ERROR: This function is under construction."
+  
+
+  return z
+
+#----------------------------------------------------------
+# function to convert redshift to velocity (km/s) units
+# z=v/c (for small v)
+# z = [(1+v/c)/(1-v/c)]^0.5 - 1 (for all v)
