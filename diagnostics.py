@@ -198,6 +198,16 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
                                 legends=['Unweighted','EM weighted'],
                                 width=w,height=h,iterations='iteration')
 
+    print "\nPlotting posteriors with kT threshold ...\n"
+    hfigs = xplt.histogram_grid([xw.filterblobs(dfall,'blob_kT',
+                                                minvals=kTthresh),
+                                 xw.filterblobs(dfall,'blob_kT',
+                                                minvals=kTthresh)],
+                                weights=[None,'blob_em'],
+                                bins=nbins,ncols=2,norm=True,
+                                outfile=outpath+'/histogram_grid_kTthresh.html',
+                                legends=['Unweighted','EM weighted'],
+                                width=w,height=h,iterations='iteration')
 
     # -- scatter plots--
     print "\nPlotting scatter plots ...\n"
@@ -206,7 +216,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
 
     # -- make norm map from most recent iteration --
     print "\nMaking blob em map ...\n"
-    pixelsize = 3.0
+    pixelsize = (dfall.phi.max()-dfall.phi.min())/50.0
 #    img1file = (outpath+'/bin'+str(int(pixelsize))+
 #                '_iter'+str(itmin)+'-'+str(itmax))
     img1file = (outpath+'/bin'+str(int(pixelsize))+
@@ -217,7 +227,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
                       paramname='blob_em',
                       paramweights=None,iteration_type='total',
                       binsize=pixelsize,nlayers=1,
-                      withsignificance=True,nproc=4,
+                      withsignificance=True,nproc=2,
                       outfile=img1file,clobber=True)
 
     return (dfall,sf)
