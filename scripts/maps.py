@@ -1,31 +1,28 @@
-### Initialize Session ###
+############################################################
+#  Initialization                                          #
+#  (run at beginning of every session)                     #
+############################################################
 
-# copy paste this at beginning of EVERY session
-%run ../../diagnostic_init.py
+## Assumes cleaning.py has been completed
+
+#### Imports
+%run ~/Python_Programs/xmcinter/scripts/diagnostic_init.py
 %load_ext autoreload
 %autoreload 2
 
-# read in cleaned blobs
-df = pd.read_table('deconvolution_merged_iter8000-16112_cleaned.txt',index_col=0,sep=r'\s+',engine='python',comment='#')
+#### Import common settings and object specific settings (e.g. distance)
+# change object name and obsid as appropriate
+# if the following file does exist in xmcinter/scripts/ then create it
+# by copying, renaming, and modifying another init file.
+%run ~/Python_Programs/xmcinter/scripts/rcw103_0302390101_init.py
 
-# set map parameters
-distkpc = 50.0 # distance to object in kpc
-outroot = './' # output location for new files
+############################################################
+#  Read Merged, Cleaned Deconvolution File                 #
+############################################################
 
-## Histogram Parameters
-nbins=75
-w = 500
-h = 200
-
-## Map Parameters
-# start with center coords from start.xmc file and rot=0 if don't know
-z = 0.000927
-x0=-140.
-y0=70.
-rotation=0.
-r0=150. # size of (significant) object
-pixelsize = 1.0 # should be size of typical blob (see histograms)
-mapsize = 150.0 # should include the entire phi/psi range
+#### Read File
+# edit filename as appropriate
+dfall = pd.read_table('deconvolution_merged_iter3500-9292.txt',index_col=0,sep=r'\s+',engine='python',comment='#')
 
 print "Total Number of Blobs = ",len(df.index)
 
@@ -38,7 +35,11 @@ niter = itermax-itermin
 smin = itermin/100
 smax = itermax/100
 
-# define columns to map
+############################################################
+#  Set up map parameters                                   #
+############################################################
+
+#### define columns to map
 mapcols=list(blobcols)
 #mapcols.remove('blob_norm')
 #mapcols.remove('blob_sigma')
@@ -48,19 +49,26 @@ mapcols.remove('blob_volume')
 mapcols.remove('blob_lnsigma')
 mapcols.remove('blob_frac')
 
-# set weights for each column
+#### set weights for each column
 pweights = ['blob_em']*len(mapcols)
 # unweight em and density
 pweights[mapcols.index('blob_em')]=None
 pweights[mapcols.index('blob_mass')]=None
 
-# set iteration combination types
+#### set iteration combination types
 itypes=['median']*len(mapcols)
 itypes[mapcols.index('blob_em')]='total'
 itypes[mapcols.index('blob_mass')]='total'
 
-#### Basic Emission Measure Map (to set threshold and check map size)
+############################################################
+#  Basic Emission Measure Map                              #
+#  (to set threshold and check map size)                   #
+############################################################
+
+#### Set file location and name prefix
 img1file = outroot+'bin'+str(int(pixelsize))+'_'+str(int(mapsize))+'arcsec_allblobs'
+
+#### Make map
 imgs = xm.make_map(df,paramname='blob_em',
                    paramweights=None,iteration_type='total',
                    binsize=pixelsize,nlayers=20,imagesize=mapsize,
@@ -68,6 +76,12 @@ imgs = xm.make_map(df,paramname='blob_em',
                    outfile=img1file,x0=x0,y0=y0,clobber=True,
                    rotation=rotation)
 
-#### Map all parameters
+############################################################
+#  Map all parameters                                      #
+############################################################
+
+#### Set file location and name prefix
 imgfile = outroot+'bin'+str(int(pixelsize))+'_'+str(int(mapsize))+'arcsec_cleaned'
+
+#### Make maps
 imgs=xm.make_map(df,paramname=mapcols,paramweights=pweights,iteration_type=itypes,binsize=pixelsize,nlayers=20,imagesize=mapsize,withsignificance=True,nproc=4,outfile=imgfile,x0=x0,y0=y0,clobber=True)

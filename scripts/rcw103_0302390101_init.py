@@ -15,3 +15,7 @@ rotation=-90.
 r0=340. # size of (significant) object
 pixelsize = 10.0 # should be size of typical blob (see histograms)
 mapsize = 700.0 # should include the entire phi/psi range
+
+holex = astro.wcs2xmc(244.40073,-51.04045)[0]
+holey = astro.wcs2xmc(244.40073,-51.04045)[1]
+holer = 8.0
