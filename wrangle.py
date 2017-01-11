@@ -281,7 +281,7 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
            if provided, will use r0 - r to check distance of
            each blob from x0,y0. This allows non-pointlike blobs
            which contribute to the emission in the desired region
-           to be kept/exluded, even if the blob center is outside 
+           to be kept/excluded, even if the blob center is outside 
            said region. if a string is provided, it must correspond
            to the name of column in inframe. if numerical value 
            provided, that value will be used for all blobs.

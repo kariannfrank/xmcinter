@@ -4,46 +4,28 @@
 ############################################################
 
 #### Imports
-%run ../../diagnostic_init.py
+%run diagnostic_init.py
 #automatically reload functions before execution
 # if the reloading doesn't happen automatically, just run %autoreload
 # to do it manually 
 %load_ext autoreload
 %autoreload 2 
 
-#### Common Parameters
-distkpc = 3.3 # distance to object in kpc
-outroot = './' # output location for new files
-
-## Histogram Parameters
-nbins=75
-w = 500
-h = 200
-
-## Map Parameters
-# start with center coords from start.xmc file and rot=0 if don't know
-x0=-60.
-y0=80.
-rotation=0.
-r0=340. # size of (significant) object
-pixelsize = 10.0 # should be size of typical blob (see histograms)
-mapsize = 700.0 # should include the entire phi/psi range
-
+#### Import common settings and object specific settings (e.g. distance)
+# change object name and obsid as appropriate
+# if the following file does exist in xmcinter/scripts/ then create it
+# by copying, renaming, and modifying another init file.
+%run rcw103_0302390101_init.py
 
 ############################################################
-#  Check Run Progress and Filter Data                      #
+#  Check Run Progress                                      #
 #  (skip if already have merged deconvolution file)        #
 ############################################################
 
-#### Read Deconvolution Files Directly
-# edit blobcols depending on specific model for this run
-with open('../parameters.txt') as f:
-    allcols = f.readlines()[0].strip('\n')
-allcols = list(allcols.split(','))
-print allcols
-# define blobcols
-blobcols = [c for c in allcols if 'blob' in c]
-print blobcols
+#### Create basic figures with script
+dfall,sf = xd.check(runpath='../')
+
+#### OR Create figures manually
 
 #### Check Chi2
 sf=xplt.chi2(runpath='../')
@@ -70,7 +52,15 @@ sfig = xplt.spectrum(runpath='../',smin=smin,smax=smax,bins=0.03,
                      ylog=True,xlog=True,
                      lines=True,nlines=50)
 
-#### Initial Filtering
+############################################################
+#  Filter Data                     #
+#  (skip if already have merged deconvolution file)        #
+############################################################
+
+#### Initial Filtering and Derived Columns
+
+itermin =  # set minimum converged iteration
+itermax =  None # set maximum iteration to use
 
 # remove iterations before convergence, add new derived columns, 
 #  and save merged deconvolution file
@@ -81,6 +71,7 @@ dfall = xd.clean(dfall,itmin=itermin,distance=distkpc,itmax=itermax)
 ############################################################
 
 #### Read File
+# edit filename as appropriate
 dfall = pd.read_table('deconvolution_merged_iter3500-9292.txt',index_col=0,sep=r'\s+',engine='python',comment='#')
 
 
@@ -117,7 +108,7 @@ efig = xplt.trace(dfall,weights=None)
 
 #### Interactive scatter plots of all parameters
 # (will take awhile to plot)
-tfigs2 = xplt.scatter_grid(dfall,agg=None,sampling=2000)
+tfigs2 = xplt.scatter_grid(dfall[blobcols],agg=None,sampling=2000)
 
 #### Define Map Parameters
 
@@ -245,9 +236,9 @@ dfgood = dfhighkT(dfgood,kTthresh1)
 # final threshold below.
 
 #### Stretched out kT histogram to guess threshold
-hfigs = xplt.histogram([dfgood['blob_em'],dfgood],weights=[None,'blob_em'],
-                       bins=nbins,legends=['unweighted','EM weighted'],
-                       norm=False,width=w*2,height=h,ncols=1)
+hfigs = xplt.histogram(dfall['blob_em'],weights=None,bins=4*nbins,
+                       norm=False,width=w*2,height=2*h)
+
 kTthresh=4.0
 
 #### Create EM Significance Maps of High kT Blobs
@@ -275,7 +266,7 @@ imgs = xm.make_map(dfgood,paramname='blob_em',
                    paramweights=None,iteration_type='total',
                    binsize=pixelsize,nlayers=70,imagesize=mapsize,
                    withsignificance=True,nproc=4,
-                   outfile=imgbadfile,x0=x0,y0=y0,clobber=True,
+                   outfile=imgcleanfile,x0=x0,y0=y0,clobber=True,
                    rotation=rotation)
 
 
@@ -333,6 +324,7 @@ hfigs = xplt.histogram_grid([dfgood,dfgood,dfgood,dfgood],columns=blobcols,weigh
 ############################################################
 outfile = ('deconvolution_merged_iter'+str(int(min(dfgood.iteration)))+'-'+str(int(max(dfgood.iteration)))+'_cleaned.txt')
 
+# edit header information as appropriate
 f = open(outfile,'w+')
 f.write('# Cleaning criteria: \n')
 f.write('# EM<'+str(emthresh)+' \n')

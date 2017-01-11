@@ -68,6 +68,10 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     if 'blob_lnsigma' in df.columns:
         df['blob_sigma'] = np.exp(df['blob_lnsigma'])
 
+    # -- add linear tau column if used lvpshock --
+    if 'blob_logtau' in df.columns:
+        df['blob_tau'] = 10.0**(df['blob_logtau'])
+
     # -- add tau column, if used lvpshock --
     if 'blob_logtau' in df.columns:
         df['blob_tau'] = 10.0**(df['blob_tau'])
@@ -216,7 +220,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
 
     # -- make norm map from most recent iteration --
     print "\nMaking blob em map ...\n"
-    pixelsize = (dfall.phi.max()-dfall.phi.min())/50.0
+    pixelsize = (dfall.blob_phi.max()-dfall.blob_phi.min())/50.0
 #    img1file = (outpath+'/bin'+str(int(pixelsize))+
 #                '_iter'+str(itmin)+'-'+str(itmax))
     img1file = (outpath+'/bin'+str(int(pixelsize))+

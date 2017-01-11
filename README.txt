@@ -15,8 +15,6 @@ setenv PYTHONPATH ~/python_programs/:$PYTHONPATH
 
 ###################################################################
 At the beginning of analysis python session, some common imports are:
-(can copy any of the following import statements and paste into ipython
- with %paste)
 
 import pandas as pd
 import numpy as np
@@ -26,6 +24,12 @@ import xmcinter.wrangle as xw
 import xmcinter.astro_utilities as astro
 import xmcinter.diagnostics as xd
 import xmcinter.xmcmap as xm
+
+You can copy any of the following import statements and paste into ipython
+ with %paste, or just run the provided initialization script which will 
+ import the above:
+
+%run diagnostic_init.py
 
 ###################################################################
 Usage Notes:

@@ -782,7 +782,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
      colors:      optionally pass color or list of colors (if 
                   len(dframes>1) specifying the fill color of each plotted
                   histogram (passed to histogram()). default is to choose
-                  in order from ['steelblue','darksage',
+                  in order from ['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray']
 
      legends:     optional string or list of strings (list if 
