@@ -22,7 +22,7 @@
 
 #### Read File
 # edit filename as appropriate
-dfall = pd.read_table('deconvolution_merged_iter3500-9292.txt',index_col=0,sep=r'\s+',engine='python',comment='#')
+df = pd.read_table('deconvolution_merged_iter3500-9292.txt',index_col=0,sep=r'\s+',engine='python',comment='#')
 
 print "Total Number of Blobs = ",len(df.index)
 
