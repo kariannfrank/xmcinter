@@ -50,9 +50,11 @@ Usage Notes:
 
 ###################################################################
 A typical workflow for early diagnostics
-(requires access to the original deconvolution.* and statistic.* files)
-(assumes running from the <run_directory>/analysis/ subfolder, one level
- below the directory containing the xmc output files.)
+- requires access to the original deconvolution.* and statistic.* files
+- assumes running from the <run_directory>/analysis/ subfolder, one level
+  below the directory containing the xmc output files
+- for more examples, including using with jupyter notebooks, see the 
+  scripts in the scripts/ directory
 
 # check progress (makes some basic diagnostic figures, including a 
 #  current EM map, and prints basic info)
