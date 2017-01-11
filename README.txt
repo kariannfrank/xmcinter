@@ -47,13 +47,17 @@ Usage Notes:
 ###################################################################
 A typical workflow for early diagnostics
 (requires access to the original deconvolution.* and statistic.* files)
+(assumes running from the <run_directory>/analysis/ subfolder, one level
+ below the directory containing the xmc output files.)
 
-# check progress
-df,sf = xd.check(itmin=500)
+# check progress (makes some basic diagnostic figures, including a 
+#  current EM map, and prints basic info)
+df,sf = xd.check(runpath='../',itmin=500)
 
+# or check manually:
 # check median chi2 after convergence
 # (change 1000 to first converged iteration)
-sf = xplt.chi2()
+sf = xplt.chi2(runpath='../')
 sf = xw.filterblobs(sf,'iteration',minvals=1000)
 medchi2 = xw.weighted_median(sf['redchi2'])
 print medchi2
@@ -66,7 +70,7 @@ df = xd.clean(itmin=1000,distance=3.3)
 tracefigs = xplt.traceplots(df)
 
 # check weighted histograms
-histfigs = xplt.histogram_grid(df[df.columns[:-1]],weights=df['blob_em'])
+histfigs = xplt.histogram_grid(df,columns=df.columns[:-1],weights='blob_em')
 
 ###################################################################
 Examples of some other common tasks
