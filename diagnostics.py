@@ -70,7 +70,7 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
     # -- add linear tau column if used lvpshock --
     if 'blob_logtau' in df.columns:
-        df['blob_tau'] = 10.0**(df['blob_logtau'])
+        df['blob_tau'] = 10.0**df.blob_logtau
 
     # -- add tau column, if used lvpshock --
     if 'blob_logtau' in df.columns:
@@ -109,7 +109,8 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     return df
 
 #----------------------------------------------------------
-def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
+def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
+          cint=False):
     """
     Name: clean
     Author: Kari A. Frank
@@ -162,6 +163,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
     if itmax is None:
         itmax = np.max(sf.iteration)
     sf = xw.filterblobs(sf,'iteration',minvals=itmin,maxvals=itmax)
+    print 'Filtered sf'
     medchi2 = xw.weighted_median(sf['redchi2'])
 
     # -- read deconvolution files --
@@ -228,7 +230,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17):
     img = xm.make_map(xw.filterblobs(dfall,['blob_kT'],
                                      minvals=[kTthresh,itmax],
                                      maxvals=[None,itmax]),
-                      paramname='blob_em',
+                      paramname='blob_em',cint=cint,
                       paramweights=None,iteration_type='total',
                       binsize=pixelsize,nlayers=1,
                       withsignificance=True,nproc=2,
