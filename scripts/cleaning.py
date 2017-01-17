@@ -4,7 +4,7 @@
 ############################################################
 
 #### Imports
-%run diagnostic_init.py
+%run ~/Python_Programs/xmcinter/scripts/diagnostic_init.py
 #automatically reload functions before execution
 # if the reloading doesn't happen automatically, just run %autoreload
 # to do it manually 
@@ -15,7 +15,7 @@
 # change object name and obsid as appropriate
 # if the following file does exist in xmcinter/scripts/ then create it
 # by copying, renaming, and modifying another init file.
-%run rcw103_0302390101_init.py
+%run ~/Python_Programs/xmcinter/scripts/kes73_0013340201_init.py 
 
 ############################################################
 #  Check Run Progress                                      #
