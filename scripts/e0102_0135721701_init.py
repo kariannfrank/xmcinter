@@ -13,5 +13,5 @@ x0=-75
 y0=-5.
 z = 0.000527
 rotation=0.
-pixelsize = 5.0 # should be size of typical blob (see histograms)
+pixelsize = 3.0 # should be size of typical blob (see histograms)
 mapsize = 100.0 # should include the entire phi/psi range
