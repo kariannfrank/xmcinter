@@ -74,7 +74,7 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
     # -- add tau column, if used lvpshock --
     if 'blob_logtau' in df.columns:
-        df['blob_tau'] = 10.0**(df['blob_tau'])
+        df['blob_tau'] = 10.0**(df['blob_logtau'])
 
     # -- add emission measure column --
     if 'blob_norm' in df.columns:
