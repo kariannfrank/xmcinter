@@ -447,7 +447,7 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
 
 #----------------------------------------------------------------
 
-def quantile_1D(data,quantile,weights=None):
+def quantile_1D(data,weights=None,quantile=0.5):
     """
     Compute the weighted quantile of a 1D numpy array.
 
@@ -545,7 +545,7 @@ def weighted_median(data, weights=None):
 
     Alias for `quantile(data,0.5,weights=weights)`.
     """
-    return quantile(data, 0.5,weights=weights)
+    return quantile(data,0.5,weights=weights)
 
 #----------------------------------------------------------------
 def make_histogram(dataseries,weights=None,bins=50,logbins=False,
