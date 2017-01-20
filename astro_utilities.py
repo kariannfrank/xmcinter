@@ -19,6 +19,9 @@ Contains the following functions:
  chandra_psf_wing()
  xspec_abund_to_nomoto()
  show_xray_lines()
+ fetch_lines()
+ distance()
+ gaussian_volume()
 
 """
 
@@ -742,6 +745,8 @@ def xspec_abund_to_nomoto_dataframe(df,specZcol,refZcol,specZerrcol=None,
 
 def xspec_abund_to_nomoto(specZ,refZ,specZerr=0.0,refZerr=0.0):
   """
+  Convert an XSPEC abundance to Nomoto2006-style abundance ratio
+
   Author: Kari Frank
   Date: May 12, 2016
 
@@ -957,7 +962,8 @@ def redshift_line(line,z,fromunit='angstroms'):
 def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
                     emissivity_range=(1e-18,1.0),
                     energy_range=None,wavelength_range=None,
-                    nlines=None,include_ions=None):
+                    nlines=None,include_ions=None,atomdb=None,
+                    total=False):
   """Fetch lines from atomdb file and return as dataframe
 
    redshift (float) : redshift of the source. if non-zero, lines 
@@ -986,6 +992,14 @@ def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
                     other elements, then apply remaining criteria (e.g.
                     kT_range). Use 2-letters for each element.
 
+   atomdb (dataframe) : optionally pass the atomdb dataframe as read
+                    in from the atomdb text file. useful for repeated
+                    calls to fetch_lines, so only have to read the file
+                    once.
+
+   total (bool) : if True will return the total (sum) of emissivities of
+                  all the selected lines, as a scalar, instead of returning
+                  a dataframe with each line individually
 
   Output:
    Returns a pandas dataframe containing the line information.
@@ -994,8 +1008,11 @@ def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
   import os
 
   #----Read in lines----
-  linefile = os.path.dirname(__file__)+'/xraylines_atomdb307.txt'
-  linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
+  if atomdb is None:
+    linefile = os.path.dirname(__file__)+'/xraylines_atomdb307.txt'
+    linedf = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
+  else:
+    linedf = atomdb
 
   #----Redshift lines----
   linedf['wavelength'] = redshift_line(linedf['wavelength'],redshift)
@@ -1034,7 +1051,10 @@ def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
   else:
     nlines = len(linedf.index)
   
-  return linedf
+  if total is False:
+    return linedf
+  else:
+    return linedf.emissivity.sum()
 
 #----------------------------------------------------------
 # function in progress
@@ -1051,6 +1071,54 @@ def distance2redshift(d,fromunit='kpc'):
   return z
 
 #----------------------------------------------------------
+def distance(x,y,x0=-60.0,y0=80.0):
+    """
+    Calculate the distance between two points
+
+    Parameters
+    ----------
+    x,y : numeric or 1D array of numeric
+        x,y coordinates of first point
+
+    x0,y0 : numeric or 1D array of numeric
+        x,y coordinates of second point
+
+    Returns
+    -------
+    Distance (float) between the two points
+
+    Usage Notes
+    -------
+
+    """
+
+    return ((x-x0)**2.0+(y-y0)**2.0)**0.5
+#----------------------------------------------------------------
+def gaussian_volume(sigma):
+    """
+    Calculate the volume of a spherical gaussian.
+
+    Parameters
+    ----------
+    sigma : numeric or 1D array of numeric
+        Gaussian width(s)
+
+    Returns
+    -------
+    Volume (float) or volumes (1D array of floats).
+
+    Usage Notes
+    -------
+
+    """
+
+    volume = (2.0*np.pi*np.square(sigma))**1.5
+    
+    return volume
+
+#----------------------------------------------------------
 # function to convert redshift to velocity (km/s) units
 # z=v/c (for small v)
 # z = [(1+v/c)/(1-v/c)]^0.5 - 1 (for all v)
+
+ 

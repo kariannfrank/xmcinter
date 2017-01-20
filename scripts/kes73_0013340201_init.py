@@ -16,6 +16,7 @@ r0=145. # size of (significant) object
 pixelsize = 3.0 # should be size of typical blob (see histograms)
 mapsize = 300.0 # should include the entire phi/psi range
 
+import xmcinter.astro_utilities as astro
 holex = astro.wcs2xmc(280.33033,-4.9366564)[0]
 holey = astro.wcs2xmc(280.33033,-4.9366564)[1]
 holer = 25.0

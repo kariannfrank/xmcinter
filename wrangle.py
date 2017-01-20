@@ -1,19 +1,20 @@
 """
-Module of functions for wrangling the data output by xmc (typically in the
-form of a pandas dataframe)
+Module of functions for wrangling the data output by xmc.
+Data typically should be passed as a pandas DataFrame or Series.
 
 Contains the following functions:
 
-For wrangling the blob parameter dataframe:
+Modifying or creating columns:
  filterblobs()
  simplefilterblobs() [mainly a helper function for filterblobs()]
  filtercircle()
+ line_emissivities()
+ normalize_histogram()
 
-Functions acting on blobs
- gaussian_volume()
- distance()
+Mapping columns or dataframe into new array:
+ make_histogram()
 
-Statistics:
+Statistics (outputs scalars):
  (from the wquantiles package: 
   https://github.com/nudomarinero/wquantiles/weighted.py,
   modified by KAF to work without weights)
@@ -23,8 +24,10 @@ Statistics:
  weighted_posterior()
  weighted_modes()
  credible_region()
- distance()
  weighted_std()
+
+Functions that act on a single blob (scalar) can be found in
+the astro_utilities module.
 
 """
 #----------------------------------------------------------------
@@ -170,7 +173,7 @@ def filterblobs(inframe,colnames,minvals=None,maxvals=None,logic='and'):
 def circlefraction(x,y,r,x0,y0,radius,shape='gauss',
                    use_ctypes=False):
     """
-    circlefraction()
+    Helper function for filtercircle(), to do the integration
     
     Author: Kari A. Frank
     Date: October 21, 2016
@@ -207,6 +210,7 @@ def circlefraction(x,y,r,x0,y0,radius,shape='gauss',
     """
 
     #--import gaussian_integral and related functions--
+    from astro_utilities import gaussian_volume
     import xmcmap as xm
         # for improved speed, use 
         #  gaussian_integral_quad instead, but it requires extra 
@@ -348,6 +352,7 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
 
     """
     from multiprocessing import Pool
+    from astro_utilities import distance
 
     #--check for valid logic--
     if logic != 'exclude':
@@ -442,47 +447,48 @@ def filtercircle(inframe,x='blob_phi',y='blob_psi',r='blob_sigma',
 
 #----------------------------------------------------------------
 
-def quantile_1D(data, weights, quantile):
+def quantile_1D(data,quantile,weights=None):
     """
     Compute the weighted quantile of a 1D numpy array.
 
     Parameters
     ----------
-    data : ndarray
-        Input array (one dimension).
-    weights : ndarray
-        Array with the weights of the same size of `data`.
-    quantile : float
-        Quantile to compute. It must have a value between 0 and 1.
+    data (pd.Series) : Input data values (one dimension)
+
+    weights (pd.Series) : Weights corresponding to data
+
+    quantile (float) : Quantile to compute. It must have a value between 
+                       0 and 1.
 
     Returns
     -------
-    quantile_1D : float
-        The output value.
+    quantile_1D (float): The output value.
+
     """
-    # Check the data
-    if not isinstance(data, np.matrix) :
-        data = np.asarray(data)
-    if not isinstance(weights, np.matrix) :
+
+    # Coerce data into numpy array
+    data = np.asarray(data)
+    
+    if weights is not None:
         weights = np.asarray(weights)
-    nd = data.ndim
-    if nd != 1:
-        raise TypeError("data must be a one dimensional array")
-    ndw = weights.ndim
-    if ndw != 1:
-        raise TypeError("weights must be a one dimensional array")
-    if data.shape != weights.shape:
-        raise TypeError("the length of data and weights must be the same")
+    else:
+        weights = np.ones_like(data)
+
+    # Verify allowed value of quantile
     if ((quantile > 1.) or (quantile < 0.)):
         raise ValueError("quantile must have a value between 0. and 1.")
+
     # Sort the data
     ind_sorted = np.argsort(data)
     sorted_data = data[ind_sorted]
     sorted_weights = weights[ind_sorted]
+
     # Compute the auxiliary arrays
     Sn = np.cumsum(sorted_weights)
+
     # TODO: Check that the weights do not sum zero
     Pn = (Sn-0.5*sorted_weights)/np.sum(sorted_weights)
+
     # Get the value of the weighted median
     return np.interp(quantile, Pn, sorted_data)
 
@@ -495,29 +501,35 @@ def quantile(data, quantile, weights = None):
 
     Parameters
     ----------
-    data : ndarray
-        Input array.
-    weights : ndarray
-        Array with the weights. It must have the same size of the last 
-        axis of `data`.
-    quantile : float
-        Quantile to compute. It must have a value between 0 and 1.
+    data (pd.Series) : Input data values (one dimension)
+
+    weights (pd.Series) : Weights corresponding to data
+
+    quantile (float) : Quantile to compute. It must have a value between 
+                       0 and 1.
 
     Returns
     -------
     quantile : float
         The output value.
+
+    Usage Notes
+    -----------
+    If data is multi-dimensional, then the array will be flattened
+    before calculating the quantile.
+
     """
 
-
-    # TODO: Allow to specify the axis
+    # Coerce data into numpy array
+    data = np.asarray(data)
+    
+    if weights is not None:
+        weights = np.asarray(weights)
+    else:
+        weights = np.ones_like(data)
+    
     nd = data.ndim
-    #check for weights and default to all weights = 1 if none provided
-    if weights is None: 
-        weights = np.ones(data.shape)
-    if nd == 0:
-        TypeError("data must have at least one dimension")
-    elif nd == 1:
+    if nd == 1:
         return quantile_1D(data, weights, quantile)
     elif nd > 1:
         n = data.shape
@@ -534,37 +546,6 @@ def weighted_median(data, weights=None):
     Alias for `quantile(data,0.5,weights=weights)`.
     """
     return quantile(data, 0.5,weights=weights)
-
-#----------------------------------------------------------------
-#def weighted_posterior(data, weights=None, bins='knuth',normalize=False):
-def weighted_posterior(data, weights=None, bins=None,normalize=False):
-    """
-    DEPRECATED -- Use make_histogram() instead.
-
-    Construct a (weighted) posterior histogram from an array of data,
-    e.g. a 1D array of blob temperatures.
-
-    The output histogram is normalized to 1 if normalize=True.
-
-    Returns two 1D arrays, one containing the x and y values of the 
-    histogram.  The x values are the center of each bin.
-    """
-
-    #-determine number of bins if not provided-
-    if bins is None:
-        bins = np.ceil(np.sqrt(len(data)))
-
-    #--Create histogram--
-#    y,binedges = astats.histogram(data,weights=weights,bins=bins,
-#                                  density=normalize)
-
-    y,binedges = np.histogram(data,weights=weights,bins=bins)
-
-    #--shift x values to center of bin--
-    x = np.array([(binedges[i+1]+binedges[i])/2.0 for i in 
-                  range(len(binedges)-2)])
-    
-    return x,y
 
 #----------------------------------------------------------------
 def make_histogram(dataseries,weights=None,bins=50,logbins=False,
@@ -750,7 +731,7 @@ def credible_region(data, weights=None, frac=0.9, method='HPD'):
 
     Parameters
     ----------
-    data : ndarray
+    data : ndarray or pd.Series
         Input array.
     weights : ndarray
         Array with the weights. It must have the same size of the last 
@@ -852,55 +833,7 @@ def credible_region(data, weights=None, frac=0.9, method='HPD'):
     #--find the median--
     median = weighted_median(data,weights=weights)
 
-
     return interval
-
-#----------------------------------------------------------------
-def gaussian_volume(sigma):
-    """
-    Calculate the volume of a spherical gaussian.
-
-    Parameters
-    ----------
-    sigma : numeric or 1D array of numeric
-        Gaussian width(s)
-
-    Returns
-    -------
-    Volume (float) or volumes (1D array of floats).
-
-    Usage Notes
-    -------
-
-    """
-
-    volume = (2.0*np.pi*np.square(sigma))**1.5
-    
-    return volume
-
-#----------------------------------------------------------------
-def distance(x,y,x0=-60.0,y0=80.0):
-    """
-    Calculate the distance between two points
-
-    Parameters
-    ----------
-    x,y : numeric or 1D array of numeric
-        x,y coordinates of first point
-
-    x0,y0 : numeric or 1D array of numeric
-        x,y coordinates of second point
-
-    Returns
-    -------
-    Distance (float) between the two points
-
-    Usage Notes
-    -------
-
-    """
-
-    return ((x-x0)**2.0+(y-y0)**2.0)**0.5
 
 #----------------------------------------------------------------
 def weighted_std(data, weights=None):
@@ -909,7 +842,7 @@ def weighted_std(data, weights=None):
 
     Parameters
     ----------
-    data : 1D numeric array
+    data : pd.Series or np.ndarray
         series of values to find the standard deviation of
 
     weights : 1D numeric array (optional)
@@ -925,14 +858,13 @@ def weighted_std(data, weights=None):
 
     """
     
-    # convert to np.ndarray if pd.Series
-    if isinstance(data,pd.Series):
-        data = data.values
-    if isinstance(weights,pd.Series):
-        weights = weights.values
 
-    # create dummy weights array
-    if weights is None:
+    # coerce into numpy arrays
+    data = np.asarray(data)
+    
+    if weights is not None:
+        weights = np.asarray(weights)
+    else:
         weights = np.ones_like(data)
 
     # calculate standard deviation
@@ -942,3 +874,224 @@ def weighted_std(data, weights=None):
     denominator = np.sum(weights)
 
     return (numerator/denominator)**0.5
+
+#----------------------------------------------------------------
+def line_emissivities(kT,tolerance=0.05,**fetchargs):
+    """
+    Calculate the total emissivity of all emission lines from kT gas
+
+    Parameters
+    ----------
+    kT : pd.Series or np.ndarray
+        temperature values, in keV
+
+    fetch_lines() input options:
+
+         emissivity_range (2d tuple) : range of line emissivities 
+                                       to include
+
+         wavelength_range (2d tuple) : range of line wavelengths 
+                             (angstroms) to include emission lines from
+
+         energy_range (2d tuple) : range of line energies (keV) to include
+                             emission lines from
+
+         include_lines (list of strings) : list of element names to 
+                        include emission lines from. will first drop 
+                        all lines from other elements, then apply 
+                        remaining criteria (e.g. kT_range).
+
+         redshift (float) : redshift of the source. if non-zero, lines 
+                            will be redshifted appropriately before
+                            applying any criteria or plotting.
+
+
+    Returns
+    -------
+    Sum of emissivities from all lines with tolerance of kT.
+
+    Usage Notes
+    -------
+
+    """
+    import os
+    from astro_utilities import fetch_lines
+    
+    #----Read in lines----
+    linefile = os.path.dirname(__file__)+'/xraylines_atomdb307.txt'
+    atomdb = pd.read_table(linefile,sep='\s+',comment='#',engine='python')
+   
+    #----Check array type, convert to dataframe if needed----
+    if not isinstance(kT,pd.DataFrame):
+        if not isinstance(kT,pd.Series):
+            kT = pd.Series(kT,name='kT') # convert to series
+        kT = kT.to_frame() # convert series to dataframe
+    #-rename column-
+    kT.rename(columns={kT.columns[0]:'kT'},inplace=True)
+
+    #--define gas temperature ranges--
+    kT['kTrange'] = zip(kT.kT-tolerance,kT.kT+tolerance)
+
+    #--fetch lines from atomdb file--
+    kT['emissivities'] = kT['kTrange'].map(lambda x: fetch_lines(kT_range = x,atomdb=atomdb,total=True,**fetchargs))
+
+    return kT.emissivities.values
+    
+#----------------------------------------------------------------
+def blob_line_photons(kT,volume,time=None,tolerance=0.01,**fetchargs):
+    """
+    Calculate the maximum number of photons emitted due to lines
+
+    Parameters
+    ----------
+    kT (pd.Series or np.ndarray) : temperatures of blobs, in keV
+
+    volume (pd.Series or np.ndarray) : volume of blobs, in cm^3
+
+    time (scalar) : total exposure time. if not provided, returned
+                    values will be count rates intead of total counts
+
+    fetch_lines() input options:
+
+         emissivity_range (2d tuple) : range of line emissivities 
+                                       to include
+
+         wavelength_range (2d tuple) : range of line wavelengths 
+                             (angstroms) to include emission lines from
+
+         energy_range (2d tuple) : range of line energies (keV) to include
+                             emission lines from
+
+         include_lines (list of strings) : list of element names to 
+                        include emission lines from. will first drop 
+                        all lines from other elements, then apply 
+                        remaining criteria (e.g. kT_range).
+
+         redshift (float) : redshift of the source. if non-zero, lines 
+                            will be redshifted appropriately before
+                            applying any criteria or plotting.
+
+
+    Returns
+    -------
+    Max number of photon counts (or count rate, if time!=None) expected
+    from each blob, given its volume and temperature. Sums photons from
+    all lines within tolerance of the blob kT.
+
+    Usage Notes
+    -------
+
+    """
+
+    # get total line emissivities for each blob
+    #  units of photons*cm^3/s
+    emiss = line_emissivities(kT,tolerance=tolerance,**fetchargs)
+    
+    # divide by volume
+    counts = emiss/volume
+
+    # multiply by exposure time
+    if time is not None:
+        counts = counts * time
+
+    return counts
+
+#----------------------------------------------------------------
+def normclean(df,nHcol = 'blob_nH',kTcol = 'blob_kT',
+              normcol = 'blob_norm',itercol='iteration',
+              normthreshs = None,parallel=False,nproc=4):
+    """
+    Remove low kT - high nH blobs that do not meet norm criteria.
+
+    Parameters
+    ----------
+    
+    df (pd.DataFrame) : blob data, including all relevant columns
+
+    nHcol,kTcol,normcol,itercol (string) : names of the relevant 
+        columns, if not the usual names
+
+    normthreshs (pd.DataFrame or file name) : matrix containg all the 
+        nH-kT bins and  the associated norm thresholds for (minimum 
+        norm required). should have columns 'kT','kThalfbin',
+        'nH','nHhalfbin','norm'
+    
+
+
+    Returns
+    -------
+    pd.DataFrame that is copy of df, but with all blobs (rows) removed 
+    that do not meet the minimum norm requirement (on a per-iteration 
+    basis)
+
+    Usage Notes
+    -------
+    df must contain a column name 'iteration'
+
+    """
+
+    from multiprocessing import Pool
+
+    #--get thresholds--
+    if isinstance(normthreshs,str):
+        normthreshs = pd.read_table(normthreshs,comment='#',sep=r'\s+',
+                                    index_col=False)
+
+    #--copy dataframe--
+    outdf = df.copy(deep=False)
+
+    #--group by iteration--
+    gdf = df.groupby(itercol)
+    fargs = []
+
+    #--loop over iterations--
+    for i,group in gdf:
+        # i = iteration number
+        #--loop over nH-kT bins--
+        if parallel is False:
+            for ri,r in normthreshs.iterrows():
+                b = group[( (group[kTcol]>r[0]-r[1]) & 
+                            (group[kTcol]<r[0]+r[1]) & 
+                            (group[nHcol]>r[2]-r[3]) & 
+                            (group[nHcol]<r[2]+r[3]))]
+                net_norm = b[normcol].sum()
+                if net_norm < r[4]:
+                    bad = b.index
+                    outdf = outdf.drop(bad)
+        else: # build argument lists
+            fargs.append([group,normthreshs,kTcol,nHcol,normcol])
+
+    # run iterations in parallel and collect bad indices
+    if parallel is True:
+        pool=Pool(nproc)
+        badind = pool.map(normfilter_star,fargs)
+        print type(badind)
+        pool.close()
+        pool.join()
+
+        # combine lists of bad blobs (flatten badind)
+        bad = [b for l in badind for b in l]
+
+        # filter dataframe
+        outdf = outdf.drop(bad)
+
+    return outdf
+#    return badind
+
+def normfilter(gdf,normthreshs,kTcol,nHcol,normcol):
+
+    bad = []
+    for ri,r in normthreshs.iterrows():
+        b = gdf[( (gdf[kTcol]>r[0]-r[1]) & 
+                (gdf[kTcol]<r[0]+r[1]) & 
+                (gdf[nHcol]>r[2]-r[3]) & 
+                (gdf[nHcol]<r[2]+r[3]))]
+        net_norm = b[normcol].sum()
+        if net_norm < r[4]:
+            bad.extend(list(b.index))
+
+        return bad
+
+def normfilter_star(arglist):
+    """Function to unpack list of arguments and pass to normfilter"""
+    return normfilter(*arglist)

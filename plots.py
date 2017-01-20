@@ -1571,7 +1571,7 @@ def plot_lines(fig,bins,nlines=50,show=False,**fetchargs):
 def agg_lines(groupeddf,bins,units='energy'):
     """
     Merge emission lines from the same ions/ionization stage if they
-    are close enough (where 'close enough'=tolerance). Must provide
+    are close enough (where 'close enough'=in same bin). Must provide
     the dataframe from xraylines.txt grouped by both ion and ionization 
     stage columns.
 
