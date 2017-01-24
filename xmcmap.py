@@ -218,7 +218,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     """
     
     #----Import Modules----
-    from wrangle import filterblobs,gaussian_volume
+    from wrangle import filterblobs
+    from astro_utilities import gaussian_volume
     import time
 
     #----Set any defaults----
