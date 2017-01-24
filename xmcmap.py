@@ -776,7 +776,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                     fast=True,
                     n_int_steps=1000):
     """Function to combine blobs from single iteration into 1 image."""
-    from wrangle import weighted_median,gaussian_volume
+    from wrangle import weighted_median
+    from astro_utilities import gaussian_volume
 
     #--initialize stack of 2D images, one for each parameter--
     iterimages = np.zeros((nbins_x,nbins_y,len(params)))
