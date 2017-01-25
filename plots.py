@@ -43,7 +43,8 @@ def logaxis(minval,maxval,limit=2.0):
         return False
 
 #----------------------------------------------------------
-def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
+def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html',
+         display=True):
     """
     Author: Kari A. Frank
     Date: October 20, 2015
@@ -62,6 +63,10 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
      
      outfile:     name of html file to save to, or set outfile='notebook'
                   to plot inline in current notebook.
+
+     display (bool) : if False, then will not display the figure. 
+                      automatically (re)set to True if outfile='notebook'.j
+                      ignored if save=False
 
     Output:
      - plots chi2 vs iteration for the specified iteration to an \
@@ -96,6 +101,7 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
     if outfile != 'notebook':    
         bplt.output_file(outfile)
     else:
+        display = True
         bplt.output_notebook()
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
     fig = bplt.Figure(tools=TOOLS)
@@ -107,7 +113,10 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
 #    plt.show()
 
     fig.circle(x=statframe['iteration'],y=statframe['redchi2'])
-    bplt.show(fig)#,new='window',browser='firefox --no-remote')
+    if display is True:
+        bplt.show(fig)#,new='window',browser='firefox --no-remote')
+    else: 
+        bplt.save(fig)
     if outfile != 'notebook': bplt.curdoc().clear()
 
 #----Return----
@@ -115,7 +124,7 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html'):
 
 #----------------------------------------------------------
 def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
-            width=600,height=600,source=None,tools=None,size=5,
+            display=True,width=600,height=600,source=None,tools=None,size=5,
             xlog='auto',ylog='auto',outfile=None,returnfunc=False,
             span=None,cscale='eq_hist'):
     """
@@ -160,10 +169,12 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
     sampling: number of blobs to include in plot (default = 2000.0). If
             set to None will include all blobs.
 
-    save:   optionally turn off automatic display of the plot 
-            (and saving the plot as an html file if not using Datashader)
+    save:   if True, save the plot as an html file (if not using Datashader)
             Returns the figure object only if save=False (default=True)
-            -should rename this to display or show (also in other functions)
+
+    display (bool) : if False, then will not display the figure. 
+                     automatically (re)set to True if outfile='notebook'
+                     ignored if save=False
 
     width/height: optionally specify the size of the figure (default=300)
 
@@ -259,6 +270,7 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
         if (agg is not None) or (outfile == 'notebook'):
             # force notebook output if Datashader
             bplt.output_notebook()
+            display=True
         else:
             if outfile is None: outfile = x+'_vs_'+y+'.html'
             bplt.output_file(outfile)
@@ -308,7 +320,10 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
         fig.circle(x,y,source=source,size=size)
         
         if save is True: 
-            bplt.show(fig)#,new='window',browser='firefox --no-remote')
+            if display is True:
+                bplt.show(fig)#,new='window',browser='firefox --no-remote')
+            else:
+                bplt.save(fig)
             if outfile != 'notebook': bplt.curdoc().clear()
 
     else:        
@@ -354,7 +369,8 @@ def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
 
 #----------------------------------------------------------
 def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
-               outfile='scatter_grid.html',save=True,size=None):
+                 outfile='scatter_grid.html',save=True,display=True,
+                 size=None):
 # deprecated - columns
     """
     Author: Kari A. Frank
@@ -378,7 +394,11 @@ def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
 
       save: optionally specify to return the figure list, without 
             saving the plot file or plotting in a browser by setting
-            save=False.
+            save=False
+
+      display (bool) : if False, then will not display the figure
+               automatically (re)set to True if outfile='notebook'
+               ignored if save=False
 
       agg (string): type of aggregation to perform before plotting, since 
          plotting all blobs individually is generally prohibitively 
@@ -440,6 +460,7 @@ def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
         if (agg is not None) or outfile == 'notebook':
             # force notebook output if Datashader
             bplt.output_notebook()
+            display=True
         else:
             if outfile is None: outfile = 'scatter_grid.html'
             bplt.output_file(outfile)
@@ -494,17 +515,25 @@ def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
     if agg is None:
         if save is True: 
 #            bplt.show(column(figarr[:]))
-            bplt.show(bigfig)
+            if display is True:
+                bplt.show(bigfig)
+            else:
+                bplt.save(bigfig)
             bplt.curdoc().clear()
     else:
-        if save is True: bplt.show(bigfig)
+        if save is True: 
+            if display is True:
+                bplt.show(bigfig)
+            else:
+                bplt.save(bigfig)
 
 #----Return----
 #    return figarr
     return bigfig
 
 #----------------------------------------------------------
-def histogram(dataseries,weights=None,bins=100,save=True,height=600,
+def histogram(dataseries,weights=None,bins=100,save=True,display=True,
+              height=600,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',logbins=None,legend=None,
@@ -542,8 +571,12 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
      height,width: height and width of each histogram
 
-     save:        optionally turn off opening and saving the plot,
+     save:        optionally turn off saving the plot,
                   returns the figure object only (default=True)
+
+     display (bool) : if False, then will not display the figure
+                  automatically (re)set to True if outfile='notebook'
+                   ignored if save=False
 
      infig:       optionally pass an initialized figure object to plot on 
                   (allows plotting multiple dataseries on the same figure) 
@@ -655,6 +688,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
             bplt.output_file(outfile)
     #    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
         else:
+            display = True
             bplt.output_notebook()
 
     if infig is None:
@@ -710,7 +744,10 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
 #----Show the plot----
     if save:
-        bplt.show(fig)#,new='window',browser='firefox --no-remote')
+        if display is True:
+            bplt.show(fig)#,new='window',browser='firefox --no-remote')
+        else:
+            bplt.save(fig)
         if (outfile != 'notebook'): 
             bplt.curdoc().clear()
 
@@ -719,7 +756,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,height=600,
 
 #----------------------------------------------------------
 def histogram_grid(dframes,columns=None,weights=None,bins=100,
-                   height=300,width=400,iterations=None,
+                   height=300,width=400,iterations=None,display=True,
                    ncols=2,outfile='histogram_grid.html',
                    colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
@@ -792,6 +829,10 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
 
      outfile:     string name of output html plot file. if plotting to 
                   a jupyter notebook, use outfile='notebook'.
+
+     display (bool) : if False, then will not display the figure
+                  automatically (re)set to True if outfile='notebook'
+                  ignored if save=False
 
      **histargs:  pass any number of extra keyword arguments that are 
                   accepted by histogram()
@@ -891,6 +932,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
         bplt.output_file(outfile)
     else:
         bplt.output_notebook()
+        display = True
 
 #----Initialize empty figure list----
     figlist=[]
@@ -958,7 +1000,10 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
 #----Plot histograms----
 #    p = gridplot(figarr)
     p = gridplot(figlist,ncols=ncols,plot_width=width,plot_height=height)
-    bplt.show(p)
+    if display is True:
+        bplt.show(p)
+    else:
+        bplt.save(p)
     if outfile != 'notebook': bplt.curdoc().clear()
 
     return figlist
@@ -1015,7 +1060,7 @@ def format_ticks(vals):
 
 #----------------------------------------------------------
 def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
-             model=True,
+             model=True,display=True,
              modelcolor='steelblue',lastmodelcolor='firebrick',bins=0.03,
              outfile='spectrum.html',ylog=False,xlog=False,logbins=None,
              datarange=None,width=1000,height=500,lines=True,**lineargs):
@@ -1059,7 +1104,11 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
 
     save (bool) : if save is False, then will not display the final figure
                   or save it to a file
-                  
+
+    display (bool) : if False, then will not display the figure
+                  automatically (re)set to True if outfile='notebook'
+                  ignored if save=False                  
+
     model (bool) : if False, then will plot only the data spectrum.
 
     lines (bool) : plot the 10 stongest common emission lines within 
@@ -1188,6 +1237,7 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
         if outfile != 'notebook':
             bplt.output_file(outfile)
         else:
+            display = True
             bplt.output_notebook()
 
     TOOLS = "pan,wheel_zoom,box_zoom,reset,save"#,box_select,lasso_select"
@@ -1252,15 +1302,19 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
 
     #----Show the Plot----
     if save is True:
-        bplt.show(step)
+        if display is True:
+            bplt.show(step)
+        else:
+            bplt.save(step)
 #        if outfile != 'notebook': bplt.curdoc().clear()
+    
 
 #----Return----
     return step
 
 #----------------------------------------------------------
 def trace(inframe,iteration_type = 'median',itercol = 'iteration',
-          weights=None,itmin=0,itmax=None,
+          weights=None,itmin=0,itmax=None,display=True,
           save=True,outfile='trace_plots.html',
           ncols=4,height=300,width=300):
     """
@@ -1286,8 +1340,12 @@ def trace(inframe,iteration_type = 'median',itercol = 'iteration',
     weights (str): column name of weights to apply to each blob 
                    (e.g. emission measure)
 
-    save:        optionally turn off opening and saving the plot as an 
+    save (bool): optionally turn off saving the plot as an 
                  html file - returns the figure object only (default=True)
+
+    display (bool) : if False, then will not display the figure
+                     automatically (re)set to True if outfile='notebook'
+                     ignored if save=False
 
     ncols: optionally specify number of columns in plot grid if plotting 
            more than one parameter. ignored if len(columns)=1
@@ -1386,6 +1444,7 @@ def trace(inframe,iteration_type = 'median',itercol = 'iteration',
             if outfile != 'notebook':
                 bplt.output_file(outfile)
             else:
+                display = True
                 bplt.output_notebook()
         else:
             itersave=True
@@ -1410,7 +1469,10 @@ def trace(inframe,iteration_type = 'median',itercol = 'iteration',
     p = gridplot(figlist,ncols=ncols,plot_width=width,plot_height=height)
 
     if save is True:
-        bplt.show(p)
+        if display is True:
+            bplt.show(p)
+        else:
+            bplt.save(p)
         if outfile != 'notebook': bplt.curdoc().clear()
 
     return p

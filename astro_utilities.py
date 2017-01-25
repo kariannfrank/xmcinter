@@ -964,7 +964,8 @@ def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
                     energy_range=None,wavelength_range=None,
                     nlines=None,include_ions=None,atomdb=None,
                     total=False):
-  """Fetch lines from atomdb file and return as dataframe
+  """
+  Fetch lines from atomdb file and return as dataframe
 
    redshift (float) : redshift of the source. if non-zero, lines 
                         will be redshifted appropriately before

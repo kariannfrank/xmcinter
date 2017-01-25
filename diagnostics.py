@@ -110,7 +110,7 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
 #----------------------------------------------------------
 def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
-          cint=False):
+          cint=False,display=False):
     """
     Name: clean
     Author: Kari A. Frank
@@ -128,6 +128,8 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
      runpath: string of path to the deconvolution files
 
      outpath: string of path to store output files
+
+     display (bool) : if False, then will not display the figures 
 
      itmin/itmax: minimum iteration to use in check
 
@@ -156,7 +158,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
 
     # -- plot chi2 --
     print "\nPlotting chi2 ...\n"
-    sf = xplt.chi2(runpath,itmax=itmax,
+    sf = xplt.chi2(runpath,itmax=itmax,display=display,
                    outfile=outpath+'/chi2_vs_iteration.html')
     
     # -- calculate median chi2 --
@@ -184,13 +186,13 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
     else:
         smax = itmax/100
     sfig = xplt.spectrum(runpath=runpath,smin=smin,smax=smax,bins=0.03,
-                         ylog=True,xlog=True,
+                         ylog=True,xlog=True,display=display,
                          outfile=outpath+'/spectrum.html',
                          lines=True,nlines=100,energy_range=(0.5,10.0))
 
     # -- make median traceplots --
     print "\nPlotting traces ...\n"
-    efig = xplt.trace(dfall,weights=None,
+    efig = xplt.trace(dfall,weights=None,display=display,
                       outfile=outpath+'/trace_plots.html')
 
     # -- make histograms --
@@ -200,6 +202,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
     h = 200
     hfigs = xplt.histogram_grid([dfall,dfall],weights=[None,'blob_em'],
                                 bins=nbins,ncols=2,norm=True,
+                                display=display,
                                 outfile=outpath+'/histogram_grid.html',
                                 legends=['Unweighted','EM weighted'],
                                 width=w,height=h,iterations='iteration')
@@ -210,15 +213,17 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
                                  xw.filterblobs(dfall,'blob_kT',
                                                 minvals=kTthresh)],
                                 weights=[None,'blob_em'],
+                                display=display,
                                 bins=nbins,ncols=2,norm=True,
-                                outfile=outpath+'/histogram_grid_kTthresh.html',
+                            outfile=outpath+'/histogram_grid_kTthresh.html',
                                 legends=['Unweighted','EM weighted'],
                                 width=w,height=h,iterations='iteration')
 
     # -- scatter plots--
     print "\nPlotting scatter plots ...\n"
     blobcols = [c for c in dfall.columns if 'blob' in c]
-    sfigs2 = xplt.scatter_grid(dfall[blobcols],agg=None,sampling=2000)
+    sfigs2 = xplt.scatter_grid(dfall[blobcols],agg=None,sampling=2000,
+                               display=display)
 
     # -- make norm map from most recent iteration --
     print "\nMaking blob em map ...\n"
