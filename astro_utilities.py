@@ -22,6 +22,8 @@ Contains the following functions:
  fetch_lines()
  distance()
  gaussian_volume()
+ abs_cross_section()
+ line_count_rate()
 
 """
 
@@ -1116,6 +1118,150 @@ def gaussian_volume(sigma):
     volume = (2.0*np.pi*np.square(sigma))**1.5
     
     return volume
+
+#----------------------------------------------------------------
+def abs_cross_section(energy):
+    """
+    Calculate an ISM X-ray absorption cross-section.
+
+    Parameters
+    ----------
+    energy : numeric or 1D array of numeric
+        photon energy in keV
+
+    Returns
+    -------
+    X-ray absorption cross-section in cm^2 of the ISM at the given 
+    photon energy.
+
+    Usage Notes
+    -------
+    Cross-sections are from Morrison and McCammon 1983. They
+    do not include contributions from grains or molecules.
+
+    """
+
+    if energy < 0.03:
+      print "ERROR: energy is outside valid range (0.03-10.0 keV)"
+      return None
+    elif energy < 0.1:
+      c = [17.3,608.1,-2150.0]
+    elif energy < 0.284:
+      c = [34.6,267.9,-476.1]
+    elif energy < 0.40:
+      c = [78.1,18.8,4.3]
+    elif energy < 0.532:
+      c = [71.4,66.8,-51.4]
+    elif energy < 0.707:
+      c = [95.5,145.8,-61.1]
+    elif energy < 0.867:
+      c = [308.9,-380.6,294.0]
+    elif energy < 1.303:
+      c = [120.6,169.3,-47.7]
+    elif energy < 1.840:
+      c = [141.3,146.8,-31.5]
+    elif energy < 2.471:
+      c = [202.7,104.7,-17.0]
+    elif energy < 3.210:
+      c = [342.7,18.7,0.0]
+    elif energy < 4.038:
+      c = [352.2,18.7,0.0]
+    elif energy < 7.111:
+      c = [433.9,-2.4,0.75]
+    elif energy < 8.331:
+      c = [629.0,30.9,0.0]
+    elif energy <= 10.00:
+      c = [701.2,25.2,0.0]
+    else:
+      print "ERROR: energy is outside valid energy range (0.03-10 keV)"
+      return None
+      
+    sigma = (c[0]+c[1]*energy+c[2]*energy**2.0)*(energy**-3.0)*(10.0**-24.0)
+
+    return sigma
+
+#----------------------------------------------------------------
+def get_effective_area(energy,area):
+    """
+    Look up the effective area at a specific energy, given A(E)
+
+    Parameters
+    ----------
+    energy : numeric or 1D array of numeric
+        energy at which to find the effective area, in keV
+
+    area : str (file name) or pd.DataFrame
+        name of a file or a pd.DataFrame containing the effective
+        area as a function of energy. area in cm^2 and energy in keV.
+
+    Returns
+    -------
+    Effective area (in cm^2) at the specified energy.
+    
+
+    Usage Notes
+    -------
+    - The effective area is observation (time) and detector specific.
+    - The energy column in the effective area file or dataframe must
+      must be labeled 'keV', and must be first column.
+    - If the provided dataframe or file has more than 2 columns,
+      then it is assumed the extra columns are more detectors, and
+      the total area of all columns at specified is returned (i.e.
+      the net effective area of all detectors).
+
+    """
+
+    # read in file
+    if isinstance(area,str):
+      area = pd.read_table(area,sep=r'\s+')
+
+    # combine all detectors
+    area['total'] = area.sum(axis=1)
+
+    # look up closest value
+    area['diff'] = [abs(energy-i) for i in list(area.index)]
+    nearest_energy = area['diff'].idxmin(axis=0)
+    netarea = area.ix[nearest_energy,'total']
+
+    return netarea
+   
+#----------------------------------------------------------------
+def line_count_rate(emissivity,volume,area,distance,sigma,nH):
+    """
+    Calculate the expected count rate from an emission line
+
+    Parameters
+    ----------
+    emissivity : numeric or 1D array of numeric
+        emissivity of the line, in photons/cm^3/s
+
+    volume : numeric
+        volume of the emitting gas in cm^3
+        
+    area : numeric
+        effective area of the detectors at the line energy, in cm^2
+
+    distance : numeric
+        distance to the object in cm
+
+    sigma : numeric
+        ISM absorption cross-section at the line energy, in cm^2
+
+    nH : numeric
+        absorbing column density, in cm^-2
+
+
+    Returns
+    -------
+    count rate of the line emission in photons/s
+   
+    Usage Notes
+    -------
+
+    """
+    
+    return emissivity*volume*area/(4.0*np.pi*d**2.0)*np.exp(-sigma*nH)
+
 
 #----------------------------------------------------------
 # function to convert redshift to velocity (km/s) units
