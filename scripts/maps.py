@@ -76,6 +76,10 @@ imgs = xm.make_map(df,paramname='blob_em',
                    outfile=img1file,x0=x0,y0=y0,clobber=True,
                    rotation=rotation)
 
+#### Use EM map to determine EM threshold
+emthresh = 
+
+
 ############################################################
 #  Map all parameters                                      #
 ############################################################
@@ -84,4 +88,4 @@ imgs = xm.make_map(df,paramname='blob_em',
 imgfile = outroot+'bin'+str(int(pixelsize))+'_'+str(int(mapsize))+'arcsec_cleaned'
 
 #### Make maps
-imgs=xm.make_map(df,paramname=mapcols,paramweights=pweights,iteration_type=itypes,binsize=pixelsize,nlayers=20,imagesize=mapsize,withsignificance=True,nproc=4,outfile=imgfile,x0=x0,y0=y0,clobber=True)
+imgs=xm.make_map(df,paramname=mapcols,paramweights=pweights,iteration_type=itypes,binsize=pixelsize,nlayers=20,imagesize=mapsize,withsignificance=True,nproc=4,outfile=imgfile,x0=x0,y0=y0,clobber=True,imgthresh=emthresh,imgthreshparam='blob_em')
