@@ -1618,10 +1618,10 @@ def plot_lines(fig,bins,nlines=50,show=False,**fetchargs):
     for i,row in plotdf.iterrows():
 #        print row[x],row['label'],row['emissivity']
         lspan = Span(location=row[x],dimension='height',
-                     line_color='black',
+                     line_color='gray',
                      line_dash='dashed',line_width=1)
         fig.add_layout(lspan)
-        llabel = Label(x=row[x],y=labely,
+        llabel = Label(x=row[x],y=labely,text_color='gray',
                        angle=90.0,angle_units='deg',
                        text_font_size='10px',x_offset=xoffset,
                        text=row['label'])
