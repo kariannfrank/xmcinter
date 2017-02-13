@@ -1,17 +1,17 @@
-#----------------------------------------------------------
-#Module of functions for dealing with files output from xmc
-#
-#Contains the following functions:
-#
-# parse_file_line
-# read_parnames
+"""
+Module of functions for dealing with files output from xmc
 
-# functions using pandas:
-#  merge_output 
-#  remove_nans
-#  add_header
-#  calculate_prior
+Contains the following functions:
 
+ parse_file_line
+ read_parnames
+
+ functions using pandas:
+  merge_output 
+  remove_nans
+  add_header
+  calculate_prior
+"""
 #----------------------------------------------------------
 #Import common modules
 import os

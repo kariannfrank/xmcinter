@@ -442,7 +442,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         themap = collapse_stack(image_stacks[:,:,p,:],
                                                  ctype=ctype[p])
 
-        #--Apply significance threshold and Create Error Maps--
+        #--Create Error Maps--
         if (sigthresh != 0.0) or (witherror is True):
             # - compute error (standard deviation) map -
             errmap = collapse_stack(image_stacks[:,:,p,:],
@@ -492,6 +492,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             imgthmap = imgs[imgthp]       
 
     for p in xrange(len(paramname)):
+        print "Applying thresholds to "+paramname[p]
 
         themap=imgs[p]
         errmap=errimgs[p]

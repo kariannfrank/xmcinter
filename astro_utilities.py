@@ -1115,7 +1115,8 @@ def gaussian_volume(sigma):
 
     """
 
-    volume = (2.0*np.pi*np.square(sigma))**1.5
+#    volume = (2.0*np.pi*np.square(sigma))**1.5
+    volume = (2.0*np.pi)**1.5*sigma**3.0
     
     return volume
 
@@ -1181,7 +1182,7 @@ def abs_cross_section(energy):
     return sigma
 
 #----------------------------------------------------------------
-def get_effective_area(energy,area):
+def get_effective_area(energy,area=None):
     """
     Look up the effective area at a specific energy, given A(E)
 
@@ -1203,7 +1204,7 @@ def get_effective_area(energy,area):
     -------
     - The effective area is observation (time) and detector specific.
     - The energy column in the effective area file or dataframe must
-      must be labeled 'keV', and must be first column.
+      must be first column. It will be read as the index
     - If the provided dataframe or file has more than 2 columns,
       then it is assumed the extra columns are more detectors, and
       the total area of all columns at specified is returned (i.e.
@@ -1219,7 +1220,7 @@ def get_effective_area(energy,area):
     area['total'] = area.sum(axis=1)
 
     # look up closest value
-    area['diff'] = [abs(energy-i) for i in list(area.index)]
+    area['diff'] = [abs(energy-i) for i in list(area['0'])]
     nearest_energy = area['diff'].idxmin(axis=0)
     netarea = area.ix[nearest_energy,'total']
 
@@ -1260,7 +1261,7 @@ def line_count_rate(emissivity,volume,area,distance,sigma,nH):
 
     """
     
-    return emissivity*volume*area/(4.0*np.pi*d**2.0)*np.exp(-sigma*nH)
+    return emissivity*volume*area/(4.0*np.pi*distance**2.0)*np.exp(-sigma*nH)
 
 
 #----------------------------------------------------------

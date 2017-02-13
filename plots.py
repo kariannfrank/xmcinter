@@ -478,7 +478,7 @@ def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
         size = 5
     else:
         if size is None: size = 3
-    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select"
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save,box_select,lasso_select"
     w = 300 # plot width 
     h = 300 # plot height
 
@@ -1183,6 +1183,7 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
         #--loop over remaining model spectra--
         for s in xrange(sm,smax+1):
             modelspecfile = runpath+'/'+specname+str(s)+'.fits'
+#            print modelspecfile
             if os.path.isfile(modelspecfile):
                 model_table = fits.getdata(modelspecfile,0)
                 model_wave = model_table.field('wave')
@@ -1193,14 +1194,12 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
             else:
                 print "Warning: "+modelspecfile+" does not exist. Skipping."
 
-
-
     #----Convert to pandas Series----
-    data_wave = pd.Series(data_wave,name='Energy (keV)')    
+    data_wave = pd.Series(data_wave.byteswap().newbyteorder(),name='Energy (keV)')    
     if model is True:
-        model_wave_avg = pd.Series(model_wave_avg,name='Energy (keV)')
-        model_wave = pd.Series(model_wave,name='Energy (keV)')
-        iters_avg = pd.Series(iters_avg,name='iteration')
+        model_wave_avg = pd.Series(model_wave_avg+0,name='Energy (keV)')
+        model_wave = pd.Series(model_wave+0,name='Energy (keV)')
+        iters_avg = pd.Series(iters_avg+0,name='iteration')
 
     #----Create Histograms----
     

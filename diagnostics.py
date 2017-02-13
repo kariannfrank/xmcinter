@@ -68,10 +68,6 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     if 'blob_lnsigma' in df.columns:
         df['blob_sigma'] = np.exp(df['blob_lnsigma'])
 
-    # -- add linear tau column if used lvpshock --
-    if 'blob_logtau' in df.columns:
-        df['blob_tau'] = 10.0**df.blob_logtau
-
     # -- add tau column, if used lvpshock --
     if 'blob_logtau' in df.columns:
         df['blob_tau'] = 10.0**(df['blob_logtau'])
