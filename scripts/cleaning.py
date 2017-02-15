@@ -23,7 +23,7 @@
 ############################################################
 
 #### Create basic figures with script
-dfall,sf = xd.check(runpath='../')
+dfall,sf = xd.check(runpath='../',itmin=None,display=True)
 
 #### OR Create figures manually
 
