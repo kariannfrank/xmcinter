@@ -1077,7 +1077,10 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
 
     Input:
      runpath (string) : the relative path to xmc run folder, which
-                        contains the spectrum.* files
+                        contains the spectrum.* files. alternatively,
+                        can pass a dataframe with the x and y values, e.g.
+                        as would be read from a text file written by
+                        xspec with the wd command.
 
      smin/smax (int) : minimum and/or maximum spectrum file include in the
                        averaging of the model spectra. corresponds to the 

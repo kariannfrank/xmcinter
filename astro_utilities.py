@@ -926,7 +926,7 @@ def show_xray_lines(**fetchargs):
    include_lines (list of strings) :  list of element names to include 
                     emission lines from. will first drop all lines from
                     other elements, then apply remaining criteria (e.g.
-                    kT_range). Use 2-letters for each element.
+                    kT_range). Use standard 1 or 2 letters for each element.
 
 
   Output:

@@ -196,11 +196,11 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
     nbins = 75
     w = 500
     h = 200
-    hfigs = xplt.histogram_grid([dfall,dfall],weights=[None,'blob_em'],
-                                bins=nbins,ncols=2,norm=True,
+    hfigs = xplt.histogram_grid([dfall,dfall],weights=[None,'blob_mass'],
+                                bins=nbins,ncols=3,norm=True,
                                 display=display,
                                 outfile=outpath+'/histogram_grid.html',
-                                legends=['Unweighted','EM weighted'],
+                                legends=['Unweighted','Mass weighted'],
                                 width=w,height=h,iterations='iteration')
 
     print "\nPlotting posteriors with kT threshold ...\n"
@@ -208,11 +208,11 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
                                                 minvals=kTthresh),
                                  xw.filterblobs(dfall,'blob_kT',
                                                 minvals=kTthresh)],
-                                weights=[None,'blob_em'],
+                                weights=[None,'blob_mass'],
                                 display=display,
                                 bins=nbins,ncols=2,norm=True,
                             outfile=outpath+'/histogram_grid_kTthresh.html',
-                                legends=['Unweighted','EM weighted'],
+                                legends=['Unweighted','Mass weighted'],
                                 width=w,height=h,iterations='iteration')
 
     # -- scatter plots--

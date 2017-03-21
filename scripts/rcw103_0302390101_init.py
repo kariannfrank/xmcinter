@@ -22,3 +22,7 @@ import xmcinter.astro_utilities as astro
 holex = astro.wcs2xmc(244.40073,-51.04045)[0]
 holey = astro.wcs2xmc(244.40073,-51.04045)[1]
 holer = 8.0
+
+def nHkTthresh(df):
+    import numpy as np
+    return df[df.blob_kT >= 0.2*np.log(df.blob_nH+0.3)+0.11+0.08]
