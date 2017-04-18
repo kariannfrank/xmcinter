@@ -64,6 +64,12 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     else:
         df = runpath
 
+    # -- remove iterations before convergence --
+    if itmax == None:
+        itmax = np.max(df['iteration'])
+    df = xw.filterblobs(df,'iteration',minvals=itmin,maxvals=itmax)
+#    df = df[(df['iteration'] >= itmin) & (df['iteration']<=itmax)]
+        
     # -- add blob size in arcsec column --
     if 'blob_lnsigma' in df.columns:
         df['blob_sigma'] = np.exp(df['blob_lnsigma'])
@@ -78,7 +84,8 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
                                          astro.convert_distance(distance,
                                                                 'kpc',
                                                                 'cm'))
-    
+    print 'saved EM = ',df.blob_em.iloc[0]
+
     # -- add hydrogen number densities of blobs in cm^-3, hydrogen mass --
     if 'blob_sigma' in df.columns:
         df['blob_volume'] = astro.gaussian_volume(astro.convert_arcsec(\
@@ -87,12 +94,7 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
                                    df['blob_volume'],density_type='number')
 
         df['blob_mass'] =astro.em_to_mass(df['blob_em'],df['blob_volume'],
-                                          tounit='sol')
-
-    # -- remove iterations before convergence --
-    if itmax == None:
-        itmax = np.max(df['iteration'])
-    df = xw.filterblobs(df,'iteration',minvals=itmin,maxvals=itmax)
+                                          tounit='sol')        
 
     # -- save as file --
     outfile = ('deconvolution_merged_iter'
@@ -101,6 +103,11 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
     # -- make traceplots --
 #    tracefigs = xplt.traceplots(df)
+
+    # -- check EM calculation --
+    testem = astro.norm_to_em(df.iloc[0]['blob_norm'],
+                              astro.convert_distance(distance,'kpc','cm'))
+    print 'test EM = ',testem
 
     return df
 
