@@ -1,5 +1,5 @@
 #### Common Parameters
-distkpc = 8.0 # distance to object in kpc
+distkpc = 10.3 # distance to object in kpc
 outroot = './' # output location for new files
 
 ## Histogram Parameters
@@ -12,11 +12,11 @@ h = 200
 x0=-60.
 y0=80.
 z = 0.0
-rotation=270.
-r0=100. # size of (significant) object
+rotation=0.0 #270.
+#r0=130. # size of (significant) object -- this object is a rectangle
 pixelsize = 5.0 # should be size of typical blob (see histograms)
 mapsize = 400.0 # should include the entire phi/psi range
 
 def nHkTthresh(df):
     import numpy as np
-    return df[df.blob_kT >= 0.22*np.log(df.blob_nH)+0.11]
+    return df[df.blob_kT >= 0.28*np.log(df.blob_nH+0.5)+0.06]

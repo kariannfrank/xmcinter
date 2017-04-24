@@ -50,34 +50,38 @@ mapcols.remove('blob_lnsigma')
 mapcols.remove('blob_frac')
 
 #### set weights for each column
-pweights = ['blob_em']*len(mapcols)
+pweights = ['blob_mass']*len(mapcols)
 # unweight em and density
 pweights[mapcols.index('blob_em')]=None
 pweights[mapcols.index('blob_mass')]=None
+pweights[mapcols.index('blob_norm')]=None
 
 #### set iteration combination types
 itypes=['median']*len(mapcols)
 itypes[mapcols.index('blob_em')]='total'
 itypes[mapcols.index('blob_mass')]='total'
+itypes[mapcols.index('blob_norm')]='total'
 
 ############################################################
-#  Basic Emission Measure Map                              #
+#  Basic norm or EM Map                                    #
 #  (to set threshold and check map size)                   #
 ############################################################
 
+pixelsize=1.0
+
 #### Set file location and name prefix
-img1file = outroot+'bin'+str(int(pixelsize))+'_'+str(int(mapsize))+'arcsec_allblobs'
+img1file = outroot+'bin'+str(int(pixelsize))+'_'+str(int(mapsize))+'arcsec_goodblobs'
 
 #### Make map
-imgs = xm.make_map(df,paramname='blob_em',
+imgs = xm.make_map(df,paramname='blob_norm',
                    paramweights=None,iteration_type='total',
-                   binsize=pixelsize,nlayers=20,imagesize=mapsize,
+                   binsize=pixelsize,nlayers=40,imagesize=mapsize,
                    withsignificance=True,nproc=4,
                    outfile=img1file,x0=x0,y0=y0,clobber=True,
                    rotation=rotation)
 
-#### Use EM map to determine EM threshold
-emthresh = 
+#### Use norm map to determine norm threshold
+normthresh = 
 
 
 ############################################################
@@ -85,7 +89,7 @@ emthresh =
 ############################################################
 
 #### Set file location and name prefix
-imgfile = outroot+'bin'+str(int(pixelsize))+'_'+str(int(mapsize))+'arcsec_cleaned'
+imgfile = outroot+'bin'+str(int(pixelsize))+'_'+str(int(mapsize))+'arcsec_massweighted'
 
 #### Make maps
-imgs=xm.make_map(df,paramname=mapcols,paramweights=pweights,iteration_type=itypes,binsize=pixelsize,nlayers=20,imagesize=mapsize,withsignificance=True,nproc=4,outfile=imgfile,x0=x0,y0=y0,clobber=True,imgthresh=emthresh,imgthreshparam='blob_em')
+imgs=xm.make_map(df,paramname=mapcols,paramweights=pweights,iteration_type=itypes,binsize=pixelsize,nlayers=40,imagesize=mapsize,withsignificance=True,nproc=4,outfile=imgfile,x0=x0,y0=y0,clobber=True,imgthresh=normthresh,imgthreshparam='blob_norm',rotation=rotation)

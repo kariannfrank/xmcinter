@@ -14,9 +14,12 @@ y0=-10.
 z =  0.000927
 rotation=0.
 r0=200. # size of (significant) object
-pixelsize = 5.0 # should be size of typical blob (see histograms)
+pixelsize = 3.0 # should be size of typical blob (see histograms)
 mapsize = 200.0 # should include the entire phi/psi range
 
-def nHkTthresh(df):
+def nHkTthresh(df,nHgal=0.062):
+    # nH needs to be total NH = Galactic + LMC,
+    # as was used to calculate the NH-kT curve
     import numpy as np
-    return df[df.blob_kT >= 0.28*np.log(df.blob_nH+0.03)+0.23]
+#    return df[df.blob_kT >= 0.28*np.log(df.blob_nH+0.03)+0.23]
+    return df[df.blob_kT >= 0.28*np.log(nHgal+df.blob_nH2+0.03)+0.23]

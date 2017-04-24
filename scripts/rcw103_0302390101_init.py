@@ -25,4 +25,4 @@ holer = 8.0
 
 def nHkTthresh(df):
     import numpy as np
-    return df[df.blob_kT >= 0.2*np.log(df.blob_nH+0.3)+0.11+0.08]
+    return df[df.blob_kT >= 0.23*np.log(df.blob_nH+0.3)+0.11]

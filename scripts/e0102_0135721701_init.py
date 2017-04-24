@@ -13,5 +13,12 @@ x0=-75
 y0=-5.
 z = 0.000527
 rotation=0.
-pixelsize = 3.0 # should be size of typical blob (see histograms)
+pixelsize = 1.0 # should be size of typical blob (see histograms)
 mapsize = 100.0 # should include the entire phi/psi range
+
+def nHkTthresh(df,nHgal=0.046):
+    import numpy as np
+#    print "Emission lines detectable from all kT-nH in range."
+#    print "Not filtering any blobs."
+    return df[df.blob_kT >= 0.04*np.log(nHgal+df.blob_nH2+0.01)+0.155]
+
