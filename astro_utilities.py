@@ -105,10 +105,10 @@ def em_to_density(em,volume,density_type='number',mu=1.0):
 #----------------------------------------------------------
 def em_to_mass(em,volume,mu=1.0,tounit='g'):
   """
+  Given emission measure and volume, calculate the hydrogen gas density.
   Author: Kari Frank
   Date: July 5, 2016
-  Purpose: Given emission measure and volume, calculate the hydrogen
-           gas density.
+
   Input: 
     em (numerical): emission measure (e.g. as output from norm_to_em)
     volume (numerical): volume of region in cm^3

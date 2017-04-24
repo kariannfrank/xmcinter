@@ -17,6 +17,8 @@ from xmcfiles import merge_output
 #----------------------------------------------------------
 def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     """
+    Perform basic processing of blobs and save to merged file.
+
     Name: clean
     Author: Kari A. Frank
     Date: November 1, 2015
@@ -112,10 +114,10 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     return df
 
 #----------------------------------------------------------
-def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
-          cint=False,display=False):
+def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
+          cint=False,display=False,init_file=None):
     """
-    Name: clean
+    Name: check
     Author: Kari A. Frank
     Date: November 23, 2015
     Purpose: Make and display some diagnostic plots to check
@@ -136,14 +138,25 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
 
      itmin/itmax: minimum iteration to use in check
 
-     kTthresh: float to optionally specify a minimum kT. if set,
-               then all blobs with kT<kTthresh will not be included
-               in the map (but will be included in all other plots)
+     kTthresh: optionally specify a minimum kT. if set to 
+               numeric value, then all blobs with kT<kTthresh will 
+               not be included in the map or the kTthresh histograms
+               (but will be included in all other plots). 
+               if both kTthresh and init_file are provided, then 
+               nHkTthresh will be applied first, and then kTthresh.
+
+
+    init_file: if set to a string file name, that file must exist 
+               in xmcinter/scripts/ directory, and must contain a 
+               definition of nHkTthresh() function, distance, pixelsize, 
+               mapsize, and x0,y0. 
+               - typically this file should be the the init file,
+                 i.e. <object>_<obsid>_init.py
 
     Output:
 
      - Displays plots.
-     - Returns DataFrame of blob parameters
+     - Returns DataFrames of blob parameters and statistics as tuple (df,sf)
 
     Usage Notes:
 
@@ -156,6 +169,36 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
     from file_utilities import ls_to_list
     import xmcmap as xm
 
+    # -- define defaults -- 
+    # - these should be overwritten if init_file is provided -
+    distkpc = 3.0 
+    x0 = None # automatically calculate in make_map()
+    y0 = None # automatically calculate in make_map()
+    rotation = 0.0
+    pixelsize = None # default reset later to match data size
+    mapsize = None # automatically calculate in make_map()
+    nbins = 75
+    w = 500
+    h = 200
+    z = 0.0
+
+    # -- read init file if provided --
+    if init_file is not None:
+        f,ext = os.path.splitext(init_file) # remove extension
+        import importlib
+        il = importlib.import_module('scripts.'+f)
+        #        __import__('scripts.'+f,fromlist=[''])
+        distkpc = il.distkpc
+        x0 = il.x0
+        y0 = il.y0
+        rotation = il.rotation 
+        pixelsize = il.pixelsize
+        mapsize = il.mapsize
+        nbins = il.nbins
+        w = il.w
+        h = il.h
+        z = il.z
+        
     if kTthresh is None:
         kTthresh = 0.0
 
@@ -175,8 +218,12 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
     print "\nReading deconvolution files ...\n"
     dfall=merge_output(runpath,save=False)
 
+    # -- set default pixelsize --
+    if pixelsize is None:
+        pixelsize = (dfall.blob_phi.max()-dfall.blob_phi.min())/50.0
+    
     # -- add derivative columns --
-    dfall = clean(dfall,itmin=itmin,itmax=itmax)
+    dfall = clean(dfall,itmin=itmin,itmax=itmax,distance=distkpc)
     print '\nIterations '+str(itmin)+' - '+str(itmax)+' : '
     print "Total Number of Blobs = ",len(dfall.index)
     print 'Median chi2/dof = '+str(medchi2)+'\n'
@@ -191,7 +238,8 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
     sfig = xplt.spectrum(runpath=runpath,smin=smin,smax=smax,bins=0.03,
                          ylog=True,xlog=True,display=display,
                          outfile=outpath+'/spectrum.html',
-                         lines=True,nlines=100,energy_range=(0.5,10.0))
+                         emissivity_range=(1e-17,1.0),
+                         lines=True,nlines=100,energy_range=(0.85,10.0))
 
     # -- make median traceplots --
     print "\nPlotting traces ...\n"
@@ -200,25 +248,27 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
 
     # -- make histograms --
     print "\nPlotting posteriors ...\n"
-    nbins = 75
-    w = 500
-    h = 200
+    
     hfigs = xplt.histogram_grid([dfall,dfall],weights=[None,'blob_mass'],
                                 bins=nbins,ncols=3,norm=True,
                                 display=display,
-                                outfile=outpath+'/histogram_grid.html',
+                                outfile=outpath+'/histogram_grid_allblobs.html',
                                 legends=['Unweighted','Mass weighted'],
                                 width=w,height=h,iterations='iteration')
 
-    print "\nPlotting posteriors with kT threshold ...\n"
-    hfigs = xplt.histogram_grid([xw.filterblobs(dfall,'blob_kT',
-                                                minvals=kTthresh),
-                                 xw.filterblobs(dfall,'blob_kT',
-                                                minvals=kTthresh)],
+    print "\nPlotting filtered posteriors ...\n"
+    if init_file is not None:
+        dfgood = il.nHkTthresh(dfall)
+        dfgood = dfgood[dfgood.blob_kT>=kTthresh]
+    else:
+        dfgood = dfall[dfall.blob_kT>=kTthresh]
+    print "Total Number of Filtered Blobs = ",len(dfgood.index)
+        
+    hfigs = xplt.histogram_grid([dfgood,dfgood],
                                 weights=[None,'blob_mass'],
                                 display=display,
-                                bins=nbins,ncols=2,norm=True,
-                            outfile=outpath+'/histogram_grid_kTthresh.html',
+                                bins=nbins,ncols=3,norm=True,
+                            outfile=outpath+'/histogram_grid_filtered.html',
                                 legends=['Unweighted','Mass weighted'],
                                 width=w,height=h,iterations='iteration')
 
@@ -229,18 +279,16 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=0.17,
                                display=display)
 
     # -- make norm map from most recent iteration --
-    print "\nMaking blob em map ...\n"
-    pixelsize = (dfall.blob_phi.max()-dfall.blob_phi.min())/50.0
-#    img1file = (outpath+'/bin'+str(int(pixelsize))+
-#                '_iter'+str(itmin)+'-'+str(itmax))
+    print "\nMaking blob norm map ...\n"
+        
     img1file = (outpath+'/bin'+str(int(pixelsize))+
                 '_iter'+str(itmax))
-    img = xm.make_map(xw.filterblobs(dfall,['blob_kT'],
-                                     minvals=[kTthresh,itmax],
-                                     maxvals=[None,itmax]),
-                      paramname='blob_em',cint=cint,
+
+    img = xm.make_map(dfgood,x0=x0,y0=y0,
+                      paramname='blob_norm',cint=cint,
                       paramweights=None,iteration_type='total',
                       binsize=pixelsize,nlayers=1,
+                      rotation=rotation,imagesize=mapsize,
                       withsignificance=True,nproc=2,
                       outfile=img1file,clobber=True)
 

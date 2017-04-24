@@ -33,15 +33,22 @@ def logaxis(minval,maxval,limit=2.0):
     limit specifies how many orders of magnitude must separate the 
     min and max values before switching to log scale.
 
-    Returns either True (log axis) or False (linear axis)
+    Only allows setting log axis if minval is positive.
+
+    Returns either True (log axis) or False (linear axis).
     """
-#    rng = (dataseries.min(),dataseries.max())
-    norders = np.log10(maxval) - np.log10(minval)
-    if norders > float(limit):
-        return True
+
+    # only allow log scale if all positive values
+    if (minval > 0.0):
+        norders = np.log10(maxval) - np.log10(minval)
+
+        if norders > float(limit):
+            return True
+        else:
+            return False
     else:
         return False
-
+        
 #----------------------------------------------------------
 def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html',
          display=True):
@@ -762,6 +769,8 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                   'mediumpurple','darkorange','firebrick','gray'],
                    alphas=None,norm=False,legends=None,**histargs):
     """
+    Create html grid of (weighted) histograms from a dataframe.
+
     Author: Kari A. Frank
     Date: October 28, 2015
     Purpose: plot interactive matrix of weighted histograms from 
@@ -974,7 +983,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
             if column in dfr.columns:
                 xmin = min(xmin,dfr[column].min())
                 xmax = max(xmax,dfr[column].max())
-
+                
         # get xaxis scale
         xlog = logaxis(xmin,xmax)
 
