@@ -69,6 +69,8 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
     # -- remove iterations before convergence --
     if itmax == None:
         itmax = np.max(df['iteration'])
+    if itmin == None:
+        itmin = np.min(df['iteration'])
     df = xw.filterblobs(df,'iteration',minvals=itmin,maxvals=itmax)
 #    df = df[(df['iteration'] >= itmin) & (df['iteration']<=itmax)]
         
@@ -168,7 +170,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     import os
     from file_utilities import ls_to_list
     import xmcmap as xm
-
+   
     # -- define defaults -- 
     # - these should be overwritten if init_file is provided -
     distkpc = 3.0 
@@ -218,12 +220,19 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     print "\nReading deconvolution files ...\n"
     dfall=merge_output(runpath,save=False)
 
+    
+    
     # -- set default pixelsize --
     if pixelsize is None:
         pixelsize = (dfall.blob_phi.max()-dfall.blob_phi.min())/50.0
     
     # -- add derivative columns --
     dfall = clean(dfall,itmin=itmin,itmax=itmax,distance=distkpc)
+    if itmax == None:
+        itmax = np.max(dfall['iteration'])
+    if itmin == None:
+        itmin = np.min(dfall['iteration'])
+
     print '\nIterations '+str(itmin)+' - '+str(itmax)+' : '
     print "Total Number of Blobs = ",len(dfall.index)
     print 'Median chi2/dof = '+str(medchi2)+'\n'
@@ -231,10 +240,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     # -- plot model and data spectra --
     print "\nPlotting spectrum ...\n"
     smin = itmin/100
-    if itmax is None: 
-        smax = None
-    else:
-        smax = itmax/100
+    smax = itmax/100
     sfig = xplt.spectrum(runpath=runpath,smin=smin,smax=smax,bins=0.03,
                          ylog=True,xlog=True,display=display,
                          outfile=outpath+'/spectrum.html',
