@@ -197,11 +197,12 @@ def fake_deconvolution(df,suffix='99999',runpath='../'):
 
     Output:
       - writes a text file with blob parameters formatted as a 
-        deconvolution file
+        deconvolution file, and corresponding empty sigma, statistic,
+        changed, and mean files.
       - returns the new dataframe
 
     Usage Notes:
-      - overwrites the file if it already exists
+      - overwrites the files if they already exist
       - requires a parameters.txt file containing the deconvolution file
         column names in the correct order
 

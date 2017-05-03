@@ -117,7 +117,7 @@ sfig = xplt.spectrum_from_blobs(dfgood,runpath='../',
                      kT_range=(dfgood.blob_kT.min(),dfgood.blob_kT.max()))
 #### Spectrum of Bad Blobs only
 sfig = xplt.spectrum_from_blobs(dfall[dfall.index not in dfgood.index],runpath='../',
-                                ylog=True,xlog=True,
+                                ylog=True,xlog=True,suffix='99998'
                                 outfile='spectrum_bad.html',
                      lines=True,nlines=100,emissivity_range=(1e-17,1.0),
                      kT_range=(dfgood.blob_kT.min(),dfgood.blob_kT.max()))

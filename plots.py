@@ -1774,7 +1774,7 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
     # get start.xmc file name and modify run line
     for p in inputscript[index].split(' '): # in case extra spaces
         if '.xmc' in p:
-            startfile = p
+            startfile = p.rstrip() # remove any newlines
     
     inputscript[index] = 'run spec_start.xmc'
     with open(pwd+'input_spec','w') as file:
@@ -1789,7 +1789,8 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
     index = indices[-1]
         
     # modify deconvolvec line
-    lastlineparts = runscript[index].split(' ')
+    lastlineparts = [ p.rstrip() for p in runscript[index].split(' ')]
+    print 'lastlineparts = ',lastlineparts
     if len(lastlineparts)==3: # add iteration
         lastlineparts.append(suffix+'.')
     else: # replace iteration
@@ -1800,7 +1801,6 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
     runscript[index] = lastline
 
     # add path to data/expo calls
-    #  data
     dindices = [i for i, s in enumerate(runscript) if 'data ' in s]
     eindices = [i for i, s in enumerate(runscript) if 'expo ' in s]
     indices = dindices + eindices
