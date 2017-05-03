@@ -13,6 +13,7 @@ Contains the following functions:
  spectrum
  trace
  plot_lines
+ blobs_spectrum
 """
 
 #-import common modules-
@@ -23,6 +24,7 @@ import bokeh.plotting as bplt
 import bokeh.charts as bchart
 from bokeh.layouts import gridplot
 from wrangle import filterblobs,make_histogram,normalize_histogram
+from xmcfiles import fake_deconvolution
 
 #----------------------------------------------------------
 def logaxis(minval,maxval,limit=2.0):
@@ -1068,9 +1070,11 @@ def format_ticks(vals):
         return PrintfTickFormatter(format = "%1.2e")
 
 #----------------------------------------------------------
-def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
-             model=True,display=True,
-             modelcolor='steelblue',lastmodelcolor='firebrick',bins=0.03,
+def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
+             datalabel='Data',save=True,
+             model=True,display=True,modellabel='Model (average)',
+             modelcolor='steelblue',lastmodelcolor='firebrick',
+             lastmodellabel='Model (last iteration)',bins=0.03,
              outfile='spectrum.html',ylog=False,xlog=False,logbins=None,
              datarange=None,width=1000,height=500,lines=True,**lineargs):
 
@@ -1168,7 +1172,7 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     data_wave = data_table.field('wave')
 
     #----Read in model spectra----
-
+    
     if model is True:
     
         #--read in first model spectrum--
@@ -1235,12 +1239,13 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
         avgmodely,avgmodelerrors = normalize_histogram(avgmodely,
                                                        avgmodelerrors)
 
-        lastmodely,lastmodelerrors,lastmodeledges=\
+        if smin != smax: # skip if only plotting one iteration
+            lastmodely,lastmodelerrors,lastmodeledges=\
             make_histogram(model_wave,
                            bins=bins,
                            logbins=logbins,datarange=datarange,
                            density=False,iterations=None)
-        lastmodely,lastmodelerrors = normalize_histogram(lastmodely,
+            lastmodely,lastmodelerrors = normalize_histogram(lastmodely,
                                                        lastmodelerrors)
 
     #----Set up Plot----
@@ -1269,23 +1274,35 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     else:
         xlabel = 'Wavelength (Angstroms)'
 
-    avglabel = 'Model (average)'
-    lastlabel = 'Model (last iteration)'
+    avglabel = modellabel #'Model (average)'
+    lastlabel = lastmodellabel #'Model (last iteration)'
 
     #----Plot Spectra as Step Chart----
     if model is True:
-        specframes = pd.DataFrame({'Data':datay,xlabel:dataedges[:-1],
+        if smin != smax: # plotting more than one iteration
+            specframes = pd.DataFrame({'Data':datay,xlabel:dataedges[:-1],
                                avglabel:avgmodely,lastlabel:lastmodely})
 
-        step = Step(specframes,x=xlabel,y=['Data',avglabel,lastlabel],
+            step = Step(specframes,x=xlabel,y=[datalabel,avglabel,lastlabel],
                 color=[datacolor,modelcolor,lastmodelcolor],legend=True,
                 y_mapper_type=y_axis_type,x_mapper_type=x_axis_type,
                 dash=['solid','solid','dashed'],
                 plot_width=width,plot_height=height)
-    else:
-        specframes = pd.DataFrame({'Data':datay,xlabel:dataedges[:-1]})
+        else:
+            specframes = pd.DataFrame({'Data':datay,xlabel:dataedges[:-1],
+                               avglabel:avgmodely})
 
-        step = Step(specframes,x=xlabel,y=['Data'],
+            step = Step(specframes,x=xlabel,y=[datalabel,avglabel],
+                color=[datacolor,modelcolor],legend=True,
+                y_mapper_type=y_axis_type,x_mapper_type=x_axis_type,
+                dash=['solid','solid'],
+                plot_width=width,plot_height=height)
+
+            
+    else:
+        specframes = pd.DataFrame({datalabel:datay,xlabel:dataedges[:-1]})
+
+        step = Step(specframes,x=xlabel,y=[datalabel],
                 color=[datacolor],legend=True,
                 y_mapper_type=y_axis_type,x_mapper_type=x_axis_type,
                 dash=['solid'],
@@ -1294,7 +1311,7 @@ def spectrum(runpath='./',smin=0,smax=None,datacolor='black',save=True,
     step.x_range=Range1d(*x_range)
     step.y_range=Range1d(*y_range)
     step.legend.location='top_right'
-    step.ylabel = 'normalized value'
+    step.ylabel = 'scaled value'
 
     #----Plot Errorbars----
     if model is True:
@@ -1696,3 +1713,118 @@ def agg_lines(groupeddf,bins,units='energy'):
     outdf.reset_index(inplace=True,drop=True)
     return outdf
 
+#----------------------------------------------------------
+def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
+                        display=True,suffix='99999',datalabel='Data',
+                        modelcolor='steelblue',modellabel='Model',
+                        bins=0.03,
+                        outfile='spectrum_from_blobs.html',ylog=False,
+                        xlog=False,logbins=None,datarange=None,width=1000,
+                        height=500,lines=True,**lineargs):
+    """
+    Create and plot spectrum from the blobs in given dataframe
+
+    Author: Kari A. Frank
+    Date: May 1, 2017
+
+    Input:
+
+     df (pd.DataFrame) : blob dataframe. must contain, at minimum,
+                   all columns in parameters.txt
+
+     other input passed to spectrum()
+     
+
+    Output:
+
+     saves and (optionally) displays spectrum as html file.
+
+    Usage Notes:
+     - requires input, parameters.txt, start.xmc, events, and exposure
+       map files all to be located in runpath directory
+     - all new files are created in the working directory, so it is best
+       to NOT run this from a run directory, to avoid the possibility 
+       of overwriting any files.
+
+   
+    """
+
+    #--imports--
+    import os
+
+    pwd = os.getcwd()+'/'
+
+    #--create 'fake' deconvolution file--
+    # (file names will end in .99999)
+    df = fake_deconvolution(df,runpath=runpath,suffix=suffix)
+
+    #--read fake file into xmc and create spectrum--
+    
+    #-copy and modify input file-
+    with open(runpath+'input','r') as file:
+        inputscript = file.readlines()
+        
+    # find line with 'run' (in case blank lines after run)
+    indices = [i for i, s in enumerate(inputscript) if 'run' in s]
+    index = indices[-1]
+
+    # get start.xmc file name and modify run line
+    startfile = inputscript[index].split(' ')[-1]
+
+    inputscript[index] = 'run spec_start.xmc'
+    with open(pwd+'input_spec','w') as file:
+        file.writelines(inputscript)
+
+    #-copy and modify the start.xmc file-
+    with open(runpath+startfile,'r') as file:
+        runscript = file.readlines()
+
+    # find line with 'deconvolvec' (in case blank lines after)
+    indices = [i for i, s in enumerate(runscript) if 'deconvolvec' in s]
+    index = indices[-1]
+        
+    # modify deconvolvec line
+    lastlineparts = runscript[index].split(' ')
+    if len(lastlineparts)==3: # add iteration
+        lastlineparts.append(suffix+'.')
+    else: # replace iteration
+        lastlineparts[-1] = suffix+'.'
+
+    lastline=' '.join(lastlineparts)
+        
+    runscript[index] = lastline
+
+    # add path to data/expo calls
+    #  data
+    dindices = [i for i, s in enumerate(runscript) if 'data ' in s]
+    eindices = [i for i, s in enumerate(runscript) if 'expo ' in s]
+    indices = dindices + eindices
+    for i in indices:
+        parts = runscript[i].split(' ')
+        line = parts[0]+' '+runpath+parts[-1]
+        runscript[i] = line
+
+    # write modified file
+    with open(pwd+'spec_start.xmc','w') as file:
+        file.writelines(runscript)
+
+    #-call xmc to create the spectrum-
+    # (for now do it manually)
+    raw_input("In another terminal: \n\tFrom this directory"
+              " ("+pwd+"),\n"
+              "\trun xmc with 'xmc < input_spec'\n"
+              "\tAs soon as the file spectrum_"+suffix+".fits is produced, quit xmc.\n"
+    "\tReturn to this terminal and press Enter to continue.")
+    
+    #--create spectrum--
+    fig = spectrum(runpath=pwd,smin=int(suffix),smax=int(suffix),
+                   datacolor=datacolor,datalabel=datalabel,
+                   modellabel=modellabel,save=save,
+                   model=True,display=display,
+                   modelcolor=modelcolor,
+                   bins=bins,
+                   outfile=outfile,ylog=ylog,xlog=xlog,logbins=logbins,
+                   datarange=datarange,width=width,height=height,
+                   lines=lines,**lineargs)
+    
+    return fig

@@ -5,12 +5,11 @@ Contains the following functions:
 
  parse_file_line
  read_parnames
-
- functions using pandas:
-  merge_output 
-  remove_nans
-  add_header
-  calculate_prior
+ merge_output 
+ remove_nans
+ add_header
+ calculate_prior
+ fake_devonvolution
 """
 #----------------------------------------------------------
 #Import common modules
@@ -47,10 +46,10 @@ def remove_nans(datatable,filename=None,verbose=1):
 #----------------------------------------------------------
 def read_parnames(runpath):
     """
+    Read in parameters.txt file from an xmc run to get names of columns in deconvolution files
+
     Author: Kari A. Frank 
     Date: March 20, 2014
-    Purpose: Read in parameters.txt file from an xmc run to get 
-              names of columns in deconvolution files.
 
     Usage: parnames = read_parnames(runpath)
 
@@ -177,3 +176,50 @@ def calculate_prior(minval,maxval):
     center = minval+stepsize
 
     return center,stepsize
+
+#----------------------------------------------------------
+def fake_deconvolution(df,suffix='99999',runpath='../'):
+    """
+    Write a deconvolution file from a dataframe
+
+    Author: Kari A. Frank 
+    Date: April 27, 2016
+
+    Input:
+    
+      df           -- dataframe
+    
+      suffix       -- string to attach to end of file names
+
+      runpath      -- Path to xmc run directory, containing the
+                      parameters.txt file
+
+
+    Output:
+      - writes a text file with blob parameters formatted as a 
+        deconvolution file
+      - returns the new dataframe
+
+    Usage Notes:
+      - overwrites the file if it already exists
+      - requires a parameters.txt file containing the deconvolution file
+        column names in the correct order
+
+    """
+
+    #--read parameters.txt--
+    pnames = read_parnames(runpath)
+    
+    #--create dataframe with only parameters.txt columns, in correct order--
+    dfout = df[pnames].copy()
+    
+    #--write dataframe to file--
+    dfout.to_csv('deconvolution.'+suffix,sep=' ',header=False,index=False)
+
+    #--create auxiliary (empty) files--
+    open('statistic.'+suffix,'w').close()
+    open('sigma.'+suffix,'w').close()
+    open('mean.'+suffix,'w').close()
+    open('changed.'+suffix,'w').close()
+    
+    return dfout

@@ -622,6 +622,8 @@ def make_histogram(dataseries,weights=None,bins=50,logbins=False,
         bins = np.logspace(np.log10(datarange[0]),np.log10(datarange[1]),
                            num=bins)
 
+    if isinstance(bins,float): bins = int(bins)
+    
     #----Create the weighted histogram----
     histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
                                density=density,range=datarange)

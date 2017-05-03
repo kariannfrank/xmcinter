@@ -19,4 +19,4 @@ mapsize = 400.0 # should include the entire phi/psi range
 
 def nHkTthresh(df):
     import numpy as np
-    return df[df.blob_kT >= 0.28*np.log(df.blob_nH+0.5)+0.06]
+    return df[df.blob_kT >= 0.28*np.log(df.blob_nH+0.5)+0.04]
