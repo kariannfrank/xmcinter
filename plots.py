@@ -1732,6 +1732,9 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
      df (pd.DataFrame) : blob dataframe. must contain, at minimum,
                    all columns in parameters.txt
 
+     suffix (str) : must be string of an integer. will be appended to end
+                    of created file names (e.g. deconvolution.suffix)
+
      other input passed to spectrum()
      
 
@@ -1769,8 +1772,10 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
     index = indices[-1]
 
     # get start.xmc file name and modify run line
-    startfile = inputscript[index].split(' ')[-1]
-
+    for p in inputscript[index].split(' '): # in case extra spaces
+        if '.xmc' in p:
+            startfile = p
+    
     inputscript[index] = 'run spec_start.xmc'
     with open(pwd+'input_spec','w') as file:
         file.writelines(inputscript)
