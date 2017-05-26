@@ -252,7 +252,7 @@ def fake_deconvolution(df,suffix='99999',runpath='../'):
     
     return dfout
 #----------------------------------------------------------
-def read_spectra(runpath='../',smin=1,smax=None,logbins=False,
+def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
                   average=False,bins=0.03,datarange=None,oversim='auto'):
     """
     Read xmc spectrum files into histograms.
@@ -268,9 +268,9 @@ def read_spectra(runpath='../',smin=1,smax=None,logbins=False,
                         as would be read from a text file written by
                         xspec with the wd command.
 
-     smin/smax (int) : minimum and/or maximum spectrum file include in the
+     itmin/itmax (int) : minimum and/or maximum iterations included in the
                        averaging of the model spectra. corresponds to the 
-                       spectrum* file names, e.g. smax=3 will average the 
+                       spectrum* file names, e.g. itmax=3 will average the 
                        files spectrum_1.fits, spectrum_2.fits, and 
                        spectrum_3.fits. default is all available spectra.
 
@@ -319,10 +319,14 @@ def read_spectra(runpath='../',smin=1,smax=None,logbins=False,
     from wrangle import make_histogram
 
     #----Set defaults----
-    if smax==None:
-#        smax = len(ls_to_list(runpath,'spectrum*')) - 1
-        smax = int(re.search(r'_(.*)\.fits',
+    if itmax==None:
+#        itmax = len(ls_to_list(runpath,'spectrum*')) - 1
+        itmax = int(re.search(r'_(.*)\.fits',
                              ls_to_list(runpath,'spectrum*')[-1]).group(1))
+
+    # do not include data spectrum as a model spectrum
+    if itmin == None or itmin === 0:        
+        itmin = 1
         
     # check for MPI file names (if xmc was run with mpi)
     if os.path.isfile(runpath+'/spectrum0_0.fits'):
@@ -336,10 +340,10 @@ def read_spectra(runpath='../',smin=1,smax=None,logbins=False,
         
     #----Read in first model spectrum----
     foundspec = False
-    sm = smin
+    sm = itmin
     hists = []
-    print smin,smax
-    while (sm<=smax and foundspec is False):
+    print itmin,itmax
+    while (sm<=itmax and foundspec is False):
         specfile = runpath+'/'+specname+str(sm)+'.fits'
         print specfile
         if os.path.isfile(specfile):
@@ -378,15 +382,16 @@ def read_spectra(runpath='../',smin=1,smax=None,logbins=False,
             hists = hists + [(y,yerrors,yedges)]
 
         else:
-            print ("Warning: "+specfile+" not found.  Skipping +"
-                   "to next spectrum.")
+#            print ("Warning: "+specfile+" not found.  Skipping +"
+#                   "to next spectrum.")
             sm = sm+1
 
         if foundspec is False:
-            print "ERROR: no spectrum files found in range."
-
+#            print "ERROR: no spectrum files found in range."
+            print "WARNING: No spectrum files found in range. Plotting data spectrum only."
+            
     #----Loop over remaining spectra----
-    for s in xrange(sm+1,smax+1):
+    for s in xrange(sm+1,itmax+1):
         specfile = runpath+'/'+specname+str(s)+'.fits'
         if os.path.isfile(specfile):
             table = fits.getdata(specfile,0)
@@ -421,7 +426,7 @@ def read_spectra(runpath='../',smin=1,smax=None,logbins=False,
             print "Warning: "+specfile+" does not exist. Skipping."
 
     #----Save average----
-    if average is True:
+    if average is True and foundspec is True:
         # --convert average to pd.Series--
         wave_avg = pd.Series(wave_avg+0,name=xlabel)
         iters_avg = pd.Series(iters_avg+0,name='iteration')
