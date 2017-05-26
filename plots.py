@@ -24,7 +24,7 @@ import bokeh.plotting as bplt
 import bokeh.charts as bchart
 from bokeh.layouts import gridplot
 from wrangle import filterblobs,make_histogram,normalize_histogram
-from xmcfiles import fake_deconvolution
+from xmcfiles import fake_deconvolution,merge_output
 
 #----------------------------------------------------------
 def logaxis(minval,maxval,limit=2.0):
@@ -98,7 +98,8 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html',
     #from bokeh.mpl import to_bokeh
 
 #----Read statistic files----
-    statframe = merge_output(runpath,filetype='statistic',save=False)
+    statframe = merge_output(runpath,filetype='statistic',save=False,
+                             itmin=itmin,itmax=itmax)
     if itmax is None:
         itmax = np.max(statframe['iteration'])
     statframe = filterblobs(statframe,'iteration',minvals=itmin,maxvals=itmax)
@@ -1071,7 +1072,7 @@ def format_ticks(vals):
 
 #----------------------------------------------------------
 def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
-             datalabel='Data',save=True,
+             datalabel='Data',save=True,scale = 1.0,infig=None,
              model=True,display=True,modellabel='Model (average)',
              modelcolor='steelblue',lastmodelcolor='firebrick',
              lastmodellabel='Model (last iteration)',bins=0.03,
@@ -1115,6 +1116,13 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
                   default is to create equally spaced bins of width 0.03,
                   (30 eV). note that xmc typically uses a binsize of 0.015.
 
+    scale (float or list of floats) : scale the each spectrum 
+                    histogram by a constant. if a single float is provided,
+                    all spectra will be scaled by the same value. if a list
+                    is provided, it must have one element per spectrum to
+                    to be plotted (1, 2, or 3), and must be in the 
+                    following order - [data,(avg)model,lastmodel]
+
     outfile (str) : name of output html file, or 'notebook' if plotting to 
                     an open Jupyter notebook
 
@@ -1124,6 +1132,9 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
     display (bool) : if False, then will not display the figure
                   automatically (re)set to True if outfile='notebook'
                   ignored if save=False                  
+
+    infig (bokeh Figure) : if provided, then the spectrum will be
+                   overplotted on the provided figure.
 
     model (bool) : if False, then will plot only the data spectrum.
 
@@ -1165,6 +1176,9 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
     else:
         specname = 'spectrum_'
 
+    if isinstance(scale,float):
+        scale = [scale,scale,scale]
+        
     #----Read in data spectrum----
     dataspecfile = runpath+'/'+specname+'0.fits'
     data_table = fits.getdata(dataspecfile,0)
@@ -1218,6 +1232,7 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
         iters_avg = pd.Series(iters_avg+0,name='iteration')
 
     #----Create Histograms----
+    # y units are counts per bin (per observation exposure or iteration)
     
     if isinstance(bins,float): # assume binsize, convert to number bins
         bins = np.ceil((np.max(data_wave.values)-
@@ -1228,7 +1243,10 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
                        logbins=logbins,
                        datarange=datarange,
                        density=False,iterations=None)
-    datay,dataerrors = normalize_histogram(datay,dataerrors)
+    datay = datay*scale[0]
+    if dataerrors is not None:
+        dataerrors = dataerrors*scale[0]
+#    datay,dataerrors = normalize_histogram(datay,dataerrors)
 
     if model is True:
         avgmodely,avgmodelerrors,avgmodeledges=\
@@ -1236,8 +1254,14 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
                            bins=bins,
                            logbins=logbins,datarange=datarange,
                            density=False,iterations=iters_avg)
-        avgmodely,avgmodelerrors = normalize_histogram(avgmodely,
-                                                       avgmodelerrors)
+        nspecs = len(np.unique(iters_avg))
+        print 'nspecs = ',nspecs
+        # scale by number of iterations
+        avgmodely = avgmodely*scale[1]/float(nspecs)
+        avgmodelerrors = avgmodelerrors*scale[1]/float(nspecs)
+#        avgmodely,avgmodelerrors = normalize_histogram(avgmodely,
+#                                                       avgmodelerrors)
+
 
         if smin != smax: # skip if only plotting one iteration
             lastmodely,lastmodelerrors,lastmodeledges=\
@@ -1245,8 +1269,11 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
                            bins=bins,
                            logbins=logbins,datarange=datarange,
                            density=False,iterations=None)
-            lastmodely,lastmodelerrors = normalize_histogram(lastmodely,
-                                                       lastmodelerrors)
+            lastmodely=lastmodely*scale[2]
+#            lastmodelerrors = lastmodelerrors*scale[2]
+#            lastmodely,lastmodelerrors = normalize_histogram(lastmodely,
+#                                                       lastmodelerrors)
+    print 'max data, model = ',max(datay),max(avgmodely)
 
     #----Set up Plot----
     if save is True:
@@ -1256,23 +1283,24 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
             display = True
             bplt.output_notebook()
 
-    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"#,box_select,lasso_select"
+    if infig is None:
+        TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
     
-    x_axis_type = 'linear'
-    y_axis_type = 'linear'
-    if xlog is True:
-        x_axis_type = 'log'
-    x_range = (np.min(dataedges),np.max(dataedges))
-    if ylog is True:
-        y_axis_type = 'log'
-        ymin = np.min(datay[np.where(datay != 0.0)])
-        y_range = (ymin,1.5*np.max(datay))
-    else: 
-        y_range = (0.0,1.1*np.max(datay))
-    if np.max(dataedges) < 15.0:
-        xlabel = 'Energy (keV)'
-    else:
-        xlabel = 'Wavelength (Angstroms)'
+        x_axis_type = 'linear'
+        y_axis_type = 'linear'
+        if xlog is True:
+            x_axis_type = 'log'
+        x_range = (np.min(dataedges),np.max(dataedges))
+        if ylog is True:
+            y_axis_type = 'log'
+            ymin = np.min(datay[np.where(datay != 0.0)])
+            y_range = (ymin,1.5*np.max(datay))
+        else: 
+            y_range = (0.0,1.1*np.max(datay))
+        if np.max(dataedges) < 15.0:
+            xlabel = 'Energy (keV)'
+        else:
+            xlabel = 'Wavelength (Angstroms)'
 
     avglabel = modellabel #'Model (average)'
     lastlabel = lastmodellabel #'Model (last iteration)'
@@ -1311,7 +1339,7 @@ def spectrum(runpath='../',smin=0,smax=None,datacolor='black',
     step.x_range=Range1d(*x_range)
     step.y_range=Range1d(*y_range)
     step.legend.location='top_right'
-    step.ylabel = 'scaled value'
+    step.ylabel = 'counts'
 
     #----Plot Errorbars----
     if model is True:
@@ -1757,8 +1785,10 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
 
     pwd = os.getcwd()+'/'
 
-    #--create 'fake' deconvolution file--
+    #--create 'fake' deconvolution and other xmc output files--
     # (file names will end in .99999)
+    niters=len(np.unique(df.iteration)) # get number iterations
+    oldnorm = df.blob_norm.sum() # net norm
     df = fake_deconvolution(df,runpath=runpath,suffix=suffix)
 
     #--read fake file into xmc and create spectrum--
@@ -1766,6 +1796,11 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
     #-copy and modify input file-
     with open(runpath+'input','r') as file:
         inputscript = file.readlines()
+
+    # find line with '/null' and replace with '/xw'
+    indices = [i for i, s in enumerate(inputscript) if '/null' in s]
+    index = indices[-1]
+    inputscript[index] = inputscript[index].replace('null','xw')
         
     # find line with 'run' (in case blank lines after run)
     indices = [i for i, s in enumerate(inputscript) if 'run' in s]
@@ -1790,7 +1825,7 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
         
     # modify deconvolvec line
     lastlineparts = [ p.rstrip() for p in runscript[index].split(' ')]
-    print 'lastlineparts = ',lastlineparts
+
     if len(lastlineparts)==3: # add iteration
         lastlineparts.append(suffix+'.')
     else: # replace iteration
@@ -1818,8 +1853,19 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
     raw_input("In another terminal: \n\tFrom this directory"
               " ("+pwd+"),\n"
               "\trun xmc with 'xmc < input_spec'\n"
-              "\tAs soon as the file spectrum_"+suffix+".fits is produced, quit xmc.\n"
+              "\tWhen spectrum_"+suffix+".fits is produced\n "
+              "\tand the *."+suffix+" files are overwritten by xmc, "
+              "then kill xmc.\n"
     "\tReturn to this terminal and press Enter to continue.")
+
+    #--read in the new deconvolution file to get xspec normalization--
+    if not os.path.isfile(pwd+'parameters.txt'):
+        os.link(runpath+'/parameters.txt',pwd+'parameters.txt')
+    dfnew = merge_output(runpath=pwd,save=False)
+    dfnew = dfnew[dfnew.iteration==int(suffix)]
+    newnorm = dfnew.blob_norm.sum()
+    xspecscale = oldnorm/newnorm
+#    print 'xspecscale = ',xspecscale
     
     #--create spectrum--
     fig = spectrum(runpath=pwd,smin=int(suffix),smax=int(suffix),
@@ -1827,9 +1873,316 @@ def spectrum_from_blobs(df,runpath='../',datacolor='black',save=True,
                    modellabel=modellabel,save=save,
                    model=True,display=display,
                    modelcolor=modelcolor,
-                   bins=bins,
+                   bins=bins,scale=[1.0,xspecscale/float(niters)],
                    outfile=outfile,ylog=ylog,xlog=xlog,logbins=logbins,
                    datarange=datarange,width=width,height=height,
                    lines=lines,**lineargs)
     
     return fig
+
+#----------------------------------------------------------
+def spectra(spectra,colors=['black','steelblue','firebrick'],
+            labels = None,dashes=None,
+            save=True,display=True,scale=1.0,
+            outfile='spectra.html',ylog=False,xlog=False,logbins=None,
+            width=1000,height=500,lines=True,**lineargs):
+
+    """
+    Plot the given spectra.
+
+    Author: Kari A. Frank
+    Date: May 4, 2017
+
+    Input:
+
+     spectra (list of tuples) : should contain a list of tuples, where each
+                 tuple represents a histogram, of the form 
+                 (y,yerrors,yedges), e.g. as output
+                 from either xmcfiles.read_spectra() or 
+                 wrangle.make_spectrum()
+
+     bins:        optionally specify the number of bins (int), binsize 
+                  (float), or an array containing the bin edge values. 
+                  can also accept any of the strings recognized by 
+                  np.histogram() for special calculation of bin sizes.
+                  - 'auto' (but don't use if using weights)
+                  - 'fd' (Freedman Diaconis Estimator)
+                  - 'doane'
+                  - 'scott'
+                  - 'rice' 
+                  - 'sturges'
+                  - 'sqrt'
+                  default is to create equally spaced bins of width 0.03,
+                  (30 eV). note that xmc typically uses a binsize of 0.015.
+
+    scale (float or list of floats) : scale the each spectrum 
+                    histogram by a constant. if a single float is provided,
+                    all spectra will be scaled by the same value. if a list
+                    is provided, it must have one element per spectrum to
+                    to be plotted (same length as spectra list)
+
+    outfile (str) : name of output html file, or 'notebook' if plotting to 
+                    an open Jupyter notebook
+
+    save (bool) : if save is False, then will not display the final figure
+                  or save it to a file
+
+    display (bool) : if False, then will not display the figure
+                  automatically (re)set to True if outfile='notebook'
+                  ignored if save=False                  
+
+    dashes (list of strings) : provide the dash type for each spectrum
+                   to be plotted
+
+    lines (bool) : plot the 10 stongest common emission lines within 
+                   the x-axis range. **lineargs will pass any extra 
+                   arguments directly to plot_lines()
+
+    xlog, ylog (bool) : specify if x and y axes should use log scale
+
+    Output:
+     - plots the spectra for to an interactive plot (if save=True)
+     - Returns the figure object
+
+    Usage Notes:
+     - Will automatically plot error bars if provided, e.g. 
+       for an average spectrum returned by read_spectra()
+     - For now, all given spectra must have the same binsize and
+       start at the same x-value. Upper limit on x-axis will be 
+       limited to that of the spectrum with the smallest range.
+
+    Example:
+    """
+
+    #----Import Modules----
+    import os
+    import astropy.io.fits as fits
+    from bokeh.charts import Step,color
+    from bokeh.models.ranges import Range1d
+    from file_utilities import ls_to_list
+
+    #----Set defaults----
+    if isinstance(scale,float):
+        scale = [scale]*len(spectra)
+
+    if labels is None:
+        labels = ['Spec'+str(i) for i in xrange(len(spectra))]
+
+    if dashes is None:
+        dashes = ['solid']*len(spectra)
+        
+    #----Set up Plot----
+    if save is True:
+        if outfile != 'notebook':
+            bplt.output_file(outfile)
+        else:
+            display = True
+            bplt.output_notebook()
+            
+    TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
+    
+    x_axis_type = 'linear'
+    y_axis_type = 'linear'
+    ymin = 1e10 # dummy ymin
+    ymax = 0.0 # dummy ymax
+    if xlog is True:
+        x_axis_type = 'log'
+    xmin = min([np.min(t[2]) for t in spectra])
+    xmax = max([np.max(t[2]) for t in spectra])
+    x_range = (xmin,xmax)
+    if ylog is True:
+        y_axis_type = 'log'
+        for t in spectra: # calculate non-zero min and max
+            t0=t[0]
+            ymin = min(ymin,np.min(t0[np.where(t0>0.0)]))
+            ymax = max(ymax,np.max(t0[np.where(t0>0.0)]))
+        ymax = 1.5*ymax
+        y_range = (ymin,ymax)
+    else: 
+        for t in spectra:
+            t0=t[0]
+            ymin = min(ymin,np.min(t0))
+            ymax = max(ymax,np.max(t0))
+        ymax = 1.1*ymax
+        y_range = (ymin,ymax)
+    if xmax < 15.0:
+        xlabel = 'Energy (keV)'
+    else:
+        xlabel = 'Wavelength (Angstroms)'
+
+    #----Plot Spectra as Step Chart----
+    
+    # assumes all spectra have the same binsize
+    edges = np.round(spectra[0][2],decimals=2)[:-1]
+    for si,s in enumerate(spectra):
+        # find matching bins (indices, as Bool array)
+        mask = np.in1d( np.round(s[2],decimals=2)[:-1],edges) 
+        #edges = np.intersect1d(np.round(edges,decimals=2),
+        #                       np.round(s[2],decimals=2))
+        
+        print len(mask), len(edges),len(s[0])
+        # update spectrum
+        newx = s[2][np.where(mask)]
+        # update y values
+        newy = s[0][np.where(mask)]
+        print len(newx)
+        # update errors
+        if s[1] is not None:
+            newyerr = s[1][np.where(mask)]
+        else:
+            newyerr = s[1]
+        spectra[si] = (newy,newyerr,newx)
+
+        print 'total counts = ',newy.sum()
+        
+    #--create dictionary of spectra histograms--
+
+#    spectra0 = spectra[0]
+#    edges = spectra0[2]
+    specy = [s[0] for s in spectra]
+    specframes = dict(zip(labels,specy)) # add y values to dict
+    specframes[xlabel] = edges#[:-1] # add x values to dict
+
+    specframes = pd.DataFrame.from_dict(specframes)
+    
+    # To Do - figure out how to specify a color for each column
+    #         (turns out it is extremely difficult)
+    step = Step(specframes,x=xlabel,y=labels,
+                legend=True,color=colors,
+                y_mapper_type=y_axis_type,x_mapper_type=x_axis_type,
+                dash=dashes,ylabel='counts',
+                plot_width=width,plot_height=height)
+    
+    step.x_range=Range1d(*x_range)
+    step.y_range=Range1d(*y_range)
+    step.legend.location='top_right'
+#    step.ylabel = 'counts'
+
+    #----Plot Errorbars----
+    xbinsizes = edges[1:]-edges[:-1]
+    xbins = edges[:-1]+xbinsizes/2.0
+    for si,s in enumerate(spectra):
+        if s[1] is not None:
+            errorbar(step, xbins, s[0], xerr=None, yerr=s[1], 
+                     color='gray', # colors[si], 
+                     point_kwargs={}, error_kwargs={})
+
+    #----Plot Emission Lines----
+    if lines is True:
+        step = plot_lines(step,edges,**lineargs)
+
+    #possible attributes to Chart are above, background_fill_alpha, background_fill_color, below, border_fill_alpha, border_fill_color, disabled, extra_x_ranges, extra_y_ranges, h_symmetry, height, hidpi, left, lod_factor, lod_interval, lod_threshold, lod_timeout, min_border, min_border_bottom, min_border_left, min_border_right, min_border_top, name, outline_line_alpha, outline_line_cap, outline_line_color, outline_line_dash, outline_line_dash_offset, outline_line_join, outline_line_width, plot_height, plot_width, renderers, right, sizing_mode, tags, title, title_location, tool_events, toolbar, toolbar_location, toolbar_sticky, v_symmetry, webgl, width, x_mapper_type, x_range, xlabel, xscale, y_mapper_type, y_range, ylabel or yscale
+
+
+    #----Show the Plot----
+    if save is True:
+        if display is True:
+            bplt.show(step)
+        else:
+            bplt.save(step)
+#        if outfile != 'notebook': bplt.curdoc().clear()
+    
+
+#----Return----
+    return step
+
+#----------------------------------------------------------
+def standard_spectra(runpath='../',smin=1,smax=None,
+                     save=True,display=True,
+                     outfile='spectra.html',ylog=False,xlog=False,
+                     logbins=None,bins=0.03,
+                     width=1000,height=500,lines=True,**lineargs):
+
+    """
+    Plot standard data, average model, and most recent model spectra
+
+    Author: Kari A. Frank
+    Date: May 5, 2017
+
+    Input:
+
+     spectra (list of tuples) : should contain a list of tuples, where each
+                 tuple represents a histogram, of the form 
+                 (y,yerrors,yedges), e.g. as output
+                 from either xmcfiles.read_spectra() or 
+                 wrangle.make_spectrum()
+
+     smin/smax (int) : minimum and/or maximum spectrum file include in the
+                       averaging of the model spectra. corresponds to the 
+                       spectrum* file names, e.g. smax=3 will average the 
+                       files spectrum_1.fits, spectrum_2.fits, and 
+                       spectrum_3.fits. default is all available spectra.
+
+     bins:        optionally specify the number of bins (int), binsize 
+                  (float), or an array containing the bin edge values. 
+                  can also accept any of the strings recognized by 
+                  np.histogram() for special calculation of bin sizes.
+                  - 'auto' (but don't use if using weights)
+                  - 'fd' (Freedman Diaconis Estimator)
+                  - 'doane'
+                  - 'scott'
+                  - 'rice' 
+                  - 'sturges'
+                  - 'sqrt'
+                  default is to create equally spaced bins of width 0.03,
+                  (30 eV). note that xmc typically uses a binsize of 0.015.
+
+    scale (float or list of floats) : scale the each spectrum 
+                    histogram by a constant. if a single float is provided,
+                    all spectra will be scaled by the same value. if a list
+                    is provided, it must have one element per spectrum to
+                    to be plotted (same length as spectra list)
+
+    outfile (str) : name of output html file, or 'notebook' if plotting to 
+                    an open Jupyter notebook
+
+    save (bool) : if save is False, then will not display the final figure
+                  or save it to a file
+
+    display (bool) : if False, then will not display the figure
+                  automatically (re)set to True if outfile='notebook'
+                  ignored if save=False                  
+
+    lines (bool) : plot the 10 stongest common emission lines within 
+                   the x-axis range. **lineargs will pass any extra 
+                   arguments directly to plot_lines()
+
+    xlog, ylog (bool) : specify if x and y axes should use log scale
+
+    Output:
+     - plots the spectra for to an interactive plot (if save=True)
+     - Returns the figure object
+
+    Usage Notes:
+     - Will automatically plot error bars if provided, e.g. 
+       for an average spectrum returned by read_spectra()
+     - For now, all given spectra must have the same bins
+
+    Example:
+    """
+    # - Imports -
+    from xmcfiles import read_spectra
+    
+    # - Defaults -
+    if logbins is None: logbins = xlog
+
+    # - read model spectra -
+    shists = read_spectra(runpath=runpath,smin=smin,smax=smax,
+                          average=True,bins=bins,logbins=logbins)
+    lasthist = shists[-2]
+    avghist = shists[-1]
+
+    # - read data spectrum -
+    dhist = read_spectra(runpath=runpath,smin=0,smax=0,
+                             average=False,bins=bins,logbins=logbins)
+    datahist = dhist[0]
+
+    # - plot spectra -
+    sfig = spectra([datahist,avghist,lasthist],
+                        labels=['Data','Model (average)','Model (latest)'],
+                        display=display,
+                        outfile=outfile,
+                        ylog=ylog,xlog=xlog,
+                        lines=lines,**lineargs)
+
+    return sfig

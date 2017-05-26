@@ -65,7 +65,7 @@ def norm_to_em(norm,dist_cm,redshift=0.0):
   return em
 
 #----------------------------------------------------------
-def em_to_density(em,volume,density_type='number',mu=1.0):
+def em_to_density(em,volume,density_type='number',mu=1.21):
   """
   Author: Kari Frank
   Date: April 14, 2016
@@ -91,6 +91,11 @@ def em_to_density(em,volume,density_type='number',mu=1.0):
      emission measure)
    - For typical cosmic abundances, set mu=1.21 (n_He = 0.1*n_H, all 
      other elements negligible)
+   - Note that for gaussian shaped blobs (sgau model), it is the 
+     emission measure spatial distribution that is gaussian, not the 
+     density or the 'shape' of the actual emitting plasma. Thus the
+     density that is returned with this function is the CENTRAL, MAXIMUM
+     value of the blob's hydrogen density.
 
   """
   #-constants-
@@ -103,9 +108,9 @@ def em_to_density(em,volume,density_type='number',mu=1.0):
     return proton_mass*(em/(volume*mu))**0.5  
 
 #----------------------------------------------------------
-def em_to_mass(em,volume,mu=1.0,tounit='g'):
+def em_to_mass(em,volume,mu=1.21,tounit='g'):
   """
-  Given emission measure and volume, calculate the hydrogen gas density.
+  Given emission measure and volume, calculate the mass
   Author: Kari Frank
   Date: July 5, 2016
 

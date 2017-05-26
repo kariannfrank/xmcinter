@@ -11,6 +11,7 @@ h = 200
 # start with center coords from start.xmc file and rot=0 if don't know
 x0=-140.
 y0=70.
+r0=42.0 # radius of significant object
 rotation=0.
 z = 0.000927
 pixelsize = 5.0 # should be size of typical blob (see histograms)

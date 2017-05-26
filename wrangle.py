@@ -9,10 +9,11 @@ Modifying or creating columns:
  simplefilterblobs() [mainly a helper function for filterblobs()]
  filtercircle()
  line_emissivities()
- normalize_histogram()
 
 Mapping columns or dataframe into new array:
  make_histogram()
+ normalize_histogram()
+ make_spectrum()
 
 Statistics (outputs scalars):
  (from the wquantiles package: 
@@ -1097,3 +1098,207 @@ def normfilter(gdf,normthreshs,kTcol,nHcol,normcol):
 def normfilter_star(arglist):
     """Function to unpack list of arguments and pass to normfilter"""
     return normfilter(*arglist)
+
+#----------------------------------------------------------------
+def make_spectrum(df,runpath='../',suffix='99999',oversim='auto',
+                  bins=0.03,xlog=False,logbins=None,datarange=None,
+                  fixed_nH=None):
+    """
+    Create spectrum (histogram) from the blobs in given dataframe
+
+    Author: Kari A. Frank
+    Date: May 4, 2017
+
+    Input:
+
+     df (pd.DataFrame) : blob dataframe. must contain, at minimum,
+                   all columns in parameters.txt
+
+     suffix (str) : must be string of an integer. will be appended to end
+                    of created file names (e.g. deconvolution.suffix)
+     
+     bins:        optionally specify the number of bins (int), binsize 
+                  (float), or an array containing the bin edge values. 
+                  can also accept any of the strings recognized by 
+                  np.histogram() for special calculation of bin sizes.
+                  - 'auto' (but don't use if using weights)
+                  - 'fd' (Freedman Diaconis Estimator)
+                  - 'doane'
+                  - 'scott'
+                  - 'rice' 
+                  - 'sturges'
+                  - 'sqrt'
+                  default is to create equally spaced bins of width 0.03,
+                  (30 eV). note that xmc typically uses a binsize of 0.015.
+
+    logbins, datarange, xlog, ylog : see make_histogram()
+
+    oversim (numerical scalar or 'auto') : must specify the oversim value
+                   to properly scale the model spectra.
+                   - 'auto' (or any string): will read in the first 
+                      statistic.* file it
+                     finds in runpath/ and get the oversim from there.
+                   - can also explicitly pass the oversim value
+
+     fixed_nH (scalar) : fixed absorption value in the model, usually the 
+                     Galactic NH for LMC/SMC objects. required if any of
+                     the absorption parameters are fixed. 
+
+
+    Output:
+
+     Returns a spectrum as a histogram, in same format as returned by
+     xmcfiles.read_spectra() -- (y,yerrors,yedges)
+
+    Usage Notes:
+     - Requires input, parameters.txt, start.xmc, events, and exposure
+       map files all to be located in runpath directory
+     - All new files are created in the working directory, so it is best
+       to NOT run this from a run directory, to avoid the possibility 
+       of overwriting any files.
+     - The returned spectrum will be scaled by the number of iterations,
+       i.e. will be equivalent to counts expected in a single iteration,
+       for correct comparison with the data spectrum. 
+
+   
+    """
+    #--imports--
+    import os
+    from xmcfiles import fake_deconvolution,read_spectra,merge_output
+    from file_utilities import parse_file_line,ls_to_list
+    from astro_utilities import abs_cross_section
+    
+    pwd = os.getcwd()+'/'
+
+    #--get oversim--
+    if isinstance(oversim,str):
+        oversim = float(parse_file_line(runpath+ls_to_list(
+            runpath,'statistic.*')[0])[2])
+
+    
+    #--create 'fake' deconvolution and other xmc output files--
+    # (file names will end in .99999)
+    niters=len(np.unique(df.iteration)) # get number iterations
+    # scale by iterations
+    for col in df.columns:
+        if 'norm' in col:
+            df[col] = df[col]/float(niters)
+    oldnorm = sum([df[col].sum() for col in df.columns if 'norm' in col])
+#    oldnorm = df.blob_norm.sum() # net norm
+    df = fake_deconvolution(df,runpath=runpath,suffix=suffix)
+
+    #--calculate weighted average absorption--
+    if 'blob_nH2' in df.columns:
+        nH = np.average(fixed_nH+df.blob_nH2,weights=df.blob_norm)
+    else:
+        if fixed_nH is None:
+            nH = np.average(df.blob_nH,weights=df.blob_norm)
+        else:
+            nH = fixed_nH
+    nH = nH*1e22
+    print 'nH avg = ',nH
+    
+    #--read fake file into xmc and create spectrum--
+    
+    #-copy and modify input file-
+    with open(runpath+'input','r') as file:
+        inputscript = file.readlines()
+
+    # find line with '/null' and replace with '/xw'
+    indices = [i for i, s in enumerate(inputscript) if '/null' in s]
+    index = indices[-1]
+    inputscript[index] = inputscript[index].replace('null','xw')
+        
+    # find line with 'run' (in case blank lines after run)
+    indices = [i for i, s in enumerate(inputscript) if 'run' in s]
+    index = indices[-1]
+
+    # get start.xmc file name and modify run line
+    for p in inputscript[index].split(' '): # in case extra spaces
+        if '.xmc' in p:
+            startfile = p.rstrip() # remove any newlines
+    
+    inputscript[index] = 'run spec_start.xmc'
+    with open(pwd+'input_spec','w') as file:
+        file.writelines(inputscript)
+
+    #-copy and modify the start.xmc file-
+    with open(runpath+startfile,'r') as file:
+        runscript = file.readlines()
+
+    # find line with 'deconvolvec' (in case blank lines after)
+    indices = [i for i, s in enumerate(runscript) if 'deconvolvec' in s]
+    index = indices[-1]
+        
+    # modify deconvolvec line
+    lastlineparts = [ p.rstrip() for p in runscript[index].split(' ')]
+
+    if len(lastlineparts)==3: # add iteration
+        lastlineparts.append(suffix+'.')
+    else: # replace iteration
+        lastlineparts[-1] = suffix+'.'
+
+    lastline=' '.join(lastlineparts)
+        
+    runscript[index] = lastline
+
+    # add path to data/expo calls
+    dindices = [i for i, s in enumerate(runscript) if 'data ' in s]
+    eindices = [i for i, s in enumerate(runscript) if 'exp' == s[:3]]
+    indices = dindices + eindices
+    for i in indices:
+        parts = runscript[i].strip().split(' ')
+        line = parts[0]+' '+runpath+parts[-1]+'\n'
+        runscript[i] = line
+
+    # write modified file
+    with open(pwd+'spec_start.xmc','w') as file:
+        file.writelines(runscript)
+
+    #-call xmc to create the spectrum-
+    # (for now do it manually)
+    raw_input("In another terminal: \n\tFrom this directory"
+              " ("+pwd+"),\n"
+              "\trun xmc with 'xmc < input_spec'\n"
+              "\tWhen spectrum_"+suffix+".fits is produced\n "
+              "\tand the *."+suffix+" files are overwritten by xmc, "
+              "then kill xmc.\n"
+    "\tReturn to this terminal and press Enter to continue.")
+
+    #--read in the new deconvolution file to get xspec normalization--
+    if not os.path.isfile(pwd+'parameters.txt'):
+        os.link(runpath+'/parameters.txt',pwd+'parameters.txt')
+    dfnew = merge_output(runpath=pwd,save=False)
+    dfnew = dfnew[dfnew.iteration==int(suffix)]
+    #newnorm = dfnew.blob_norm.sum()
+    newnorm = sum([dfnew[col].sum() for col in dfnew.columns if 'norm' in col])
+    xspecscale = oldnorm/newnorm
+#    xspecscale = newnorm/oldnorm
+    print 'newnorm, oldnorm, scale = ',newnorm,oldnorm, xspecscale
+    print 'niters = ',niters
+    
+    #--Create Histogram (Read in spectrum file)--
+    blobspecs = read_spectra(runpath=pwd,smin=int(suffix),
+                        smax=int(suffix),logbins=logbins,
+                             datarange=datarange,bins=bins,oversim=oversim)
+
+    bspec = blobspecs[0] # tuple
+
+    y = bspec[0]/oversim#*xspecscale/float(niters)
+    #y = bspec[0]*xspecscale/oversim#/float(niters)
+    #yerrors = bspec[1]/float(niters)
+
+
+    #--Modify norms by Absorption--
+
+    #-get absorption curve as function of energy-
+    crosses = np.vectorize(abs_cross_section)
+    sigmas = crosses(bspec[2]) # one for each spectral bin
+    absorption = np.exp(-1.0*sigmas*nH)
+    print 'min,max y = ',min(y),max(y)
+    y = y*absorption[:-1]
+    print 'min,max y = ',min(y),max(y)
+    print 'min,max cross sections = ',min(sigmas),max(sigmas)
+    print 'min,max absorption = ',min(absorption),max(absorption)
+    
+    return (y,bspec[1],bspec[2])

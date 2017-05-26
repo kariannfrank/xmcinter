@@ -48,9 +48,13 @@ if itermax is None:
     smax = None
 else:
     smax = itermax/100
-sfig = xplt.spectrum(runpath='../',smin=smin,smax=smax,bins=0.03,
-                     ylog=True,xlog=True,emissivity_range=(1e-17,1.0),
-                     lines=True,nlines=50)
+
+sfig = xplt.standard_spectra(runpath=runpath,display=display,smin=smin,
+                             smax=smax,
+                             outfile='spectra_all.html',ylog=True,
+                             xlog=False,logbins=None,bins=0.03,
+                             lines=True,emissivity_range=(1e-17,1.0),
+                             nlines=100,energy_range=(0.87,10.0))
 
 ############################################################
 #  Filter Data                     #
@@ -95,11 +99,15 @@ if itermax is None:
     smax = None
 else:
     smax = itermax/100
-sfig = xplt.spectrum(runpath='../',smin=smin,smax=smax,
-                     ylog=True,xlog=True,outfile='spectrum_average.html',
-                     lines=True,nlines=50,emissivity_range=(1e-17,1.0),
-                     kT_range=(dfall.blob_kT.min(),dfall.blob_kT.max()))
-                     
+sfig = xplt.standard_spectra(runpath='../',display=True,smin=smin,
+                             smax=smax,
+                             outfile='spectra_all.html',ylog=True,
+                             xlog=False,logbins=None,bins=0.03,
+                             lines=True,emissivity_range=(1e-18,1.0),
+                             nlines=1000,energy_range=(0.9,10.0),
+                             kT_range=(dfall.blob_kT.min(),dfall.blob_kT.max()))
+
+    
 #### Clean by nH-kT
 dfgood = nHkTthresh(dfall)
 ngoodblobs = len(dfgood.index)
@@ -109,19 +117,40 @@ print "Fraction good blobs = ",float(ngoodblobs)/float(nblobs)
 print "Total Mass = ",dfall.blob_mass.sum()/niter
 print "Total Good Mass = ",dfgood.blob_mass.sum()/niter
 
-#### Spectrum of Good Blobs only
-sfig = xplt.spectrum_from_blobs(dfgood,runpath='../',
-                                ylog=True,xlog=True,
-                                outfile='spectrum_good.html',
-                     lines=True,nlines=100,emissivity_range=(1e-17,1.0),
-                     kT_range=(dfgood.blob_kT.min(),dfgood.blob_kT.max()))
-#### Spectrum of Bad Blobs only
-sfig = xplt.spectrum_from_blobs(dfall[dfall.index not in dfgood.index],runpath='../',
-                                ylog=True,xlog=True,suffix='99998'
-                                outfile='spectrum_bad.html',
-                     lines=True,nlines=100,emissivity_range=(1e-17,1.0),
-                     kT_range=(dfgood.blob_kT.min(),dfgood.blob_kT.max()))
+#### Compare Spectra of Good and Bad Blobs
 
+# - read spectra if already made -
+goodspec = xf.read_spectra(runpath='../',smin=99999,smax=99999,
+                           average=False,
+                           bins=0.03,logbins=None)
+badspec = xf.read_spectra(runpath='../',smin=99998,smax=89999,
+                          average=False,
+                          bins=0.03,logbins=None)
+# - OR make spectra -
+goodspec = xw.make_spectrum(dfgood,runpath='../',suffix='99999',
+                            bins=0.03,
+                            xlog=False,logbins=None)
+
+badspec = xw.make_spectrum(dfall[~dfall.isin(dfgood)].dropna(),
+                           runpath='../',suffix='89999',bins=0.03,
+                           xlog=False,logbins=None)
+
+# - read data spectrum -
+dataspec = xf.read_spectra(runpath='../',smin=0,smax=0,average=False,
+                          bins=0.03,logbins=None)[0]
+# - read average (total) model spectrum -
+allspec = read_spectra(runpath='../',smin=smin,smax=smax,
+                          average=True,bins=0.03)[-1]
+
+
+# - plot spectra -
+sfig = xplt.spectra([dataspec,allspec,goodspec,badspec],
+                colors=['black','steelblue','darkolivegreen','firebrick'],
+                    labels=['Data','All','Good','Bad'],
+                    outfile='spectra_compare.html',
+                    ylog=True,xlog=False,lines=True,nlines=100,
+                    emissivity_range=(1e-18,1.0),
+                    kT_range=(dfgood.blob_kT.min(),dfgood.blob_kT.max()))
 
 #### Compare all and cleaned blob histograms
 hfigs = xplt.histogram_grid([dfall,dfgood],weights=[None,None],

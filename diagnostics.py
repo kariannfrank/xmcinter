@@ -170,6 +170,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     import os
     from file_utilities import ls_to_list
     import xmcmap as xm
+    from xmcfiles import read_spectra
    
     # -- define defaults -- 
     # - these should be overwritten if init_file is provided -
@@ -218,9 +219,8 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
 
     # -- read deconvolution files --
     print "\nReading deconvolution files ...\n"
-    dfall=merge_output(runpath,save=False)
+    dfall=merge_output(runpath,save=False,itmin=itmin,itmax=itmax)
 
-    
     
     # -- set default pixelsize --
     if pixelsize is None:
@@ -239,14 +239,16 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
 
     # -- plot model and data spectra --
     print "\nPlotting spectrum ...\n"
-    smin = itmin/100
-    smax = itmax/100
-    sfig = xplt.spectrum(runpath=runpath,smin=smin,smax=smax,bins=0.03,
-                         ylog=True,xlog=True,display=display,
-                         outfile=outpath+'/spectrum.html',
-                         emissivity_range=(1e-17,1.0),
-                         lines=True,nlines=100,energy_range=(0.85,10.0))
+    smin = itmin/100 # NOTE: Will have to remove the 100 when all xmc
+    smax = itmax/100 #  installations are updated.
 
+    sfig = xplt.standard_spectra(runpath=runpath,display=display,smin=smin,
+                                 smax=smax,
+                                 outfile='spectra_all.html',ylog=True,
+                                 xlog=False,logbins=None,bins=0.03,
+                                 lines=True,emissivity_range=(1e-17,1.0),
+                                 nlines=100,energy_range=(0.87,10.0))
+    
     # -- make median traceplots --
     print "\nPlotting traces ...\n"
     efig = xplt.trace(dfall,weights=None,display=display,
@@ -281,7 +283,7 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     # -- scatter plots--
     print "\nPlotting scatter plots ...\n"
     blobcols = [c for c in dfall.columns if 'blob' in c]
-    sfigs2 = xplt.scatter_grid(dfall[blobcols],agg=None,sampling=2000,
+    sfigs2 = xplt.scatter_grid(dfall[blobcols],agg=None,sampling=1000,
                                display=display)
 
     # -- make norm map from most recent iteration --
