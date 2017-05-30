@@ -2170,7 +2170,7 @@ def standard_spectra(runpath='../',itmin=1,itmax=None,
     if logbins is None: logbins = xlog
 
     # - read model spectra -
-    shists = read_spectra(runpath=runpath,smin=smin,smax=smax,
+    shists = read_spectra(runpath=runpath,itmin=itmin,itmax=itmax,
                           average=True,bins=bins,logbins=logbins)
     lasthist = shists[-2]
     avghist = shists[-1]
