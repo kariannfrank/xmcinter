@@ -735,7 +735,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 
 #----Plot the histogram----
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
-                 color=color,alpha=alpha,legend=legend)#,**kwargs)
+                 color=color,alpha=alpha,legend=legend,**kwargs)
     
 #----Plot Errorbars----
     if iterations is not None:
@@ -2087,10 +2087,10 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     return step
 
 #----------------------------------------------------------
-def standard_spectra(runpath='../',smin=1,smax=None,
+def standard_spectra(runpath='../',itmin=1,itmax=None,
                      save=True,display=True,
                      outfile='spectra.html',ylog=False,xlog=False,
-                     logbins=None,bins=0.03,
+                     logbins=None,bins=0.03,lastiter=True,
                      width=1000,height=500,lines=True,**lineargs):
 
     """
@@ -2149,6 +2149,9 @@ def standard_spectra(runpath='../',smin=1,smax=None,
 
     xlog, ylog (bool) : specify if x and y axes should use log scale
 
+    lastiter (bool) : if True will plot the spectrum from the 
+                   last iteration in the iteration range
+
     Output:
      - plots the spectra for to an interactive plot (if save=True)
      - Returns the figure object
@@ -2173,13 +2176,19 @@ def standard_spectra(runpath='../',smin=1,smax=None,
     avghist = shists[-1]
 
     # - read data spectrum -
-    dhist = read_spectra(runpath=runpath,smin=0,smax=0,
+    dhist = read_spectra(runpath=runpath,itmin=0,itmax=0,
                              average=False,bins=bins,logbins=logbins)
     datahist = dhist[0]
 
     # - plot spectra -
-    sfig = spectra([datahist,avghist,lasthist],
-                        labels=['Data','Model (average)','Model (latest)'],
+    if lastiter is True:
+        speclist = [datahist,avghist,lasthist]
+        labs = ['Data','Model (average)','Model (latest)']
+    else:
+        speclist = [datahist,avghist]
+        labs = ['Data','Model (average)']
+    sfig = spectra(speclist,
+                        labels=labs,
                         display=display,
                         outfile=outfile,
                         ylog=ylog,xlog=xlog,

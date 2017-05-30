@@ -325,7 +325,7 @@ def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
                              ls_to_list(runpath,'spectrum*')[-1]).group(1))
 
     # do not include data spectrum as a model spectrum
-    if itmin == None or itmin === 0:        
+    if itmin == None or itmin == 0:        
         itmin = 1
         
     # check for MPI file names (if xmc was run with mpi)
