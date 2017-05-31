@@ -253,7 +253,8 @@ def fake_deconvolution(df,suffix='99999',runpath='../'):
     return dfout
 #----------------------------------------------------------
 def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
-                  average=False,bins=0.03,datarange=None,oversim='auto'):
+                 legacy=False,
+                 average=False,bins=0.03,datarange=None,oversim='auto'):
     """
     Read xmc spectrum files into histograms.
 
@@ -301,14 +302,16 @@ def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
                      finds in runpath/ and get the oversim from there.
                    - can also explicitly pass the oversim value
 
+     legacy (bool) : assume old-style spectrum file names, i.e.
+                     spectrum_iter/100.fits
 
     Output:
       - returns a tuple containing the histogram information, 
         (y,yerrors,yedges) for each iteration read, in a list of tuples
 
     Usage Notes:
-     - to read in a single spectrum set smin=smax=iteration number
-     - to read in the data spectrum, set smin=0 and smax=0
+     - to read in a single spectrum set itmin=itmax=iteration number
+     - to read in the data spectrum, set itmin=0 and itmax=0
 
     """
 
@@ -319,14 +322,6 @@ def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
     from wrangle import make_histogram
 
     #----Set defaults----
-    if itmax==None:
-#        itmax = len(ls_to_list(runpath,'spectrum*')) - 1
-        itmax = int(re.search(r'_(.*)\.fits',
-                             ls_to_list(runpath,'spectrum*')[-1]).group(1))
-
-    # do not include data spectrum as a model spectrum
-    if itmin == None or itmin == 0:        
-        itmin = 1
         
     # check for MPI file names (if xmc was run with mpi)
     if os.path.isfile(runpath+'/spectrum0_0.fits'):
@@ -337,6 +332,20 @@ def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
     # get oversim
     if isinstance(oversim,str):
         oversim = float(parse_file_line(runpath+ls_to_list(runpath,'statistic.*')[0])[2])
+
+    # set file name type
+    if legacy is True:
+        itmin = itmin/100
+        if itmax is not None: itmax = itmax/100
+
+    if itmax is None:
+#        itmax = len(ls_to_list(runpath,'spectrum*')) - 1
+        itmax = int(re.search(r'_(.*)\.fits',
+                             ls_to_list(runpath,'-tr spectrum*')[-1]).group(1))
+        
+    # do not include data spectrum as a model spectrum
+    if itmin == None or itmin == 0:        
+        itmin = 1
         
     #----Read in first model spectrum----
     foundspec = False
