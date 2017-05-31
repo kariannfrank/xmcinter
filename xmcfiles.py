@@ -342,11 +342,7 @@ def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
 #        itmax = len(ls_to_list(runpath,'spectrum*')) - 1
         itmax = int(re.search(r'_(.*)\.fits',
                              ls_to_list(runpath,'-tr spectrum*')[-1]).group(1))
-        
-    # do not include data spectrum as a model spectrum
-    if itmin == None or itmin == 0:        
-        itmin = 1
-        
+                
     #----Read in first model spectrum----
     foundspec = False
     sm = itmin
@@ -396,8 +392,9 @@ def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
             sm = sm+1
 
         if foundspec is False:
-#            print "ERROR: no spectrum files found in range."
-            print "WARNING: No spectrum files found in range. Plotting data spectrum only."
+            #print sm
+            print "ERROR: no spectrum files found in range."
+#            print "WARNING: No spectrum files found in range. Plotting data spectrum only."
             
     #----Loop over remaining spectra----
     for s in xrange(sm+1,itmax+1):

@@ -2013,19 +2013,23 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     #----Plot Spectra as Step Chart----
     
     # assumes all spectra have the same binsize
-    edges = np.round(spectra[0][2],decimals=2)[:-1]
+    edges = np.round(spectra[0][2],decimals=3)[:-1]
+    xbinsizes = edges[1:]-edges[:-1]
+    xbinsize = max(xbinsizes)
     for si,s in enumerate(spectra):
         # find matching bins (indices, as Bool array)
-        mask = np.in1d( np.round(s[2],decimals=2)[:-1],edges) 
-        #edges = np.intersect1d(np.round(edges,decimals=2),
-        #                       np.round(s[2],decimals=2))
+        mask = np.isclose( np.round(s[2],decimals=2)[:-1],edges,
+                           rtol=0.0,atol=xbinsize/2.0) 
+#        mask = np.in1d( np.round(s[2],decimals=3)[:-1],edges) 
         
-        print len(mask), len(edges),len(s[0])
+#        print len(mask), len(edges),len(s[0])
+#        print s[2][np.where(mask==False)]
+#        print edges[np.where(mask==False)]
         # update spectrum
         newx = s[2][np.where(mask)]
         # update y values
         newy = s[0][np.where(mask)]
-        print len(newx)
+#        print 'len newx = ',len(newx)
         # update errors
         if s[1] is not None:
             newyerr = s[1][np.where(mask)]
@@ -2042,7 +2046,7 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     specy = [s[0] for s in spectra]
     specframes = dict(zip(labels,specy)) # add y values to dict
     specframes[xlabel] = edges#[:-1] # add x values to dict
-
+    print len(edges)    
     specframes = pd.DataFrame.from_dict(specframes)
     
     # To Do - figure out how to specify a color for each column
@@ -2059,7 +2063,6 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
 #    step.ylabel = 'counts'
 
     #----Plot Errorbars----
-    xbinsizes = edges[1:]-edges[:-1]
     xbins = edges[:-1]+xbinsizes/2.0
     for si,s in enumerate(spectra):
         if s[1] is not None:
@@ -2091,6 +2094,7 @@ def standard_spectra(runpath='../',itmin=1,itmax=None,
                      save=True,display=True,
                      outfile='spectra.html',ylog=False,xlog=False,
                      logbins=None,bins=0.03,lastiter=True,
+                     legacy=False,
                      width=1000,height=500,lines=True,**lineargs):
 
     """
@@ -2152,6 +2156,10 @@ def standard_spectra(runpath='../',itmin=1,itmax=None,
     lastiter (bool) : if True will plot the spectrum from the 
                    last iteration in the iteration range
 
+    legacy (bool) : assume old-style spectrum file names, i.e.
+                     spectrum_iter/100.fits
+
+
     Output:
      - plots the spectra for to an interactive plot (if save=True)
      - Returns the figure object
@@ -2170,14 +2178,17 @@ def standard_spectra(runpath='../',itmin=1,itmax=None,
     if logbins is None: logbins = xlog
 
     # - read model spectra -
+    if itmin == 0: itmin = 1
     shists = read_spectra(runpath=runpath,itmin=itmin,itmax=itmax,
-                          average=True,bins=bins,logbins=logbins)
+                          average=True,bins=bins,logbins=logbins,
+                          legacy=legacy)
     lasthist = shists[-2]
     avghist = shists[-1]
-
+    
     # - read data spectrum -
     dhist = read_spectra(runpath=runpath,itmin=0,itmax=0,
                              average=False,bins=bins,logbins=logbins)
+
     datahist = dhist[0]
 
     # - plot spectra -

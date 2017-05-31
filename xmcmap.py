@@ -321,6 +321,19 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         paramweights.remove(paramweights[bi])
         movie.remove(movie[bi])
 
+    #--move thresh param to end of param list--
+    # (otherwise nan's in the map will prevent applying threshold
+    #  to the remaining maps)
+    if imgthreshparam is not None:
+        old_i = paramname.index(imgthreshparam)
+        paramname.append(paramname.pop(old_i))
+        outfiles.append(outfiles.pop(old_i))
+        moviedirs.append(moviedirs.pop(old_i))
+        iteration_type.append(iteration_type.pop(old_i))
+        ctype.append(ctype.pop(old_i))
+        paramweights.append(paramweights.pop(old_i))
+        movie.append(movie.pop(old_i))
+        
     #----Set default image size and center----
     if imagesize is None:
         ximagesize = 1.1*(max(df[paramx] - min(df[paramx])))
@@ -506,6 +519,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             themap[sigmap < sigthresh] = np.nan
 
         #--Apply img threshold--
+
         if imgthresh != None:
             if imgthreshparam is None:
                 imgthmap = imgs[p]
@@ -513,6 +527,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             # - set pixels with value < threshold to Nan - 
             #imgmin = np.nanmax(imgmap)-imgthresh*np.nanstd(imgmap)
             if np.nanmax(imgthmap) > imgthresh:
+                print 'max imgthmap = ',np.nanmax(imgthmap)
+                print themap[imgthmap < imgthresh]
                 themap[imgthmap < imgthresh] = np.nan
             else:
                 print ("Warning: imgthresh > max imgthreshparam image. "
