@@ -289,7 +289,7 @@ def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
                   (30 eV). note that xmc typically uses a binsize of 0.015.
 
      average (bool) : if True, will return the average of the spectra 
-                      between smin and smax, as the last tuple in the 
+                      between itmin and itmax, as the last tuple in the 
                       returned list.
 
      datarange () : passed directly to make_histogram()
@@ -422,8 +422,8 @@ def read_spectra(runpath='../',itmin=1,itmax=None,logbins=False,
                        density=False,iterations=None)
             hists = hists + [(y/oversim,yerrors,yedges)]
             
-        else:
-            print "Warning: "+specfile+" does not exist. Skipping."
+#        else:
+#            print "Warning: "+specfile+" does not exist. Skipping."
 
     #----Save average----
     if average is True and foundspec is True:
