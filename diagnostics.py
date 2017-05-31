@@ -117,7 +117,7 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
 #----------------------------------------------------------
 def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
-          cint=False,display=False,init_file=None):
+          cint=False,display=False,init_file=None,skipspectrum=False):
     """
     Name: check
     Author: Kari A. Frank
@@ -154,6 +154,8 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
                mapsize, and x0,y0. 
                - typically this file should be the the init file,
                  i.e. <object>_<obsid>_init.py
+
+    skipspectrum: skip plotting of the spectrum
 
     Output:
 
@@ -238,12 +240,14 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     print 'Median chi2/dof = '+str(medchi2)+'\n'
 
     # -- plot model and data spectra --
-    print "\nPlotting spectrum ...\n"
-    smin = itmin/100 # NOTE: Will have to remove the 100 when all xmc
-    smax = itmax/100 #  installations are updated.
+    if skipspectrum is False:
+        print "\nPlotting spectrum ...\n"
+        smin = itmin/100 # NOTE: Will have to remove the 100 when all xmc
+        smax = itmax/100 #  installations are updated.
 
-    sfig = xplt.standard_spectra(runpath=runpath,display=display,smin=smin,
-                                 smax=smax,
+        sfig = xplt.standard_spectra(runpath=runpath,display=display,
+                                 itmin=itmin,
+                                 itmax=itmax,
                                  outfile='spectra_all.html',ylog=True,
                                  xlog=False,logbins=None,bins=0.03,
                                  lines=True,emissivity_range=(1e-17,1.0),
