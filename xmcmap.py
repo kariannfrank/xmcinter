@@ -93,7 +93,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
       binsize : size of a pixel, in same units as paramx and paramy,
                default=60 (fast)
 
-      iteration_type (string) : 'median', 'average', or 'total'.  Determines
+      iteration_type (string) : 'median', 'average', 'total', 'max', 
+                or 'stdev'. Determines
                 how to combine the blobs within each iteration to create the
                 iteration image. (default is  'median', but note that it 
                 should be set to 'total' if making emission measure map)
@@ -111,7 +112,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 a different ctype for each map.
 
       witherror (bool) : switch to also return a map of the error in 
-                         each pixel (standard deviation)
+                         each pixel (standard deviation across iterations)
 
       withsignificance (bool) : switch to also return a map of the 
                 significance (in #sigma, i.e. img/errimg) in 
@@ -238,7 +239,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
         movie = [movie]*len(paramname)
 
     #----Verify inputs----
-    types = ['median','average','total','error','max']
+    types = ['median','average','total','error','max','stdev']
     for i in xrange(len(paramname)):
         if ctype[i] not in types:
             print "Warning: Unrecognized ctype. Using ctype='median'"
@@ -527,8 +528,6 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             # - set pixels with value < threshold to Nan - 
             #imgmin = np.nanmax(imgmap)-imgthresh*np.nanstd(imgmap)
             if np.nanmax(imgthmap) > imgthresh:
-                print 'max imgthmap = ',np.nanmax(imgthmap)
-                print themap[imgthmap < imgthresh]
                 themap[imgthmap < imgthresh] = np.nan
             else:
                 print ("Warning: imgthresh > max imgthreshparam image. "
@@ -895,6 +894,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                     iterimages[x,y,p]=np.sum(data[params[p]]*w*fractions)
                 elif iteration_type[p] == 'max':
                     iterimages[x,y,p]=np.max(data[params[p]]*w*fractions)
+                elif iteration_type[p] == 'stdev':
+                    iterimages[x,y,p]=np.std(data[params[p]]*w*fractions)
                 else:
                     print "ERROR: unrecognized iteration_type"
 
