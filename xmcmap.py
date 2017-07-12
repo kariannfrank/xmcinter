@@ -632,7 +632,7 @@ def movie_from_stack(stack,moviedir,cumulativemovie=False,ctype='median',
             elif ctype == 'median':
                 collapsed_img = np.median(stack[:,:,:layer],axis=2)
             elif ctype == 'total':
-                collapsed_img = np.sum(stack[:,:,:layer],axis=2)
+                collapsed_img = np.sum(stack[:,:,:layer],axis=2,n=nlayers)
             elif ctype == 'error':
                 collapsed_img = np.std(stack[:,:,:layer],axis=2)
             else: 
