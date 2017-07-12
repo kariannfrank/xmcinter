@@ -117,7 +117,8 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
 
 #----------------------------------------------------------
 def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
-          cint=False,display=False,init_file=None,skipspectrum=False):
+          cint=False,display=False,init_file=None,skipspectrum=False,
+          legacy=False):
     """
     Name: check
     Author: Kari A. Frank
@@ -156,6 +157,9 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
                  i.e. <object>_<obsid>_init.py
 
     skipspectrum: skip plotting of the spectrum
+
+    legacy: assume that spectrum file names are iteration/100. ignored
+            if skipspectrum=True
 
     Output:
 
@@ -242,11 +246,9 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     # -- plot model and data spectra --
     if skipspectrum is False:
         print "\nPlotting spectrum ...\n"
-        smin = itmin/100 # NOTE: Will have to remove the 100 when all xmc
-        smax = itmax/100 #  installations are updated.
 
         sfig = xplt.standard_spectra(runpath=runpath,display=display,
-                                 itmin=itmin,
+                                     itmin=itmin,legacy=legacy,
                                  itmax=itmax,
                                  outfile='spectra_all.html',ylog=True,
                                  xlog=False,logbins=None,bins=0.03,

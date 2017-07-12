@@ -43,14 +43,8 @@ print xw.weighted_median(sf['redchi2'])
 print max(sf.iteration)
 
 #### Check spectrum
-smin = itermin/100
-if itermax is None: 
-    smax = None
-else:
-    smax = itermax/100
-
-sfig = xplt.standard_spectra(runpath=runpath,display=display,smin=smin,
-                             smax=smax,
+sfig = xplt.standard_spectra(runpath=runpath,display=display,itmin=itermin,
+                             itmax=itermax,
                              outfile='spectra_all.html',ylog=True,
                              xlog=False,logbins=None,bins=0.03,
                              lines=True,emissivity_range=(1e-17,1.0),
@@ -99,8 +93,8 @@ if itermax is None:
     smax = None
 else:
     smax = itermax/100
-sfig = xplt.standard_spectra(runpath='../',display=True,smin=smin,
-                             smax=smax,
+sfig = xplt.standard_spectra(runpath='../',display=True,itmin=itermin,
+                             itmax=itermax,
                              outfile='spectra_all.html',ylog=True,
                              xlog=False,logbins=None,bins=0.03,
                              lines=True,emissivity_range=(1e-18,1.0),

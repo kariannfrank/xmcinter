@@ -1,5 +1,6 @@
 #### Common Parameters
-distkpc = 10.3 # distance to object in kpc
+distkpc0 = 10.3 # distance to object in kpc
+distkpc = 8.0 # distance to object in kpc
 outroot = './' # output location for new files
 
 ## Histogram Parameters

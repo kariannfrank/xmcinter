@@ -26,6 +26,7 @@ Statistics (outputs scalars):
  weighted_modes()
  credible_region()
  weighted_std()
+ iter_err()
 
 Functions that act on a single blob (scalar) can be found in
 the astro_utilities module.
@@ -628,7 +629,7 @@ def make_histogram(dataseries,weights=None,bins=50,logbins=False,
     #----Create the weighted histogram----
     histy,binedges = np.histogram(dataseries,weights=weights,bins=bins,
                                density=density,range=datarange)
-
+    
     #----Calculate errorbars----
 
     if iterations is not None:
@@ -708,7 +709,7 @@ def weighted_modes(data, weights=None):
 #    postx,posty = weighted_posterior(data,weights=weights,
 #                                     normalize=True)
     posty,postyerr,edges,postx = make_histogram(data,weights=weights,
-                                     normalize=True,center=True)
+                                     normalize=True,centers=True)
 
 
     #--Find the mode(s)--
@@ -877,6 +878,62 @@ def weighted_std(data, weights=None):
     denominator = np.sum(weights)
 
     return (numerator/denominator)**0.5
+
+#----------------------------------------------------------------
+def iter_err(df,param,function,weights=None,*args,**kwargs):
+    """
+    Calculate statistical error on a summary statistic.
+
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+       dataframe of values. must include an 'iteration' column
+
+    param : string
+       column name of the parameter to pass to function
+
+    function : python function name
+       function to calculate the error of
+
+    weights : string
+       name of dataframe column to use as weights
+
+    Returns
+    -------
+    Error of the value calculated by function (standard deviation of 
+    function calculated for individual iterations).
+
+    Usage Notes
+    -------
+
+    """
+        
+    # calculate number of iterations
+    niter = np.unique(df['iteration']).size
+    vals = []
+
+#    print 'niter = ',niter
+    
+    # group by iteration
+    layers = df.groupby('iteration')
+
+    # iteration over groups (i.e. iterations)
+    for i,group in layers:
+        if weights is None:
+            w = np.ones_like(group[param])
+        else:
+            w = group[weights]
+
+        val = function(group[param],weights=w)
+#        print 'i = ',i
+#        print 'val = ',val
+        
+        # add to list
+        vals = vals + [val]
+        
+    return np.std(vals)
+
 
 #----------------------------------------------------------------
 def line_emissivities(kT,tolerance=0.05,**fetchargs):

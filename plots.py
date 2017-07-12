@@ -547,7 +547,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',logbins=None,legend=None,
-              norm=False,xmin=None,xmax=None,iterations=None,
+              norm=False,xmin=None,xmax=None,iterations=None,ymax=None,
               ytitle=None,**kwargs):
     """
     Author: Kari A. Frank
@@ -619,6 +619,8 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
      ytitle:      string specifiying label of y-axis. default is the 
                   column name of the provided data series.
 
+     ymax:        optionally specify max of y-axis. ignored if norm=True.
+
      legend:      string to use for legend
 
      iterations:  optionally provide a series of the iterations that 
@@ -683,15 +685,18 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                                            density=density,datarange=rng,
                                            bins=bins,logbins=logbins,
                                            iterations=iterations)
-
+    
 #----Normalize and set y-axis range----
     if norm is True:
         histy,errors = normalize_histogram(histy,yerrors=errors)
         # set y axis range
         yaxisrng = (0.0,1.1)
     else:
-        yaxisrng = (0.0,1.1*np.max(histy))
-
+        if ymax is None:
+            yaxisrng = (0.0,1.1*np.max(histy))
+        else:
+            yaxisrng = (0.0,ymax)
+            
 #----Set up Plot----
     if save:
         if (outfile != 'notebook'): 
@@ -706,7 +711,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                           x_axis_type=x_axis_type,x_range=xaxisrng,
                           y_range=yaxisrng)
         fig.xaxis.axis_label=dataseries.name
-            
+        
         if weights is not None:
             if ytitle is not None:
                 fig.yaxis.axis_label=ytitle
@@ -734,6 +739,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 #        fig.xaxis.formatter=format_ticks(binedges)
 
 #----Plot the histogram----
+#    print 'quad = ',binedges,histy
     h = fig.quad(top=histy,bottom=0,left=binedges[:-1],right=binedges[1:],
                  color=color,alpha=alpha,legend=legend,**kwargs)
     
@@ -767,9 +773,10 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 #----------------------------------------------------------
 def histogram_grid(dframes,columns=None,weights=None,bins=100,
                    height=300,width=400,iterations=None,display=True,
-                   ncols=2,outfile='histogram_grid.html',
+                   ncols=2,outfile='histogram_grid.html',ymax=None,
                    colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
+                   xlog='auto',
                    alphas=None,norm=False,legends=None,**histargs):
     """
     Create html grid of (weighted) histograms from a dataframe.
@@ -820,6 +827,9 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                   (default=False). useful when 
                   plotting multiple histograms for comparison. 
 
+     ymax:        specify maximum of y-axis. will be the same for every histogram.
+                  ignored if norm=True
+
      height,width: height and width of each histogram, passed to histogram()
 
 
@@ -836,6 +846,9 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
 
      legends:     optional string or list of strings (list if 
                   len(dframes)>1) to use as legend labels.
+
+     xlog:        if set to True or False (instead of 'auto', the default), all 
+                  x-axes will be forced to log (True) or liner (False) scales
 
      ncols:       number of columns in the grid of histograms (default=4)
 
@@ -988,8 +1001,9 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                 xmax = max(xmax,dfr[column].max())
                 
         # get xaxis scale
-        xlog = logaxis(xmin,xmax)
-
+        if xlog == 'auto':
+            xlog = logaxis(xmin,xmax)
+        
         # loop through any remaining dataframes
         newfig = None # reset newfig for each column
         for d in xrange(len(dframes)):
@@ -1005,7 +1019,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                                      alpha=alphas[d],height=height,
                                      width=width,xmin=xmin,xmax=xmax,
                                      norm=norm,#legend=legends[d+1],
-                                     infig=newfig,xlog=xlog,
+                                     infig=newfig,xlog=xlog,ymax=ymax,
                                    iterations=iterations[d],**histargs)
         figlist=figlist+[newfig]
 
@@ -2017,28 +2031,33 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     xbinsizes = edges[1:]-edges[:-1]
     xbinsize = max(xbinsizes)
     for si,s in enumerate(spectra):
+        # check length
+        if len(s[2][:-1]) == len(edges):
+        
         # find matching bins (indices, as Bool array)
-        mask = np.isclose( np.round(s[2],decimals=2)[:-1],edges,
+            mask = np.isclose( np.round(s[2],decimals=2)[:-1],edges,
                            rtol=0.0,atol=xbinsize/2.0) 
-#        mask = np.in1d( np.round(s[2],decimals=3)[:-1],edges) 
         
-#        print len(mask), len(edges),len(s[0])
-#        print s[2][np.where(mask==False)]
-#        print edges[np.where(mask==False)]
-        # update spectrum
-        newx = s[2][np.where(mask)]
-        # update y values
-        newy = s[0][np.where(mask)]
-#        print 'len newx = ',len(newx)
-        # update errors
-        if s[1] is not None:
-            newyerr = s[1][np.where(mask)]
-        else:
-            newyerr = s[1]
-        spectra[si] = (newy,newyerr,newx)
+            #print len(mask), len(edges),len(s[0])
+            #print s[2][np.where(mask==False)]
+            #print edges[np.where(mask==False)]
 
-        print 'total counts = ',newy.sum()
-        
+            # update spectrum
+            newx = s[2][np.where(mask)]
+            # update y values
+            newy = s[0][np.where(mask)]
+            # update errors
+            if s[1] is not None:
+                newyerr = s[1][np.where(mask)]
+            else:
+                newyerr = s[1]
+            spectra[si] = (newy,newyerr,newx)
+
+            print 'total counts = ',newy.sum()
+
+        else:
+            print "ERROR: spectrum "+str(si)+" is wrong length. Skipping."
+            
     #--create dictionary of spectra histograms--
 
 #    spectra0 = spectra[0]
@@ -2111,11 +2130,10 @@ def standard_spectra(runpath='../',itmin=1,itmax=None,
                  from either xmcfiles.read_spectra() or 
                  wrangle.make_spectrum()
 
-     smin/smax (int) : minimum and/or maximum spectrum file include in the
+     itmin/itmax (int) : minimum and/or maximum iteration to include in
                        averaging of the model spectra. corresponds to the 
-                       spectrum* file names, e.g. smax=3 will average the 
-                       files spectrum_1.fits, spectrum_2.fits, and 
-                       spectrum_3.fits. default is all available spectra.
+                       spectrum* file names. default is all 
+                       available spectra.
 
      bins:        optionally specify the number of bins (int), binsize 
                   (float), or an array containing the bin edge values. 
@@ -2198,6 +2216,8 @@ def standard_spectra(runpath='../',itmin=1,itmax=None,
     else:
         speclist = [datahist,avghist]
         labs = ['Data','Model (average)']
+
+    print len(datahist[2]),len(avghist[2]),len(lasthist[2])
     sfig = spectra(speclist,
                         labels=labs,
                         display=display,

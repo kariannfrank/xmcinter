@@ -454,7 +454,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     err_images = np.zeros((nbins_x,nbins_y,nparams))
     for p in xrange(len(paramname)):
         themap = collapse_stack(image_stacks[:,:,p,:],
-                                                 ctype=ctype[p])
+                                ctype=ctype[p],n=nlayers)
 
         #--Create Error Maps--
         if (sigthresh != 0.0) or (witherror is True):
@@ -909,18 +909,21 @@ def iteration_image_star(arglist):
     return iteration_image(*arglist)
 
 #--------------------------------------------------------------------------
-def collapse_stack(img_stack,ctype):
+def collapse_stack(img_stack,ctype,n=None):
     """Function to collapse a stack of images into a single image."""
 
+    # n is number of layers, only used for ctype='total' (to
+    # properly average over iterations)
+    
     if ctype == 'average':
         collapsed_img = np.average(img_stack,axis=2)
     elif ctype == 'median':
         collapsed_img = np.median(img_stack,axis=2)
     elif ctype == 'total':
-        collapsed_img = np.sum(img_stack,axis=2)
+        collapsed_img = np.sum(img_stack,axis=2)/float(n)
     elif ctype == 'error':
         collapsed_img = np.std(img_stack,axis=2)
     else: 
-        print "ERROR: unrecognized iteration_type"
+        print "ERROR: unrecognized ctype"
 
     return collapsed_img
