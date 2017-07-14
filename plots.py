@@ -23,7 +23,7 @@ import bokeh
 import bokeh.plotting as bplt
 import bokeh.charts as bchart
 from bokeh.layouts import gridplot
-from wrangle import filterblobs,make_histogram,normalize_histogram
+from wrangle import filterblobs,make_histogram,normalize_histogram,weighted_median
 from xmcfiles import fake_deconvolution,merge_output
 
 #----------------------------------------------------------
@@ -543,7 +543,7 @@ def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
 
 #----------------------------------------------------------
 def histogram(dataseries,weights=None,bins=100,save=True,display=True,
-              height=600,
+              height=600,median=False,mode=False,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',logbins=None,legend=None,
@@ -628,6 +628,11 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                   will be used to calculate the errorars for each bin
                   which will be plotted on the histogram.
                 
+     median:      bool to turn on plotting of the median as vertical line
+                  
+     mode:        bool to turn on plotting of the mode as vertical 
+                  dashed line
+
      **kwargs:    pass any number of extra keyword arguments that are 
                   accepted by bokeh.plotting.quad().  some of the most
                   useful may be fill_color and line_color
@@ -650,8 +655,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
     """
 
 #----Import Modules----
-    from bokeh.models import PrintfTickFormatter
-
+    from bokeh.models import PrintfTickFormatter,Label,Span
+    import wrangle as xw
+    
 #----Set up opacity----
     if alpha is None:
         if (infig is not None) or (iterations is not None):
@@ -685,7 +691,15 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                                            density=density,datarange=rng,
                                            bins=bins,logbins=logbins,
                                            iterations=iterations)
-    
+
+    #----Calculate median----
+    if median is True:
+        med = xw.weighted_median(dataseries,weights=weights)
+        print 'med = ',med
+    if mode is True:
+        mod = xw.weighted_modes(dataseries,weights=weights)
+        print 'mode = ',mod
+        
 #----Normalize and set y-axis range----
     if norm is True:
         histy,errors = normalize_histogram(histy,yerrors=errors)
@@ -727,6 +741,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                 fig.yaxis.axis_label = 'normalized number of blobs'
             else:
                 fig.yaxis.axis_label = 'number of blobs'
+        if np.log10(max(binedges))>3: 
+            fig.xaxis.formatter=PrintfTickFormatter(format = "%1.1e")
+
     else:
         fig = infig
 
@@ -758,6 +775,24 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 #        leg = fig.legend
         pass
 
+#----Plot Median----
+    if median is True:
+        lspan = Span(location=med,dimension='height',
+                     line_color='black',
+                     line_dash='solid',line_width=2)
+        fig.add_layout(lspan)
+    if mode is True:
+        lspan = Span(location=mod,dimension='height',
+                     line_color='black',
+                     line_dash='dashed',line_width=2)
+        fig.add_layout(lspan)
+        #        llabel = Label(x=row[x],y=labely,text_color='gray',
+#                       angle=90.0,angle_units='deg',
+#                       text_font_size='10px',x_offset=xoffset,
+#                       text=row['label'])
+#        fig.add_layout(llabel)
+
+    
 #----Show the plot----
     if save:
         if display is True:
@@ -776,7 +811,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                    ncols=2,outfile='histogram_grid.html',ymax=None,
                    colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
-                   xlog='auto',
+                   xlog='auto',median=False,mode=False,
                    alphas=None,norm=False,legends=None,**histargs):
     """
     Create html grid of (weighted) histograms from a dataframe.
@@ -858,6 +893,9 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
      display (bool) : if False, then will not display the figure
                   automatically (re)set to True if outfile='notebook'
                   ignored if save=False
+
+     median/mode: bool to turn on plotting of distribution medians 
+                    and or modes as vertical lines on the histograms
 
      **histargs:  pass any number of extra keyword arguments that are 
                   accepted by histogram()
@@ -1013,7 +1051,8 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                     weights[d] = dframes[d][weights[d]]
 
             # plot histogram
-                newfig = histogram(dframes[d][column],
+                newfig = histogram(dframes[d][column],median=median,
+                                   mode=mode,
                                      weights=weights[d],bins=bins[d],
                                      save=False,color=colors[d],
                                      alpha=alphas[d],height=height,
