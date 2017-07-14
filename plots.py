@@ -697,7 +697,8 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
         med = xw.weighted_median(dataseries,weights=weights)
         print 'med = ',med
     if mode is True:
-        mod = xw.weighted_modes(dataseries,weights=weights)
+        mod = xw.weighted_modes(dataseries,weights=weights,bins=bins,
+                                logbins=logbins)
         print 'mode = ',mod
         
 #----Normalize and set y-axis range----

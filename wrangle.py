@@ -695,7 +695,7 @@ def normalize_histogram(histy,yerrors=None):
     return histy,yerrors
 
 #----------------------------------------------------------------
-def weighted_modes(data, weights=None):
+def weighted_modes(data, weights=None,bins=75,logbins=False):
     """
     Calculate the mode of a weighted array.
 
@@ -709,7 +709,8 @@ def weighted_modes(data, weights=None):
 #    postx,posty = weighted_posterior(data,weights=weights,
 #                                     normalize=True)
     posty,postyerr,edges,postx = make_histogram(data,weights=weights,
-                                     normalize=True,centers=True)
+                                                normalize=True,centers=True,
+                                                bins=bins,logbins=logbins)
 
 
     #--Find the mode(s)--

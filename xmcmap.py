@@ -18,7 +18,8 @@ IMPORTANT NOTE ABOUT DENSITY MAPS
 make_map() may not properly handle density maps (i.e. number density or
 mass density) since it is not linearly dependent on EM.  Intead, use
 em_to_map_density() to calculate the correct parameter columns to pass to 
-make_map(), with the weights set to 'densityspecial'.
+make_map(), with the weights set to 'densityspecial'. Though I am not sure 
+this is correct.
 
 """
 #----------------------------------------------------------------------------
