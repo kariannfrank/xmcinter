@@ -133,7 +133,7 @@ def chi2(runpath='./',itmin=0,itmax=None,outfile='chi2_vs_iteration.html',
     return statframe
 
 #----------------------------------------------------------
-def scatter(inframe,x,y,sampling=2000.,agg=None,aggcol=None,save=True,
+def scatter(inframe,x,y,sampling=2000,agg=None,aggcol=None,save=True,
             display=True,width=600,height=600,source=None,tools=None,size=5,
             xlog='auto',ylog='auto',outfile=None,returnfunc=False,
             span=None,cscale='eq_hist'):
@@ -745,6 +745,14 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
         if np.log10(max(binedges))>3: 
             fig.xaxis.formatter=PrintfTickFormatter(format = "%1.1e")
 
+        # turn off grid lines
+        fig.xgrid.grid_line_color = None
+        fig.ygrid.grid_line_color = None
+
+        # change axis label text to bold, non-italic
+        fig.xaxis.axis_label_text_font_style='bold'
+        fig.yaxis.axis_label_text_font_style='bold'        
+            
     else:
         fig = infig
 
