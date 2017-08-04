@@ -86,13 +86,9 @@ Examples of some other common tasks
 df = pd.read_table('deconvolution_merged.txt',sep='\t',index_col=0)
 
 # filter by some parameter (e.g. temperature)
-df_filt = xw.filterblobs(df,'blob_kT',minvals=0.3,maxvals=3.0)
-
-# or filter by multiple parameters at once
-# (df_filt will include only blobs with 0.5 <= kT <= 1.0 AND 1.0 <= Si 
-#  abundance <= 5.0)
-df_filt = xw.filterblobs(df,['blob_kT','blob_Si'],minvals=[0.5,1.0],
-		      maxvals=[1.0,5.0])
+dfnew = df['blob_kT' < 1.0]
+dfnew = df[('blob_kT' < 1.0) & ('blob_tau'>5e11)]
+dfnew = df[~(('blob_kT' < 1.0) & ('blob_tau'>5e11))]
 
 # write filtered dataframe to file
 df.to_csv('deconvolution_merged_filtered.txt',sep='\t')
@@ -101,7 +97,7 @@ df.to_csv('deconvolution_merged_filtered.txt',sep='\t')
 histfigs = xplt.histogram_grid(df[df.columns[:-1]],weights=df['blob_em'])
 
 # make scatter plots of specified parameters
-scatterfigs = xplt.traceplots(df,columns=['blob_kT','blob_tau','blob_norm','blob_lnsigma'])
+scatterfigs = xplt.scatter_grid(df,columns=['blob_kT','blob_tau','blob_norm','blob_lnsigma'])
 
 # make a map of one of the parameters (saved as fits file)
 image = xm.make_map(df,paramname='blob_kT',paramweights='blob_em',binsize=10.0,withsignificance=True)
