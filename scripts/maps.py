@@ -32,8 +32,6 @@ blobcols = [c for c in df.columns if 'blob' in c]
 itermin = np.min(df.iteration)
 itermax = np.max(df.iteration)
 niter = itermax-itermin
-smin = itermin/100
-smax = itermax/100
 
 ############################################################
 #  Set up map parameters                                   #
