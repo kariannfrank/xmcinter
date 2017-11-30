@@ -86,9 +86,9 @@ Examples of some other common tasks
 df = pd.read_table('deconvolution_merged.txt',sep='\t',index_col=0)
 
 # filter by some parameter (e.g. temperature)
-dfnew = df['blob_kT' < 1.0]
-dfnew = df[('blob_kT' < 1.0) & ('blob_tau'>5e11)]
-dfnew = df[~(('blob_kT' < 1.0) & ('blob_tau'>5e11))]
+dfnew = df[df['blob_kT'] < 1.0]
+dfnew = df[(df['blob_kT'] < 1.0) & (df['blob_tau']>5e11)]
+dfnew = df[~((df['blob_kT'] < 1.0) & (df['blob_tau']>5e11))]
 
 # write filtered dataframe to file
 df.to_csv('deconvolution_merged_filtered.txt',sep='\t')

@@ -76,7 +76,7 @@ imgs = xm.make_map(df,paramname='blob_norm',
                    binsize=pixelsize,nlayers=40,imagesize=mapsize,
                    withsignificance=True,nproc=4,
                    outfile=img1file,x0=x0,y0=y0,clobber=True,
-                   rotation=rotation)
+                   rotation=rotation,cint=True)
 
 #### Use norm map to determine norm threshold
 normthresh = 

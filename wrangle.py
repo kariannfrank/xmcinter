@@ -783,7 +783,7 @@ def credible_region(data, weights=None, frac=0.9, method='HPD'):
     #--get normalized posterior (probability density function)--
 #    postx,posty = weighted_posterior(data,weights=weights,normalize=True)
     posty,postyerr,edges,postx = make_histogram(data,weights=weights,
-                                     normalize=True,center=True)
+                                     normalize=True,centers=True)
 
     #--step through bins around mode, alternating directions--
     lowprob = 0.0
