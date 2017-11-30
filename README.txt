@@ -28,7 +28,7 @@ import xmcinter.xmcmap as xm
 You can copy any of the following import statements and paste into ipython
  with %paste, or just run the provided initialization script which will 
  import the above:
-
+ 
 %run diagnostic_init.py
 
 ###################################################################
