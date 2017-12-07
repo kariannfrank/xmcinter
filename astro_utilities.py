@@ -105,7 +105,7 @@ def em_to_density(em,volume,density_type='number',mu=1.21):
   if density_type == 'number':
     return (em/(volume*mu))**0.5  
   else:
-    return proton_mass*(em/(volume*mu))**0.5  
+    return mu*proton_mass*(em/(volume*mu))**0.5  
 
 #----------------------------------------------------------
 def em_to_mass(em,volume,mu=1.21,tounit='g'):
