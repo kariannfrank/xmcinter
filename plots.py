@@ -676,14 +676,19 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
     xaxisrng = (xmin,xmax)
 
     if xlog == 'auto':
-        xlog = logaxis(xaxisrng[0],xaxisrng[1])
+        xlog_temp = logaxis(xaxisrng[0],xaxisrng[1])
+    else:
+        xlog_temp = xlog
 
+    # check if tried to force xlog=True but there are negative values
+    if (xlog_temp is True) and (min(xaxisrng)<0.0): xlog_temp = False
+        
     # bin type
     if logbins is None:
-        logbins = xlog
+        logbins = xlog_temp
 
     x_axis_type = 'linear'
-    if xlog is True:
+    if xlog_temp is True:
         x_axis_type = 'log'
 
     #----Create the weighted histogram and errorbars----
@@ -691,7 +696,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                                            density=density,datarange=rng,
                                            bins=bins,logbins=logbins,
                                            iterations=iterations)
-
+    
     #----Calculate median----
     if median is True:
         med = xw.weighted_median(dataseries,weights=weights)
@@ -742,7 +747,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                 fig.yaxis.axis_label = 'normalized number of blobs'
             else:
                 fig.yaxis.axis_label = 'number of blobs'
-        if np.log10(max(binedges))>3: 
+        if np.log10(max(abs(binedges)))>3: 
             fig.xaxis.formatter=PrintfTickFormatter(format = "%1.1e")
 
         # turn off grid lines
@@ -1038,7 +1043,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
 #----Fill in list of figures----
 
     for column in columns:
-
+        #print column
         # get min and max of xaxis
         xmin = dframes[0][column].min()
         xmax = dframes[0][column].max()
@@ -1597,7 +1602,7 @@ def trace(inframe,iteration_type = 'median',itercol = 'iteration',
 
 #----------------------------------------------------------
 def errorbar(fig, x, y, xerr=None, yerr=None, color='steelblue', 
-             point_kwargs={}, error_kwargs={}):
+             error_kwargs={},point_kwargs={}):
     """Function to plot symmetric errorbars on top of a figure"""
 
     """
@@ -1607,7 +1612,7 @@ def errorbar(fig, x, y, xerr=None, yerr=None, color='steelblue',
     fig can be either a Bokeh Figure object or bokeh Chart object
     """
 
-    fig.circle(x, y, color=None,fill_alpha=0, **point_kwargs)
+    fig.circle(x, y, color=None,fill_alpha=0)#, **point_kwargs)
     
     if xerr is not None:
         x_err_x = []
