@@ -543,7 +543,7 @@ def scatter_grid(dframe,sampling=1000.0,agg=None,aggcol=None,
 
 #----------------------------------------------------------
 def histogram(dataseries,weights=None,bins=100,save=True,display=True,
-              height=600,median=False,mode=False,
+              height=600,median=False,mode=False,mean=False,stdev=False,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',logbins=None,legend=None,
@@ -633,6 +633,12 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
      mode:        bool to turn on plotting of the mode as vertical 
                   dashed line
 
+     mean:        bool to turn on plotting of the mean as vertical 
+                  dotted line
+
+     stdev:       bool to turn on plotting of dotted lines at mean-std
+                  and mean+std. ignored unless mean=True
+
      **kwargs:    pass any number of extra keyword arguments that are 
                   accepted by bokeh.plotting.quad().  some of the most
                   useful may be fill_color and line_color
@@ -644,7 +650,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
        linearly ('lin') or logarithmically ('log')
 
     Usage Notes:
-     - must close and save (if desired) the plot manually
+     - must close the plot manually
      - axis labels will use the pandas series names (e.g. dataseries.name)
      - if outfile='notebook', then MUST call bplt.output_notebook() in its
        own cell in the current notebook before calling this function, else
@@ -705,6 +711,13 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
         mod = xw.weighted_modes(dataseries,weights=weights,bins=bins,
                                 logbins=logbins)
         print 'mode = ',mod
+    if mean is True:
+        avg = np.average(dataseries,weights=weights)
+        print 'mean = ',avg
+
+        if stdev is True:
+            std = xw.weighted_std(dataseries,weights=weights)
+        
         
 #----Normalize and set y-axis range----
     if norm is True:
@@ -789,16 +802,33 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 #        leg = fig.legend
         pass
 
-#----Plot Median----
+#----Plot Median/Mean/Mode/Stdev----
     if median is True:
         lspan = Span(location=med,dimension='height',
-                     line_color='black',
-                     line_dash='solid',line_width=2)
+                     line_color=color,
+                     line_dash='solid',line_width=3)
         fig.add_layout(lspan)
+    if mean is True:
+        if alpha != 0.0: lw = 5
+        else: lw=3
+        lspan = Span(location=avg,dimension='height',
+                     line_color=color,
+                     line_dash='solid',line_width=lw)
+        fig.add_layout(lspan)
+        if (stdev is True) and (alpha != 0.0):
+            lspan = Span(location=avg-std,dimension='height',
+                        line_color=color,
+                        line_dash='dotted',line_width=3)
+            fig.add_layout(lspan)
+            lspan = Span(location=avg+std,dimension='height',
+                        line_color=color,
+                        line_dash='dotted',line_width=3)
+            fig.add_layout(lspan)
+            
     if mode is True:
         lspan = Span(location=mod,dimension='height',
-                     line_color='black',
-                     line_dash='dashed',line_width=2)
+                     line_color=color,
+                     line_dash='dashed',line_width=3)
         fig.add_layout(lspan)
         #        llabel = Label(x=row[x],y=labely,text_color='gray',
 #                       angle=90.0,angle_units='deg',
