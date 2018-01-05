@@ -105,7 +105,7 @@ def em_to_density(em,volume,density_type='number',mu=1.21):
   if density_type == 'number':
     return (em/(volume*mu))**0.5  
   else:
-    return mu*proton_mass*(em/(volume*mu))**0.5  
+    return mu*proton_mass*(em/(volume*mu))**0.5   
 
 #----------------------------------------------------------
 def em_to_mass(em,volume,mu=1.21,tounit='g'):
@@ -137,7 +137,44 @@ def em_to_mass(em,volume,mu=1.21,tounit='g'):
     return nH*volume/Msol_g
   else:
     return nH*volume
+
+#----------------------------------------------------------
+
+def em_to_mass2(em,sigma,mu=1.21,tounit='g'distance=50.0,distanceunit='kpc'):
+  """
+  Given emission measure and volume, calculate the mass
+  Author: Kari Frank
+  Date: January 5, 2018
+
+  Input: 
+    em (numerical): emission measure (e.g. as output from norm_to_em)
+    sigma (numerical): blob radius in arcsec
+    mu (numerical): (cosmic abundance mu = 1.21, pure 
+                    hydrogen=1.0)
+    distance (numerical): distance to object
+    distanceunit (string): units of distance (see convert_arcsec for allowed values)
+    tounit (string): specify units of output mass. options are 'g' 
+                     (grams, default), or solar masses ('sol')
     
+  Output:
+    returns mass in grams (default) or solar masses
+
+  Usage Notes:
+  """
+
+  Msol_g = 1.989*10.0**(33.0) # solar mass in g
+  proton_mass = 1.67*10.0**(-24.0) #grams
+
+  # convert arcsec to cm
+  sigma_cm = convert_arcsec(sigma,distance,distanceunit,tounit='cm')
+  
+  mass_gm = (em**0.5)*(2.0**(3./4.))*((sigma_cm)**(3./2.))*(proton_mass)/(mu**0.5)
+    
+  if tounit == 'sol':
+    return mass_gm/Msol_g
+  else:
+    return mass_gm
+
 #----------------------------------------------------------
 def transfer_header(sourcefile,targetfile,newfile):
   """
