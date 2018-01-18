@@ -106,7 +106,7 @@ def em_to_density(em,volume,density_type='number',mu=1.21):
     return (em/(volume*mu))**0.5  
   else:
     return mu*proton_mass*(em/(volume*mu))**0.5   
-
+  
 #----------------------------------------------------------
 def em_to_mass(em,volume,mu=1.21,tounit='g'):
   """
@@ -140,7 +140,7 @@ def em_to_mass(em,volume,mu=1.21,tounit='g'):
 
 #----------------------------------------------------------
 
-def em_to_mass2(em,sigma,mu=1.21,tounit='g'distance=50.0,distanceunit='kpc'):
+def em_to_mass2(em,sigma,mu=1.21,tounit='g',distance=50.0,distanceunit='kpc'):
   """
   Given emission measure and volume, calculate the mass
   Author: Kari Frank
