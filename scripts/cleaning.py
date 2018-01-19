@@ -57,7 +57,7 @@ sfig = xplt.standard_spectra(runpath=runpath,display=display,itmin=itermin,
 
 #### Initial Filtering and Derived Columns
 
-itermin =  # set minimum converged iteration
+itermin =  4000 # set minimum converged iteration
 itermax =  None # set maximum iteration to use
 
 # remove iterations before convergence, add new derived columns, 
@@ -87,12 +87,7 @@ blobcols = [c for c in dfall.columns if 'blob' in c]
 #### Check spectrum
 itermin = dfall.iteration.min()
 itermax = dfall.iteration.max()
-smin = itermin/100
 niter = itermax-itermin
-if itermax is None: 
-    smax = None
-else:
-    smax = itermax/100
 sfig = xplt.standard_spectra(runpath='../',display=True,itmin=itermin,
                              itmax=itermax,
                              outfile='spectra_all.html',ylog=True,
