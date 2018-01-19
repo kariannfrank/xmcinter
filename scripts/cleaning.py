@@ -103,8 +103,8 @@ ngoodblobs = len(dfgood.index)
 print "Number all blobs = ",nblobs
 print "Number good blobs = ",ngoodblobs
 print "Fraction good blobs = ",float(ngoodblobs)/float(nblobs)
-print "Total Mass = ",dfall.blob_mass.sum()/niter
-print "Total Good Mass = ",dfgood.blob_mass.sum()/niter
+print "Total EM = ",dfall.blob_em.sum()/niter
+print "Total Good EM = ",dfgood.blob_em.sum()/niter
 
 #### Compare Spectra of Good and Bad Blobs
 
@@ -156,9 +156,9 @@ hfigs = xplt.histogram_grid([dfall,dfgood],weights='blob_mass',
 
 
 #### Overall Histograms
-hfigs = xplt.histogram_grid([dfgood,dfgood],weights=[None,'blob_mass'],
+hfigs = xplt.histogram_grid([dfgood,dfgood],weights=[None,'blob_em'],
                             bins=nbins,ncols=3,norm=True,
-                            legends=['Unweighted','Mass weighted'],
+                            legends=['Unweighted','EM weighted'],
                             width=w,height=h,iterations='iteration')
 
 #### Trace Plots
