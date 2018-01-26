@@ -263,11 +263,11 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     # -- make histograms --
     print "\nPlotting posteriors ...\n"
     
-    hfigs = xplt.histogram_grid([dfall,dfall],weights=[None,'blob_mass'],
+    hfigs = xplt.histogram_grid([dfall,dfall],weights=[None,'blob_em'],
                                 bins=nbins,ncols=3,norm=True,
                                 display=display,
                                 outfile=outpath+'/histogram_grid_allblobs.html',
-                                legends=['Unweighted','Mass weighted'],
+                                legends=['Unweighted','EM weighted'],
                                 width=w,height=h,iterations='iteration')
 
     print "\nPlotting filtered posteriors ...\n"
@@ -279,11 +279,11 @@ def check(runpath='./',outpath='./',itmin=0,itmax=None,kTthresh=None,
     print "Total Number of Filtered Blobs = ",len(dfgood.index)
         
     hfigs = xplt.histogram_grid([dfgood,dfgood],
-                                weights=[None,'blob_mass'],
+                                weights=[None,'blob_em'],
                                 display=display,
                                 bins=nbins,ncols=3,norm=True,
                             outfile=outpath+'/histogram_grid_filtered.html',
-                                legends=['Unweighted','Mass weighted'],
+                                legends=['Unweighted','EM weighted'],
                                 width=w,height=h,iterations='iteration')
 
     # -- scatter plots--
