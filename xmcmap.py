@@ -157,7 +157,12 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                 set as a minimum pixel value in the specified image 
                 (imgthreshparam map). If this minimum is greater than the
                 maximum pixel value in the imgthreshparam map, then 
-                it will be ignored.
+                it will be ignored. If a number is given as a string 
+                (e.g. '0.3'), then this threshold will be automatically
+                calculated to be X*max, where max is 
+                the max pixel value in the imgthreshparam image, X
+                is the value passed in imgthresh. In this case, imgthresh
+                has no effect unless X<1.
 
       imgthreshparam (string) : same as sigthreshparam, but associated
                 with the imgthresh argument. typically, this should be
@@ -526,6 +531,14 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             if imgthreshparam is None:
                 imgthmap = imgs[p]
 
+            # - if number given as string, then use the fraction of max as threshold -
+            if isinstance(imgthresh,str):
+                print 'imgthresh=',imgthresh
+                imgthresh = float(imgthresh)*np.max(imgthmap)
+                print 'max imgthreshparam map = ',np.max(imgthmap)
+                print 'imgthresh=',imgthresh
+            print 'imgthresh=',imgthresh
+                
             # - set pixels with value < threshold to Nan - 
             #imgmin = np.nanmax(imgmap)-imgthresh*np.nanstd(imgmap)
             if np.nanmax(imgthmap) > imgthresh:
