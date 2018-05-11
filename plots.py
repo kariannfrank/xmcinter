@@ -1024,6 +1024,8 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
             iterations = [iterations]
         if alphas is None:
             alphas=[1.0]
+        else:
+         alphas=[alphas]       
         bins = [bins]
         legends = [legends]
         if (not isinstance(columns,list)) and (columns is not None):
