@@ -41,24 +41,22 @@ print "Total Number of Blobs in B = ",len(dfb.index)
 # (re)define blobcols to include new columns
 blobcolsa = [c for c in dfa.columns if 'blob' in c]
 
-#### Compare all and cleaned blob histograms
+#### Compare histograms
+w = 500
+h = 200
+
 hfigs = xplt.histogram_grid([dfa,dfb],weights=[None,None],
-                            bins=nbins,ncols=3,norm=True,
-                            legends=['All Blobs','Good Blobs'],
+                            bins=nbins,ncols=2,norm=True,
+                            legends=['A','B'],
                             outfile='histogram_grid_unweighted_ab100_b100.html',
                             width=w,height=h,iterations='iteration')
 
-hfigs = xplt.histogram_grid([dfall,dfgood],weights='blob_mass',
-                            bins=nbins,ncols=3,norm=True,
-                            legends=['All Blobs','Good Blobs'],
-                            outfile='histogram_grid_allvsgood_massweighted.html',
+hfigs = xplt.histogram_grid([dfa,dfb],weights='blob_em',
+                            bins=nbins,ncols=2,norm=True,
+                            legends=['A','B'],
+                            outfile='histogram_grid_AB_emweighted.html',
                             width=w,height=h,iterations='iteration')
 
-#### Overall Histograms
-hfigs = xplt.histogram_grid([dfgood,dfgood],weights=[None,'blob_em'],
-                            bins=nbins,ncols=3,norm=True,
-                            legends=['Unweighted','EM weighted'],
-                            width=w,height=h,iterations='iteration')
 
 #### Trace Plots
 efig = xplt.trace(dfall,weights=None)
