@@ -547,7 +547,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',logbins=None,legend=None,
-              norm=False,xmin=None,xmax=None,iterations=None,ymax=None,
+              norm=False,xmin=None,xmax=None,iterations=None,ymax=None,scale=1.0,
               ytitle=None,**kwargs):
     """
     Author: Kari A. Frank
@@ -566,6 +566,8 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
      weights:     optionally provided a pandas series of weights which 
                   correspond to the values in datacolumn (e.g. emission 
                   measure)
+
+     scale:       optionally scale the y-values by a float
 
      bins:        optionally specify the number of bins (default=30).
                   is passed directly to numpy.histogram(), so can
@@ -702,6 +704,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                                            density=density,datarange=rng,
                                            bins=bins,logbins=logbins,
                                            iterations=iterations)
+
+    #----Optionally Scale y-values----
+    histy = histy*scale
     
     #----Calculate median----
     if median is True:
@@ -731,6 +736,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
             yaxisrng = (0.0,ymax)
             
 #----Set up Plot----
+    bplt.outline_line_color='black'
+    bplt.outline_line_width=2
+            
     if save:
         if (outfile != 'notebook'): 
             bplt.output_file(outfile)
@@ -853,7 +861,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 def histogram_grid(dframes,columns=None,weights=None,bins=100,
                    height=300,width=400,iterations=None,display=True,
                    ncols=2,outfile='histogram_grid.html',ymax=None,
-                   colors=['steelblue','darkolivegreen',
+                   colors=['steelblue','darkolivegreen',scales=1.0,
                   'mediumpurple','darkorange','firebrick','gray'],
                    xlog='auto',median=False,mode=False,
                    alphas=None,norm=False,legends=None,**histargs):
@@ -911,6 +919,9 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
 
      height,width: height and width of each histogram, passed to histogram()
 
+
+     scales:      optional float or list of floats to scale the y-values 
+                  (useful to compare histograms with very different y axes).
 
      alphas:      optionally pass float or list of floats (if 
                   len(dframes>1) specifying the opacity of each plotted
@@ -1012,6 +1023,9 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
         if not isinstance(legends,list):
             legends = [legends]*len(dframes)
 
+        if not isinstance(scales,list):
+            legends = [scales]*len(scales)
+            
     else:
         dframes = [dframes]
         if isinstance(weights,str):
@@ -1028,6 +1042,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
          alphas=[alphas]       
         bins = [bins]
         legends = [legends]
+        scales = [scales]
         if (not isinstance(columns,list)) and (columns is not None):
             columns = [columns]
 
@@ -1098,7 +1113,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
 
             # plot histogram
                 newfig = histogram(dframes[d][column],median=median,
-                                   mode=mode,
+                                   mode=mode,scale=scales[d],
                                      weights=weights[d],bins=bins[d],
                                      save=False,color=colors[d],
                                      alpha=alphas[d],height=height,
