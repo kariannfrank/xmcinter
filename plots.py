@@ -861,9 +861,9 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 def histogram_grid(dframes,columns=None,weights=None,bins=100,
                    height=300,width=400,iterations=None,display=True,
                    ncols=2,outfile='histogram_grid.html',ymax=None,
-                   colors=['steelblue','darkolivegreen',scales=1.0,
+                   colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
-                   xlog='auto',median=False,mode=False,
+                   xlog='auto',median=False,mode=False,scales=1.0,
                    alphas=None,norm=False,legends=None,**histargs):
     """
     Create html grid of (weighted) histograms from a dataframe.
