@@ -548,7 +548,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',logbins=None,legend=None,
               norm=False,xmin=None,xmax=None,iterations=None,ymax=None,scale=1.0,
-              ytitle=None,**kwargs):
+              ytitle=None,ylog=False,**kwargs):
     """
     Author: Kari A. Frank
     Date: October 28, 2015
@@ -607,6 +607,10 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
                     which is best based on the data range
                   - True -- force log scale
                   - False -- force linear scale
+
+     ylog:        boolean to plot y-axis on log scale. options are
+                  - True -- force log scale
+                  - False -- force linear scale (default)
 
      logbins:     boolean make x-axis bins uniform in log10 space. default
                   is to be the same as determined by xlog. this argument
@@ -676,7 +680,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 #----Set up Log Bins and Axis----
     rng = (dataseries.min(),dataseries.max())
     
-    # log axis
+    # log x-axis
     if xmin is None:
         xmin = rng[0]
     if xmax is None:
@@ -699,12 +703,17 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
     if xlog_temp is True:
         x_axis_type = 'log'
 
+    if ylog is True:
+        y_axis_type = 'log'
+    else:
+        y_axis_type = 'linear'
+
     #----Create the weighted histogram and errorbars----
     histy,errors,binedges = make_histogram(dataseries,weights=weights,
                                            density=density,datarange=rng,
                                            bins=bins,logbins=logbins,
                                            iterations=iterations)
-
+    
     #----Optionally Scale y-values----
     histy = histy*scale
     
@@ -725,16 +734,30 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
         
         
 #----Normalize and set y-axis range----
+    yrng = (histy.min(),histy.max())
     if norm is True:
         histy,errors = normalize_histogram(histy,yerrors=errors)
         # set y axis range
-        yaxisrng = (0.0,1.1)
-    else:
-        if ymax is None:
-            yaxisrng = (0.0,1.1*np.max(histy))
+        if ylog is False:
+            ymin = 0.0
         else:
-            yaxisrng = (0.0,ymax)
-            
+            ymin = yrng[0]
+        yaxisrng = (ymin,1.1)
+    else:
+        if ylog is False:
+            if ymax is None:
+                yaxisrng = (0.0,1.1*np.max(histy))
+            else:
+                yaxisrng = (0.0,ymax)
+        else:
+            if ymax is None:
+                ymax = 1.2*yrng[1]
+            ymin = yrng[0]
+            if ymin == 0.0:
+                ymin = 0.9*np.min(histy[np.nonzero(histy)])
+            print 'ymin = ',ymin
+            yaxisrng=(ymin,ymax)
+                
 #----Set up Plot----
     bplt.outline_line_color='black'
     bplt.outline_line_width=2
@@ -750,7 +773,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
     if infig is None:
         fig = bplt.Figure(tools=tools,plot_width=width,plot_height=height,
                           x_axis_type=x_axis_type,x_range=xaxisrng,
-                          y_range=yaxisrng)
+                          y_range=yaxisrng,y_axis_type=y_axis_type)
         fig.xaxis.axis_label=dataseries.name
         
         if weights is not None:
@@ -860,7 +883,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 #----------------------------------------------------------
 def histogram_grid(dframes,columns=None,weights=None,bins=100,
                    height=300,width=400,iterations=None,display=True,
-                   ncols=2,outfile='histogram_grid.html',ymax=None,
+                   ncols=2,outfile='histogram_grid.html',ymax=None,ylog=False,
                    colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
                    xlog='auto',median=False,mode=False,scales=1.0,
@@ -939,6 +962,9 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
 
      xlog:        if set to True or False (instead of 'auto', the default), all 
                   x-axes will be forced to log (True) or liner (False) scales
+
+     ylog:        if set to True or False, all 
+                  y-axes will be forced to log (True) or liner (False, default) scales
 
      ncols:       number of columns in the grid of histograms (default=4)
 
@@ -1024,7 +1050,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
             legends = [legends]*len(dframes)
 
         if not isinstance(scales,list):
-            legends = [scales]*len(scales)
+            scales = [scales]*len(scales)
             
     else:
         dframes = [dframes]
@@ -1113,7 +1139,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
 
             # plot histogram
                 newfig = histogram(dframes[d][column],median=median,
-                                   mode=mode,scale=scales[d],
+                                   mode=mode,scale=scales[d],ylog=ylog,
                                      weights=weights[d],bins=bins[d],
                                      save=False,color=colors[d],
                                      alpha=alphas[d],height=height,
