@@ -555,7 +555,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                     +',paramweights='+nstr(paramweights[p])
                     +',paramx='+nstr(paramx)+',paramy='+nstr(paramy)
                     +',paramsize='+nstr(paramsize)+',binsize='
-                    +nstr(binsize)+',itmod='+nstr(itmod)+',paramshape='
+                    +nstr(binsize)+',nlayers='+nstr(nlayers)+',paramshape='
                     +nstr(paramshape)+',ctype='+nstr(ctype[p])
                     +',iteration_type='
                     +nstr(iteration_type[p])+',x0='+nstr(x0)+',y0='
