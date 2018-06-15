@@ -1050,7 +1050,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
             legends = [legends]*len(dframes)
 
         if not isinstance(scales,list):
-            scales = [scales]*len(scales)
+            scales = [scales]*len(dframes)
             
     else:
         dframes = [dframes]
