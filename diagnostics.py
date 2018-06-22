@@ -97,8 +97,8 @@ def clean(runpath='./',itmin=0,itmax=None,distance=8.0):
         df['blob_numberdensity'] = astro.em_to_density(df['blob_em'],\
                                    df['blob_volume'],density_type='number')
 
-        df['blob_mass2'] =astro.em_to_mass2(df['blob_em'],df['blob_volume'],
-                                          tounit='sol')        
+        df['blob_mass2'] =astro.em_to_mass2(df['blob_em'],df['blob_sigma'],
+                                          tounit='sol',distance=distance)   
 
     # -- save as file --
     outfile = ('deconvolution_merged_iter'
