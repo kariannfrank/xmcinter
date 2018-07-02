@@ -896,6 +896,7 @@ def iter_err(df,param,function,weights=None,*args,**kwargs):
 
     function : python function name
        function to calculate the error of
+       to calculate error on a sum (e.g. total em), use function='total'
 
     weights : string
        name of dataframe column to use as weights
@@ -926,8 +927,11 @@ def iter_err(df,param,function,weights=None,*args,**kwargs):
         else:
             w = group[weights]
 
-        val = function(group[param],weights=w)
-#        print 'i = ',i
+        if function != 'total':
+            val = function(group[param],weights=w)
+        else:
+            val = group[param].sum()
+            #        print 'i = ',i
 #        print 'val = ',val
         
         # add to list
