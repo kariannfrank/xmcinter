@@ -140,7 +140,7 @@ def em_to_mass(em,volume,mu=1.21,tounit='g'):
 
 #----------------------------------------------------------
 
-def em_to_mass2(em,sigma,mu=1.21,tounit='g',distance=50.0,distanceunit='kpc'):
+def em_to_mass2(em,sigma,beta=1.21,tounit='g',distance=50.0,distanceunit='kpc',mu=1.0):
   """
   Given emission measure and volume, calculate the mass
   Author: Kari Frank
@@ -149,7 +149,7 @@ def em_to_mass2(em,sigma,mu=1.21,tounit='g',distance=50.0,distanceunit='kpc'):
   Input: 
     em (numerical): emission measure (e.g. as output from norm_to_em)
     sigma (numerical): blob radius in arcsec
-    mu (numerical): (cosmic abundance mu = 1.21, pure 
+    beta (numerical): (cosmic abundance mu = 1.21, pure 
                     hydrogen=1.0)
     distance (numerical): distance to object
     distanceunit (string): units of distance (see convert_arcsec for allowed values)
@@ -168,7 +168,7 @@ def em_to_mass2(em,sigma,mu=1.21,tounit='g',distance=50.0,distanceunit='kpc'):
   # convert arcsec to cm
   sigma_cm = convert_arcsec(sigma,distance,distanceunit,tounit='cm')
   
-  mass_gm = (em**0.5)*(2.0**(3./4.))*((sigma_cm)**(3./2.))*(proton_mass)/(mu**0.5)
+  mass_gm = (em**0.5)*(2.0**(3./4.))*((sigma_cm)**(3./2.))*(mu*proton_mass)/(beta**0.5)
     
   if tounit == 'sol':
     return mass_gm/Msol_g
