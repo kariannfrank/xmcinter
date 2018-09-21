@@ -547,7 +547,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
               width=800,tools="pan,wheel_zoom,box_zoom,reset,save",
               infig=None,color='steelblue',outfile='histogram.html',
               density=False,alpha=None,xlog='auto',logbins=None,legend=None,
-              norm=False,xmin=None,xmax=None,iterations=None,ymax=None,scale=1.0,
+              norm=False,xmin=None,xmax=None,iterations=None,ymax=None,ymin=None,scale=1.0,
               ytitle=None,ylog=False,**kwargs):
     """
     Author: Kari A. Frank
@@ -625,7 +625,7 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
      ytitle:      string specifiying label of y-axis. default is the 
                   column name of the provided data series.
 
-     ymax:        optionally specify max of y-axis. ignored if norm=True.
+     ymin,ymax:   optionally specify min or max of y-axis. ignored if norm=True.
 
      legend:      string to use for legend
 
@@ -745,18 +745,22 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
         yaxisrng = (ymin,1.1)
     else:
         if ylog is False:
+            if ymin is None:
+                ymin = 0.0
             if ymax is None:
-                yaxisrng = (0.0,1.1*np.max(histy))
+                yaxisrng = (ymin,1.1*np.max(histy))
             else:
-                yaxisrng = (0.0,ymax)
+                yaxisrng = (ymin,ymax)
         else:
             if ymax is None:
                 ymax = 1.2*yrng[1]
-            ymin = yrng[0]
-            if ymin == 0.0:
+            if ymin is None:
+                ymin = yrng[0]
+            if ymin == 0.0: # don't allow ymin=0 if log scale
                 ymin = 0.9*np.min(histy[np.nonzero(histy)])
             print 'ymin = ',ymin
             yaxisrng=(ymin,ymax)
+            
                 
 #----Set up Plot----
     bplt.outline_line_color='black'
@@ -800,7 +804,11 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
 
         # change axis label text to bold, non-italic
         fig.xaxis.axis_label_text_font_style='bold'
-        fig.yaxis.axis_label_text_font_style='bold'        
+        fig.yaxis.axis_label_text_font_style='bold'
+        fig.xaxis.axis_label_text_font_size='12pt'
+        fig.yaxis.axis_label_text_font_size='12pt'
+        fig.xaxis.major_label_text_font_size = "12pt"
+        fig.yaxis.major_label_text_font_size = "12pt"
             
     else:
         fig = infig
