@@ -805,10 +805,11 @@ def histogram(dataseries,weights=None,bins=100,save=True,display=True,
         # change axis label text to bold, non-italic
         fig.xaxis.axis_label_text_font_style='bold'
         fig.yaxis.axis_label_text_font_style='bold'
-        fig.xaxis.axis_label_text_font_size='12pt'
-        fig.yaxis.axis_label_text_font_size='12pt'
-        fig.xaxis.major_label_text_font_size = "12pt"
-        fig.yaxis.major_label_text_font_size = "12pt"
+        fig.xaxis.axis_label_text_font_size='14pt'
+        fig.yaxis.axis_label_text_font_size='14pt'
+        fig.xaxis.major_label_text_font_size = "14pt"
+        fig.yaxis.major_label_text_font_size = "14pt"
+        fig.outline_line_color=None
             
     else:
         fig = infig
@@ -894,7 +895,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                    ncols=2,outfile='histogram_grid.html',ymax=None,ylog=False,
                    colors=['steelblue','darkolivegreen',
                   'mediumpurple','darkorange','firebrick','gray'],
-                   xlog='auto',median=False,mode=False,scales=1.0,
+                   xlog='auto',median=False,mode=False,scales=1.0,logbins=None,
                    alphas=None,norm=False,legends=None,**histargs):
     """
     Create html grid of (weighted) histograms from a dataframe.
@@ -1149,7 +1150,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
                 newfig = histogram(dframes[d][column],median=median,
                                    mode=mode,scale=scales[d],ylog=ylog,
                                      weights=weights[d],bins=bins[d],
-                                     save=False,color=colors[d],
+                                     save=False,color=colors[d],logbins=logbins,
                                      alpha=alphas[d],height=height,
                                      width=width,xmin=xmin,xmax=xmax,
                                      norm=norm,#legend=legends[d+1],
@@ -2158,6 +2159,23 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     else:
         xlabel = 'Wavelength (Angstroms)'
 
+        
+    #fig.xaxis.formatter=PrintfTickFormatter(format = "%1.1e")
+
+    # turn off grid lines
+    fig.xgrid.grid_line_color = None
+    fig.ygrid.grid_line_color = None
+        
+    # change axis label text to bold, non-italic
+    fig.xaxis.axis_label_text_font_style='bold'
+    fig.yaxis.axis_label_text_font_style='bold'
+    fig.xaxis.axis_label_text_font_size='14pt'
+    fig.yaxis.axis_label_text_font_size='14pt'
+    fig.xaxis.major_label_text_font_size = "14pt"
+    fig.yaxis.major_label_text_font_size = "14pt"
+    fig.outline_line_color=None
+
+        
     #----Plot Spectra as Step Chart----
     
     # assumes all spectra have the same binsize
