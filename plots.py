@@ -2218,7 +2218,7 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     step.legend.location='top_right'
 #    step.ylabel = 'counts'
 
-    step.xaxis.formatter=PrintfTickFormatter(format = "%1.1e")
+    step.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
 
     # turn off grid lines
     step.xgrid.grid_line_color = None
