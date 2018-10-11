@@ -2158,23 +2158,6 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
         xlabel = 'Energy (keV)'
     else:
         xlabel = 'Wavelength (Angstroms)'
-
-        
-    #fig.xaxis.formatter=PrintfTickFormatter(format = "%1.1e")
-
-    # turn off grid lines
-    fig.xgrid.grid_line_color = None
-    fig.ygrid.grid_line_color = None
-        
-    # change axis label text to bold, non-italic
-    fig.xaxis.axis_label_text_font_style='bold'
-    fig.yaxis.axis_label_text_font_style='bold'
-    fig.xaxis.axis_label_text_font_size='14pt'
-    fig.yaxis.axis_label_text_font_size='14pt'
-    fig.xaxis.major_label_text_font_size = "14pt"
-    fig.yaxis.major_label_text_font_size = "14pt"
-    fig.outline_line_color=None
-
         
     #----Plot Spectra as Step Chart----
     
@@ -2233,6 +2216,22 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     step.legend.location='top_right'
 #    step.ylabel = 'counts'
 
+    #fig.xaxis.formatter=PrintfTickFormatter(format = "%1.1e")
+
+    # turn off grid lines
+    step.xgrid.grid_line_color = None
+    step.ygrid.grid_line_color = None
+        
+    # change axis label text to bold, non-italic
+    step.xaxis.axis_label_text_font_style='bold'
+    step.yaxis.axis_label_text_font_style='bold'
+    step.xaxis.axis_label_text_font_size='14pt'
+    step.yaxis.axis_label_text_font_size='14pt'
+    step.xaxis.major_label_text_font_size = "14pt"
+    step.yaxis.major_label_text_font_size = "14pt"
+    step.outline_line_color=None
+
+    
     #----Plot Errorbars----
     xbins = edges[:-1]+xbinsizes/2.0
     for si,s in enumerate(spectra):
