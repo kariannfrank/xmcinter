@@ -2219,7 +2219,7 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
 #    step.ylabel = 'counts'
 
     #step.yaxis.formatter=PrintfTickFormatter(format = "%1.1e")
-    step.yaxis.formatter=PrintfTickFormatter(format = "%0,0.0000")
+    step.yaxis.formatter=PrintfTickFormatter(format = "%0.0000")
 
     # turn off grid lines
     step.xgrid.grid_line_color = None
