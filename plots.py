@@ -2233,7 +2233,9 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     step.yaxis.major_label_text_font_size = "14pt"
     step.outline_line_color=None
     step.legend.label_text_font_size="14pt"
-    
+
+    step.yaxis[0].ticker.desired_num_ticks = 3
+
     #----Plot Errorbars----
     xbins = edges[:-1]+xbinsizes/2.0
     for si,s in enumerate(spectra):
