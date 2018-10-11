@@ -2109,7 +2109,9 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     from bokeh.charts import Step,color
     from bokeh.models.ranges import Range1d
     from file_utilities import ls_to_list
+    from bokeh.models import PrintfTickFormatter
 
+    
     #----Set defaults----
     if isinstance(scale,float):
         scale = [scale]*len(spectra)
@@ -2230,7 +2232,7 @@ def spectra(spectra,colors=['black','steelblue','firebrick'],
     step.xaxis.major_label_text_font_size = "14pt"
     step.yaxis.major_label_text_font_size = "14pt"
     step.outline_line_color=None
-
+    step.legend.label_text_font_size="14pt"
     
     #----Plot Errorbars----
     xbins = edges[:-1]+xbinsizes/2.0
