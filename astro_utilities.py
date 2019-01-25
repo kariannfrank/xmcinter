@@ -1006,7 +1006,7 @@ def redshift_line(line,z,fromunit='angstroms'):
 def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
                     emissivity_range=(1e-18,1.0),
                     energy_range=None,wavelength_range=None,
-                    nlines=None,include_ions=None,atomdb=None,
+                    nlines=None,include_lines=None,atomdb=None,
                     total=False):
   """
   Fetch lines from atomdb file and return as dataframe
@@ -1032,7 +1032,7 @@ def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
                   nlines lines meet the other criteria, 
                   then will whow only the nlines with highest emissivity
        
-   include_ions (list of strings) :  list of element names to include 
+   include_lines (list of strings) :  list of element names to include 
                     emission lines from. will first drop all lines from
                     other elements, then apply remaining criteria (e.g.
                     kT_range). Use 2-letters for each element.
@@ -1066,8 +1066,8 @@ def fetch_lines(redshift=0.0,kT_range=(0.1,10.0),
   #----Remove extra lines----
 
   #--remove lines not in include_lines--
-  if include_ions is not None:
-      linedf = linedf[linedf['ion'].isin(include_ions)]
+  if include_lines is not None:
+      linedf = linedf[linedf['ion'].isin(include_lines)]
 
   #--get only lines from gas with kT in range--
   if kT_range is not None:
