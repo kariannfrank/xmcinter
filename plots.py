@@ -1112,7 +1112,7 @@ def histogram_grid(dframes,columns=None,weights=None,bins=100,
         newfig.add_layout(legbar)
 
         # add text
-        leg = Label(x=70,y=yi-10,x_units='screen',y_units='screen',
+        leg = Label(x=70,y=yi-71,x_units='screen',y_units='screen',
                     text=legends[i],
                     text_color='black',
                     text_font_style='bold',#background_fill_color=colors[i],
