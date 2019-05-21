@@ -295,8 +295,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     moviedirs = [None]*len(paramname)
     badparams = []
     for p in xrange(len(paramname)):
-        outfiles[p] = outfile_base+ctype[p]+'_'+paramname[p]+'.fits'
-        moviedirs[p] = outfile_base+ctype[p]+'_'+paramname[p]+'_movie/'
+        outfiles[p] = outfile_base+iteration_type[p]+'_'+paramname[p]+'.fits'
+        moviedirs[p] = outfile_base+iteration_type[p]+'_'+paramname[p]+'_movie/'
 
         #--check if output file already exists--
         if os.path.isfile(outfiles[p]) and clobber is not True:
@@ -806,7 +806,7 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                     fast=True,
                     n_int_steps=1000):
     """Function to combine blobs from single iteration into 1 image."""
-    from wrangle import weighted_median
+    from wrangle import weighted_median, weighted_std
     from astro_utilities import gaussian_volume
 
     #--initialize stack of 2D images, one for each parameter--
@@ -909,7 +909,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                 elif iteration_type[p] == 'max':
                     iterimages[x,y,p]=np.max(data[params[p]]*w*fractions)
                 elif iteration_type[p] == 'stdev':
-                    iterimages[x,y,p]=np.std(data[params[p]]*w*fractions)
+#                    iterimages[x,y,p]=np.std(data[params[p]]*w*fractions)
+                    iterimages[x,y,p]=weighted_std(data[params[p]],weights=w*fractions)
                 else:
                     print "ERROR: unrecognized iteration_type"
 
