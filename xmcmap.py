@@ -905,7 +905,8 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                     iterimages[x,y,p]=np.average(data[params[p]],
                                                  weights=w*fractions)
                 elif iteration_type[p] == 'total':
-                    iterimages[x,y,p]=np.sum(data[params[p]]*w*fractions)
+#                    iterimages[x,y,p]=np.sum(data[params[p]]*w*fractions)
+                    iterimages[x,y,p]=np.sum(data[params[p]]*fractions)
                 elif iteration_type[p] == 'max':
                     iterimages[x,y,p]=np.max(data[params[p]]*w*fractions)
                 elif iteration_type[p] == 'stdev':
