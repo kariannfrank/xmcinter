@@ -31,6 +31,9 @@ Statistics (outputs scalars):
 Functions that act on a single blob (scalar) can be found in
 the astro_utilities module.
 
+See https://github.com/nudomarinero/wquantiles/blob/master/wquantiles.py
+for original source of the quantile functions.
+
 """
 #----------------------------------------------------------------
 # Import Common Modules
@@ -663,7 +666,7 @@ def make_histogram(dataseries,weights=None,bins=50,logbins=False,
             i = i+1
 
         #--collapse stack to standard deviation in each bin--
-        yerrors = np.std(histstack,axis=1)
+        yerrors = np.std(histstack,axis=1,ddof=1)
 #        errors[:] = np.average(histy) # large errors for testing
 
     else:
@@ -841,7 +844,7 @@ def credible_region(data, weights=None, frac=0.9, method='HPD'):
     return interval
 
 #----------------------------------------------------------------
-def weighted_std(data, weights=None):
+def weighted_std(data, weights=None,ddof=1.0):
     """
     Calculate weighted standard deviation of series.
 
@@ -875,8 +878,8 @@ def weighted_std(data, weights=None):
     # calculate standard deviation
     avg = np.average(data,weights=weights)
     a = ((data-avg)**2.0)*weights
-    numerator = np.sum(a)
-    denominator = np.sum(weights)
+    numerator = len(data)*np.sum(a)
+    denominator = (len(data)-ddof)*np.sum(weights)
 
     return (numerator/denominator)**0.5
 
@@ -937,7 +940,7 @@ def iter_err(df,param,function,weights=None,*args,**kwargs):
         # add to list
         vals = vals + [val]
         
-    return np.std(vals)
+    return np.std(vals,ddof=1)
 
 
 #----------------------------------------------------------------
