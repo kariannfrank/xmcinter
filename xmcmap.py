@@ -43,7 +43,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
              paramy='blob_psi',paramsize='blob_sigma',exclude_region=None,
              iteration_type='median',clobber=False,nlayers=None,
              parallel=True,nproc=3,cint=True,movie=False,moviedir=None,
-             cumulativemovie=False,withsignificance=False,rotation=0.0):
+             cumulativemovie=False,withsignificance=False,rotation=0.0,random_layers=True):
     """
     Author: Kari A. Frank
     Date: November 19, 2015
@@ -204,6 +204,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                not a multiple of 90, then the output image size will be
                greater than the imagesize parameter (but with empty 
                corners), to avoid dropping any pixels.
+
+      random_layers (bool): for testing only. specifies which layers to use.
 
     Output:
 
@@ -405,8 +407,11 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     #-make list of iterations to use-
     # randomly chooses the required number of iterations
     #  from iterations which exist in the dataframe
-    its = np.random.choice(df['iteration'].unique(),size=nlayers,
-                           replace=False)
+    if random_layers == False:
+        its = np.array([5000,5001,5002,5003])
+    else:
+        its = np.random.choice(df['iteration'].unique(),size=nlayers,
+                            replace=False)
     itstr = ['iteration']*len(its)
 
     #-keep only matching iterations-
@@ -416,9 +421,9 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     if 'blob_volume' not in df.columns:
         if paramshape == 'gauss':
             df['blob_volume'] = (2.0*np.pi*np.square(df[paramsize]))**1.5
-        if shape == 'sphere':
+        if paramshape == 'sphere':
             df['blob_volume'] = (4.0/3.0)*np.pi*df[paramsize]**3.0
-        if shape == 'points':
+        if paramshape == 'points':
             df['blob_volume'] = (0.1*binsize)**3.0 # set to much smaller 
                                                    # than pixel
 
