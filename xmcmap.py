@@ -14,13 +14,6 @@ The main function that should be called is make_map.  The others are
 essentially just helper functions for make_map. The function that does most
 of the work is iteration_image.
 
-IMPORTANT NOTE ABOUT DENSITY MAPS
-make_map() may not properly handle density maps (i.e. number density or
-mass density) since it is not linearly dependent on EM.  Intead, use
-em_to_map_density() to calculate the correct parameter columns to pass to 
-make_map(), with the weights set to 'densityspecial'. Though I am not sure 
-this is correct.
-
 """
 #----------------------------------------------------------------------------
 
@@ -230,7 +223,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     from wrangle import filterblobs
     from astro_utilities import gaussian_volume
     import time
-
+    import plots as xplt
+    
     #----Set any defaults----
     if withsignificance is True: witherror = True
 
@@ -407,7 +401,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
     #-make list of iterations to use-
     # randomly chooses the required number of iterations
     #  from iterations which exist in the dataframe
-    if random_layers == False:
+    if random_layers == False: 
         its = np.array([5000,5001,5002,5003])
     else:
         its = np.random.choice(df['iteration'].unique(),size=nlayers,
@@ -427,6 +421,7 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
             df['blob_volume'] = (0.1*binsize)**3.0 # set to much smaller 
                                                    # than pixel
 
+            
     #----Group by Iteration----
     layers = df.groupby('iteration')
 
@@ -442,7 +437,8 @@ def make_map(indata,outfile=None,paramname='blob_kT',paramweights=None,
                                  nbins_x,nbins_y,binsize,xmin,ymin,
                                  iteration_type,paramshape,paramx,paramy,
                                  paramsize,cint,fast=True,
-                                 n_int_steps=n_int_steps)
+                                 n_int_steps=1000)
+        ## !!! if move fractions out of iteration_image, then will need to add the paramfractions argument to iteration_image calls
         else: # construct argument lists for multiprocessing
             imgargs[layer] = [group,paramname,paramweights,nbins_x,nbins_y,
                               binsize,xmin,ymin,iteration_type,paramshape,
@@ -806,6 +802,99 @@ def circle_mask(df,paramx,paramy,exclude_region,binsize,imagesize,x0,y0):
     return mask
     
 #--------------------------------------------------------------------------
+def calculate_fractions(data,nbins_x,nbins_y,binsize,xmin,ymin,
+                    shape,blobx,bloby,blobsize,use_ctypes,
+                    fast=True,
+                    n_int_steps=1000):
+    """Function to calculate fraction of blob in each pixel"""
+    from astro_utilities import gaussian_volume
+    
+    #----Calculate blob volumes in correct units (usually arcsec^3)----
+    if shape == 'gauss':
+        volumes = gaussian_volume(data[blobsize]) 
+    elif shape == 'sphere':
+        volumes = (4.0/3.0)*np.pi*data[blobsize]**3.0
+    else: # points
+        volumes = (0.1*binsize)**3.0 # set to much smaller than pixel
+
+        #--loop over image--
+    for x in xrange(nbins_x):
+        #get x integral
+        lowerx = int(xmin + x*binsize)
+        upperx = int(xmin + x*binsize + binsize)
+        if shape == 'gauss' or shape == 'points':
+            if fast is False: 
+                # only use fast=False if scipy.integrate is
+                #   not available
+                x_blob_integrals = gaussian_integral(lowerx,upperx,
+                                                     n_int_steps,
+                                                     data[blobx],
+                                                     data[blobsize])
+            else:
+                x_blob_integrals = data.apply(lambda d: \
+                                gaussian_integral_quad(lowerx,\
+                                upperx,d[blobx],d[blobsize],\
+                                use_ctypes=use_ctypes),\
+                                axis=1)
+        elif shape == 'sphere':
+            print "ERROR: spherical_integral() not yet implemented"
+            x_blob_integrals = spherical_integral(lowerx,upperx,\
+                                                      n_int_steps,\
+                                                     data[blobx],
+                                                  data[blobsize])
+        for y in xrange(nbins_y):
+            #get y integral
+            lowery = int(ymin + y*binsize)
+            uppery = int(ymin + y*binsize + binsize)
+            if shape == 'gauss' or shape == 'points':
+                if fast is False:
+                    y_blob_integrals = gaussian_integral(lowery,uppery,\
+                                                     n_int_steps,\
+                                                     data[bloby],
+                                                         data[blobsize])
+                else:
+                    y_blob_integrals = data.apply(lambda d: \
+                                gaussian_integral_quad(lowery,\
+                                uppery,d[bloby],d[blobsize],\
+                                use_ctypes=use_ctypes),\
+                                axis=1)
+
+            elif shape == 'sphere':
+                y_blob_integrals = spherical_integral(lowery,uppery,\
+                                                     n_int_steps,\
+                                                     data[bloby],
+                                                      data[blobsize])
+                #calculate fraction of blob volume in this pixel
+
+            if shape != 'points':
+                # !! for now this assumes gaussian volume !!
+                fractions = (x_blob_integrals*y_blob_integrals*
+                             (2.0*np.pi*data[blobsize]**2.0)**.5 / volumes)
+                #times dz integral to get total volume in pixel, 
+                #then divided by total volume
+
+            else:
+                # for now, points is implemented by setting the volumes 
+                #   to be much smaller than a pixel size
+                fractions = (x_blob_integrals*y_blob_integrals*
+                             (2.0*np.pi*data[blobsize]**2.0)**.5 / 
+                             volumes)
+#                    print "points is not yet implemented"
+                    # if assuming points, then fraction=1 or 0
+#                    fractions = point_integral(lowerx,upperx,lowery,uppery,
+#                                               data['x'],data['y'])
+    
+
+    return fractions # new column
+
+#--------------------------------------------------------------------------
+def calculate_fractions_star(arglist):
+    """Function to unpack list of arguments and pass to calculate_fractions()"""
+    # for use with multiprocessing package
+#    print 'iteration = ',arglist[0].iteration[0]
+    return calculate_fractions(*arglist)
+
+#--------------------------------------------------------------------------
 def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                     iteration_type,shape,blobx,bloby,blobsize,use_ctypes,
                     fast=True,
@@ -813,6 +902,7 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
     """Function to combine blobs from single iteration into 1 image."""
     from wrangle import weighted_median, weighted_std
     from astro_utilities import gaussian_volume
+    import plots as xplt
 
     #--initialize stack of 2D images, one for each parameter--
     iterimages = np.zeros((nbins_x,nbins_y,len(params)))
@@ -891,6 +981,7 @@ def iteration_image(data,params,weights,nbins_x,nbins_y,binsize,xmin,ymin,
                     # if assuming points, then fraction=1 or 0
 #                    fractions = point_integral(lowerx,upperx,lowery,uppery,
 #                                               data['x'],data['y'])
+
 
             #-combine blobs in this pixel (loop over parameters)-
             for p in xrange(len(params)):
