@@ -137,8 +137,7 @@ def merge_output(runpath='./',filetype='deconvolution',save=True,sep='\t',
 
     # - remove less than itmin, greater than itmax -
     filelist = [f for f in filelist_raw if (int(f.split('.')[-1]) >= itmin and int(f.split('.')[-1]) <= itmax)]
-    #print filelist
-    print filelist
+
     # --Initialize dataframe with first file --
     
     # - read file - 
