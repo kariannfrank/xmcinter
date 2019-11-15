@@ -132,12 +132,13 @@ def merge_output(runpath='./',filetype='deconvolution',save=True,sep='\t',
         itmax = 100000. # dummy itmax value
     
     # - get list of files - 
-    filelist_raw = fu.ls_to_list(runpath,ls_args = filetype+'.*')
+#    filelist_raw = fu.ls_to_list(runpath,ls_args = filetype+'.*')
+    filelist_raw = fu.files_to_list(runpath,search_str = filetype+'.*')
 
     # - remove less than itmin, greater than itmax -
     filelist = [f for f in filelist_raw if (int(f.split('.')[-1]) >= itmin and int(f.split('.')[-1]) <= itmax)]
     #print filelist
-    
+    print filelist
     # --Initialize dataframe with first file --
     
     # - read file - 

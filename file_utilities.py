@@ -16,6 +16,7 @@ Contains the following functions:
 #-import common modules-
 import re,sys,commands
 import os
+import fnmatch
 
 #----------------------------------------------------------
 def ls_to_list(search_dir,ls_args=''):
@@ -53,6 +54,32 @@ def ls_to_list(search_dir,ls_args=''):
 
   return file_list
 
+#----------------------------------------------------------
+def files_to_list(search_dir,search_str='deconvolution.*'):
+  """
+  Author: Kari Frank
+  Date: November 15, 2019
+
+  Purpose: read in a path and optional filter return list of all matching files in that 
+           directory as list of strings
+
+  Input: 
+    search_dir (str): full path to desired directory
+    search_str (optional str): string to search for, which can included * (e.g. 'deconvolution.*')
+
+  Output:
+    returns a list of strings, one element per file
+
+  Usage Notes:
+
+  """ 
+  #-set initial directory-
+#  pwd = os.getcwd()
+  
+  #-parse into separate files-
+  file_list = fnmatch.filter(os.listdir(search_dir),search_str)
+
+  return file_list
 
 #----------------------------------------------------------
 def fetch_file(search_dir,pat='evt2',prompt=True):
